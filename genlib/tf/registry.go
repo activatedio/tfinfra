@@ -88,7 +88,7 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 
 	res, _ := GetImplementation[Resource](fm.Entry)
 	fields := NormalizeFields(fm.Entry, res)
-	cm := analyzeClient(fm.Entry, res)
+	cm := AnalyzeClient(fm.Entry, res)
 	n := namesFor(fm.Entry, res)
 
 	writeResourceSchema(f, fm.Entry, res, fields)

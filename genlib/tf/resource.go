@@ -71,7 +71,7 @@ func crudType(e Entry, n entityNames) *jen.Statement {
 
 // writeCrudFactory emits new<Entity>Crud(providerData any), the shared
 // Configure body for the resource and the data source.
-func writeCrudFactory(f *jen.File, e Entry, res Resource, cm clientModel, n entityNames) {
+func writeCrudFactory(f *jen.File, e Entry, res Resource, cm ClientModel, n entityNames) {
 
 	clientKey := res.Client
 	if clientKey == "" {
@@ -132,12 +132,12 @@ func writeCrudFactory(f *jen.File, e Entry, res Resource, cm clientModel, n enti
 
 // clientAdapters builds the tf.CrudClient literal wiring each available
 // operation to the stub.
-func clientAdapters(e Entry, cm clientModel) jen.Code {
+func clientAdapters(e Entry, cm ClientModel) jen.Code {
 
 	d := jen.Dict{}
 	ePtr := func() *jen.Statement { return entityPtr(e) }
 
-	reqValues := func(op *clientOp, fields jen.Dict) *jen.Statement {
+	reqValues := func(op *ClientOp, fields jen.Dict) *jen.Statement {
 		return jen.Id("client").Dot(op.Method).Call(
 			jen.Id("ctx"),
 			jen.Op("&").Qual(op.RequestType.PkgPath(), op.RequestType.Name()).Values(fields),

@@ -10,10 +10,12 @@ import (
 
 var pluralizeClient = pluralize.NewClient()
 
-// clientOp is the reflect-derived shape of one client method: the request
+// ClientOp is the reflect-derived shape of one client method: the request
 // type and the Go names of the request fields the adapter must populate.
 // Field names are resolved from protoc-gen-go struct tags, never guessed.
-type clientOp struct {
+// Exported for sibling generators (cmdinfra) that bind the same AIP client
+// shapes.
+type ClientOp struct {
 	Method      string
 	RequestType reflect.Type
 
@@ -29,24 +31,26 @@ type clientOp struct {
 	ResponseNextField  string
 }
 
-// clientModel is the reflect-derived view of the resource's operations on
+// ClientModel is the reflect-derived view of the resource's operations on
 // its gRPC client interface. Ops absent from the mask are nil.
-type clientModel struct {
+type ClientModel struct {
 	Type reflect.Type
 
-	Get    *clientOp
-	List   *clientOp
-	Create *clientOp
-	Update *clientOp
-	Patch  *clientOp
-	Delete *clientOp
+	Get    *ClientOp
+	List   *ClientOp
+	Create *ClientOp
+	Update *ClientOp
+	Patch  *ClientOp
+	Delete *ClientOp
 }
 
-// analyzeClient inspects the marker's ClientType and validates that every
+// AnalyzeClient inspects the marker's ClientType and validates that every
 // operation selected by Ops exists with an AIP-shaped signature. It panics
 // on anything unexpected — a wrong Ops mask or client type must fail at
-// generation time, not at provider runtime.
-func analyzeClient(e Entry, res Resource) clientModel {
+// generation time, not at provider runtime. Sibling generators (cmdinfra)
+// call it with a synthesized Resource carrying ClientType, Ops, and
+// Plural.
+func AnalyzeClient(e Entry, res Resource) ClientModel {
 
 	t := entityType(e)
 
@@ -57,7 +61,7 @@ func analyzeClient(e Entry, res Resource) clientModel {
 		panic(fmt.Sprintf("%s: Resource.ClientType must be the client interface type, got %s", t.Name(), res.ClientType))
 	}
 
-	cm := clientModel{Type: res.ClientType}
+	cm := ClientModel{Type: res.ClientType}
 	entity := t.Name()
 	plural := res.Plural
 	if plural == "" {
@@ -67,7 +71,7 @@ func analyzeClient(e Entry, res Resource) clientModel {
 	type opSpec struct {
 		op     Ops
 		method string
-		out    **clientOp
+		out    **ClientOp
 	}
 
 	specs := []opSpec{
@@ -97,7 +101,7 @@ func analyzeClient(e Entry, res Resource) clientModel {
 
 // analyzeOp extracts the request (and, for List, response) shape from a
 // client method: func(ctx, *Req, ...grpc.CallOption) (*Out, error).
-func analyzeOp(entity string, entityType reflect.Type, m reflect.Method) clientOp {
+func analyzeOp(entity string, entityType reflect.Type, m reflect.Method) ClientOp {
 
 	mt := m.Type
 
@@ -107,7 +111,7 @@ func analyzeOp(entity string, entityType reflect.Type, m reflect.Method) clientO
 
 	req := mt.In(1).Elem()
 
-	op := clientOp{
+	op := ClientOp{
 		Method:         m.Name,
 		RequestType:    req,
 		NameField:      protoFieldGoName(req, "name"),
