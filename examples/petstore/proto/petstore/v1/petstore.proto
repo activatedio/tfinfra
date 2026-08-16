@@ -1,0 +1,29 @@
+// Petstore is the toy API surface used as tfinfra's golden example. It
+// exercises every field shape the generator supports; unsupported shapes
+// belong in genlib tests, not here.
+syntax = "proto3";
+
+package petstore.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1";
+
+enum PetType {
+  PET_TYPE_UNSPECIFIED = 0;
+  PET_TYPE_DOG = 1;
+  PET_TYPE_CAT = 2;
+}
+
+message Pet {
+  // AIP resource name: stores/{store}/pets/{pet}. Server-assigned.
+  string name = 1;
+  string display_name = 2;
+  PetType type = 3;
+  int32 age = 4;
+  bool vaccinated = 5;
+  double weight = 6;
+  repeated string tags = 7;
+  map<string, string> labels = 8;
+  google.protobuf.Timestamp create_time = 9;
+}
