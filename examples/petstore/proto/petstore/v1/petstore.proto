@@ -22,6 +22,11 @@ service PetStoreService {
   rpc UpdatePet(UpdatePetRequest) returns (Pet);
   rpc PatchPet(PatchPetRequest) returns (Pet);
   rpc DeletePet(DeletePetRequest) returns (google.protobuf.Empty);
+
+  // The association RPC family, kit-shaped: an authoritative set/remove
+  // edge plus its paginated read-back.
+  rpc AssociateToysToPet(AssociateToysToPetRequest) returns (google.protobuf.Empty);
+  rpc ListToysByPet(ListToysByPetRequest) returns (ListToysByPetResponse);
 }
 
 message GetPetRequest {
@@ -93,4 +98,33 @@ message CollarConfig {
 
 message Buckle {
   string material = 1;
+}
+
+// AssociationRequest mirrors the kit association edge payload.
+message AssociationRequest {
+  repeated string set = 1;
+  repeated string remove = 2;
+}
+
+message AssociateToysToPetRequest {
+  string name = 1;
+  AssociationRequest association = 2;
+}
+
+message ListToysByPetRequest {
+  string name = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  string filter = 4;
+}
+
+message ListToysByPetResponse {
+  repeated Toy toys = 1;
+  string next_page_token = 2;
+}
+
+// Toy is the association target entity.
+message Toy {
+  string name = 1;
+  string display_name = 2;
 }

@@ -684,6 +684,284 @@ func (x *Buckle) GetMaterial() string {
 	return ""
 }
 
+// AssociationRequest mirrors the kit association edge payload.
+type AssociationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Set           []string               `protobuf:"bytes,1,rep,name=set,proto3" json:"set,omitempty"`
+	Remove        []string               `protobuf:"bytes,2,rep,name=remove,proto3" json:"remove,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssociationRequest) Reset() {
+	*x = AssociationRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssociationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssociationRequest) ProtoMessage() {}
+
+func (x *AssociationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssociationRequest.ProtoReflect.Descriptor instead.
+func (*AssociationRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *AssociationRequest) GetSet() []string {
+	if x != nil {
+		return x.Set
+	}
+	return nil
+}
+
+func (x *AssociationRequest) GetRemove() []string {
+	if x != nil {
+		return x.Remove
+	}
+	return nil
+}
+
+type AssociateToysToPetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Association   *AssociationRequest    `protobuf:"bytes,2,opt,name=association,proto3" json:"association,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AssociateToysToPetRequest) Reset() {
+	*x = AssociateToysToPetRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AssociateToysToPetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AssociateToysToPetRequest) ProtoMessage() {}
+
+func (x *AssociateToysToPetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AssociateToysToPetRequest.ProtoReflect.Descriptor instead.
+func (*AssociateToysToPetRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *AssociateToysToPetRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *AssociateToysToPetRequest) GetAssociation() *AssociationRequest {
+	if x != nil {
+		return x.Association
+	}
+	return nil
+}
+
+type ListToysByPetRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	Filter        string                 `protobuf:"bytes,4,opt,name=filter,proto3" json:"filter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListToysByPetRequest) Reset() {
+	*x = ListToysByPetRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListToysByPetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListToysByPetRequest) ProtoMessage() {}
+
+func (x *ListToysByPetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListToysByPetRequest.ProtoReflect.Descriptor instead.
+func (*ListToysByPetRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ListToysByPetRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *ListToysByPetRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListToysByPetRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+func (x *ListToysByPetRequest) GetFilter() string {
+	if x != nil {
+		return x.Filter
+	}
+	return ""
+}
+
+type ListToysByPetResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Toys          []*Toy                 `protobuf:"bytes,1,rep,name=toys,proto3" json:"toys,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListToysByPetResponse) Reset() {
+	*x = ListToysByPetResponse{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListToysByPetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListToysByPetResponse) ProtoMessage() {}
+
+func (x *ListToysByPetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListToysByPetResponse.ProtoReflect.Descriptor instead.
+func (*ListToysByPetResponse) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ListToysByPetResponse) GetToys() []*Toy {
+	if x != nil {
+		return x.Toys
+	}
+	return nil
+}
+
+func (x *ListToysByPetResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+// Toy is the association target entity.
+type Toy struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Toy) Reset() {
+	*x = Toy{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Toy) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Toy) ProtoMessage() {}
+
+func (x *Toy) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Toy.ProtoReflect.Descriptor instead.
+func (*Toy) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *Toy) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Toy) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
 var File_petstore_v1_petstore_proto protoreflect.FileDescriptor
 
 const file_petstore_v1_petstore_proto_rawDesc = "" +
@@ -737,18 +1015,38 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\x04size\x18\x02 \x01(\x05R\x04size\x12+\n" +
 	"\x06buckle\x18\x03 \x01(\v2\x13.petstore.v1.BuckleR\x06buckle\"$\n" +
 	"\x06Buckle\x12\x1a\n" +
-	"\bmaterial\x18\x01 \x01(\tR\bmaterial*G\n" +
+	"\bmaterial\x18\x01 \x01(\tR\bmaterial\">\n" +
+	"\x12AssociationRequest\x12\x10\n" +
+	"\x03set\x18\x01 \x03(\tR\x03set\x12\x16\n" +
+	"\x06remove\x18\x02 \x03(\tR\x06remove\"r\n" +
+	"\x19AssociateToysToPetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
+	"\vassociation\x18\x02 \x01(\v2\x1f.petstore.v1.AssociationRequestR\vassociation\"~\n" +
+	"\x14ListToysByPetRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\x12\x16\n" +
+	"\x06filter\x18\x04 \x01(\tR\x06filter\"e\n" +
+	"\x15ListToysByPetResponse\x12$\n" +
+	"\x04toys\x18\x01 \x03(\v2\x10.petstore.v1.ToyR\x04toys\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"<\n" +
+	"\x03Toy\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
+	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName*G\n" +
 	"\aPetType\x12\x18\n" +
 	"\x14PET_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPET_TYPE_DOG\x10\x01\x12\x10\n" +
-	"\fPET_TYPE_CAT\x10\x022\x8e\x03\n" +
+	"\fPET_TYPE_CAT\x10\x022\xbc\x04\n" +
 	"\x0fPetStoreService\x126\n" +
 	"\x06GetPet\x12\x1a.petstore.v1.GetPetRequest\x1a\x10.petstore.v1.Pet\x12G\n" +
 	"\bListPets\x12\x1c.petstore.v1.ListPetsRequest\x1a\x1d.petstore.v1.ListPetsResponse\x12<\n" +
 	"\tCreatePet\x12\x1d.petstore.v1.CreatePetRequest\x1a\x10.petstore.v1.Pet\x12<\n" +
 	"\tUpdatePet\x12\x1d.petstore.v1.UpdatePetRequest\x1a\x10.petstore.v1.Pet\x12:\n" +
 	"\bPatchPet\x12\x1c.petstore.v1.PatchPetRequest\x1a\x10.petstore.v1.Pet\x12B\n" +
-	"\tDeletePet\x12\x1d.petstore.v1.DeletePetRequest\x1a\x16.google.protobuf.EmptyBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
+	"\tDeletePet\x12\x1d.petstore.v1.DeletePetRequest\x1a\x16.google.protobuf.Empty\x12T\n" +
+	"\x12AssociateToysToPet\x12&.petstore.v1.AssociateToysToPetRequest\x1a\x16.google.protobuf.Empty\x12V\n" +
+	"\rListToysByPet\x12!.petstore.v1.ListToysByPetRequest\x1a\".petstore.v1.ListToysByPetResponseBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
 
 var (
 	file_petstore_v1_petstore_proto_rawDescOnce sync.Once
@@ -763,55 +1061,66 @@ func file_petstore_v1_petstore_proto_rawDescGZIP() []byte {
 }
 
 var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_petstore_v1_petstore_proto_goTypes = []any{
-	(PetType)(0),                  // 0: petstore.v1.PetType
-	(*GetPetRequest)(nil),         // 1: petstore.v1.GetPetRequest
-	(*ListPetsRequest)(nil),       // 2: petstore.v1.ListPetsRequest
-	(*ListPetsResponse)(nil),      // 3: petstore.v1.ListPetsResponse
-	(*CreatePetRequest)(nil),      // 4: petstore.v1.CreatePetRequest
-	(*UpdatePetRequest)(nil),      // 5: petstore.v1.UpdatePetRequest
-	(*PatchPetRequest)(nil),       // 6: petstore.v1.PatchPetRequest
-	(*DeletePetRequest)(nil),      // 7: petstore.v1.DeletePetRequest
-	(*Pet)(nil),                   // 8: petstore.v1.Pet
-	(*CollarConfig)(nil),          // 9: petstore.v1.CollarConfig
-	(*Buckle)(nil),                // 10: petstore.v1.Buckle
-	nil,                           // 11: petstore.v1.Pet.LabelsEntry
-	(*fieldmaskpb.FieldMask)(nil), // 12: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
-	(*anypb.Any)(nil),             // 14: google.protobuf.Any
-	(*structpb.Struct)(nil),       // 15: google.protobuf.Struct
-	(*emptypb.Empty)(nil),         // 16: google.protobuf.Empty
+	(PetType)(0),                      // 0: petstore.v1.PetType
+	(*GetPetRequest)(nil),             // 1: petstore.v1.GetPetRequest
+	(*ListPetsRequest)(nil),           // 2: petstore.v1.ListPetsRequest
+	(*ListPetsResponse)(nil),          // 3: petstore.v1.ListPetsResponse
+	(*CreatePetRequest)(nil),          // 4: petstore.v1.CreatePetRequest
+	(*UpdatePetRequest)(nil),          // 5: petstore.v1.UpdatePetRequest
+	(*PatchPetRequest)(nil),           // 6: petstore.v1.PatchPetRequest
+	(*DeletePetRequest)(nil),          // 7: petstore.v1.DeletePetRequest
+	(*Pet)(nil),                       // 8: petstore.v1.Pet
+	(*CollarConfig)(nil),              // 9: petstore.v1.CollarConfig
+	(*Buckle)(nil),                    // 10: petstore.v1.Buckle
+	(*AssociationRequest)(nil),        // 11: petstore.v1.AssociationRequest
+	(*AssociateToysToPetRequest)(nil), // 12: petstore.v1.AssociateToysToPetRequest
+	(*ListToysByPetRequest)(nil),      // 13: petstore.v1.ListToysByPetRequest
+	(*ListToysByPetResponse)(nil),     // 14: petstore.v1.ListToysByPetResponse
+	(*Toy)(nil),                       // 15: petstore.v1.Toy
+	nil,                               // 16: petstore.v1.Pet.LabelsEntry
+	(*fieldmaskpb.FieldMask)(nil),     // 17: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),     // 18: google.protobuf.Timestamp
+	(*anypb.Any)(nil),                 // 19: google.protobuf.Any
+	(*structpb.Struct)(nil),           // 20: google.protobuf.Struct
+	(*emptypb.Empty)(nil),             // 21: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	8,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
 	8,  // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
 	8,  // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
 	8,  // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
-	12, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
+	17, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 5: petstore.v1.Pet.type:type_name -> petstore.v1.PetType
-	11, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
-	13, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
-	14, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
-	15, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
+	16, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
+	18, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
+	19, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
+	20, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
 	10, // 10: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
-	1,  // 11: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	2,  // 12: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	4,  // 13: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	5,  // 14: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	6,  // 15: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	7,  // 16: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	8,  // 17: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	3,  // 18: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	8,  // 19: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	8,  // 20: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	8,  // 21: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	16, // 22: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	17, // [17:23] is the sub-list for method output_type
-	11, // [11:17] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	11, // 11: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
+	15, // 12: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
+	1,  // 13: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	2,  // 14: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	4,  // 15: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	5,  // 16: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	6,  // 17: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	7,  // 18: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	12, // 19: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	13, // 20: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	8,  // 21: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	3,  // 22: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	8,  // 23: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	8,  // 24: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	8,  // 25: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	21, // 26: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	21, // 27: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	14, // 28: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	21, // [21:29] is the sub-list for method output_type
+	13, // [13:21] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }
@@ -825,7 +1134,7 @@ func file_petstore_v1_petstore_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_petstore_v1_petstore_proto_rawDesc), len(file_petstore_v1_petstore_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

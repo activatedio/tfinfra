@@ -24,12 +24,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	PetStoreService_GetPet_FullMethodName    = "/petstore.v1.PetStoreService/GetPet"
-	PetStoreService_ListPets_FullMethodName  = "/petstore.v1.PetStoreService/ListPets"
-	PetStoreService_CreatePet_FullMethodName = "/petstore.v1.PetStoreService/CreatePet"
-	PetStoreService_UpdatePet_FullMethodName = "/petstore.v1.PetStoreService/UpdatePet"
-	PetStoreService_PatchPet_FullMethodName  = "/petstore.v1.PetStoreService/PatchPet"
-	PetStoreService_DeletePet_FullMethodName = "/petstore.v1.PetStoreService/DeletePet"
+	PetStoreService_GetPet_FullMethodName             = "/petstore.v1.PetStoreService/GetPet"
+	PetStoreService_ListPets_FullMethodName           = "/petstore.v1.PetStoreService/ListPets"
+	PetStoreService_CreatePet_FullMethodName          = "/petstore.v1.PetStoreService/CreatePet"
+	PetStoreService_UpdatePet_FullMethodName          = "/petstore.v1.PetStoreService/UpdatePet"
+	PetStoreService_PatchPet_FullMethodName           = "/petstore.v1.PetStoreService/PatchPet"
+	PetStoreService_DeletePet_FullMethodName          = "/petstore.v1.PetStoreService/DeletePet"
+	PetStoreService_AssociateToysToPet_FullMethodName = "/petstore.v1.PetStoreService/AssociateToysToPet"
+	PetStoreService_ListToysByPet_FullMethodName      = "/petstore.v1.PetStoreService/ListToysByPet"
 )
 
 // PetStoreServiceClient is the client API for PetStoreService service.
@@ -45,6 +47,10 @@ type PetStoreServiceClient interface {
 	UpdatePet(ctx context.Context, in *UpdatePetRequest, opts ...grpc.CallOption) (*Pet, error)
 	PatchPet(ctx context.Context, in *PatchPetRequest, opts ...grpc.CallOption) (*Pet, error)
 	DeletePet(ctx context.Context, in *DeletePetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// The association RPC family, kit-shaped: an authoritative set/remove
+	// edge plus its paginated read-back.
+	AssociateToysToPet(ctx context.Context, in *AssociateToysToPetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ListToysByPet(ctx context.Context, in *ListToysByPetRequest, opts ...grpc.CallOption) (*ListToysByPetResponse, error)
 }
 
 type petStoreServiceClient struct {
@@ -115,6 +121,26 @@ func (c *petStoreServiceClient) DeletePet(ctx context.Context, in *DeletePetRequ
 	return out, nil
 }
 
+func (c *petStoreServiceClient) AssociateToysToPet(ctx context.Context, in *AssociateToysToPetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, PetStoreService_AssociateToysToPet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListToysByPet(ctx context.Context, in *ListToysByPetRequest, opts ...grpc.CallOption) (*ListToysByPetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListToysByPetResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListToysByPet_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PetStoreServiceServer is the server API for PetStoreService service.
 // All implementations must embed UnimplementedPetStoreServiceServer
 // for forward compatibility.
@@ -128,6 +154,10 @@ type PetStoreServiceServer interface {
 	UpdatePet(context.Context, *UpdatePetRequest) (*Pet, error)
 	PatchPet(context.Context, *PatchPetRequest) (*Pet, error)
 	DeletePet(context.Context, *DeletePetRequest) (*emptypb.Empty, error)
+	// The association RPC family, kit-shaped: an authoritative set/remove
+	// edge plus its paginated read-back.
+	AssociateToysToPet(context.Context, *AssociateToysToPetRequest) (*emptypb.Empty, error)
+	ListToysByPet(context.Context, *ListToysByPetRequest) (*ListToysByPetResponse, error)
 	mustEmbedUnimplementedPetStoreServiceServer()
 }
 
@@ -155,6 +185,12 @@ func (UnimplementedPetStoreServiceServer) PatchPet(context.Context, *PatchPetReq
 }
 func (UnimplementedPetStoreServiceServer) DeletePet(context.Context, *DeletePetRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeletePet not implemented")
+}
+func (UnimplementedPetStoreServiceServer) AssociateToysToPet(context.Context, *AssociateToysToPetRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssociateToysToPet not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListToysByPet(context.Context, *ListToysByPetRequest) (*ListToysByPetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListToysByPet not implemented")
 }
 func (UnimplementedPetStoreServiceServer) mustEmbedUnimplementedPetStoreServiceServer() {}
 func (UnimplementedPetStoreServiceServer) testEmbeddedByValue()                         {}
@@ -285,6 +321,42 @@ func _PetStoreService_DeletePet_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PetStoreService_AssociateToysToPet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssociateToysToPetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).AssociateToysToPet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_AssociateToysToPet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).AssociateToysToPet(ctx, req.(*AssociateToysToPetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListToysByPet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListToysByPetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListToysByPet(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListToysByPet_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListToysByPet(ctx, req.(*ListToysByPetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PetStoreService_ServiceDesc is the grpc.ServiceDesc for PetStoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -315,6 +387,14 @@ var PetStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeletePet",
 			Handler:    _PetStoreService_DeletePet_Handler,
+		},
+		{
+			MethodName: "AssociateToysToPet",
+			Handler:    _PetStoreService_AssociateToysToPet_Handler,
+		},
+		{
+			MethodName: "ListToysByPet",
+			Handler:    _PetStoreService_ListToysByPet_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

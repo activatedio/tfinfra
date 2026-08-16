@@ -110,3 +110,13 @@ func (f *fakePetStoreClient) DeletePet(_ context.Context, in *petstorev1.DeleteP
 	delete(f.pets, in.GetName())
 	return &emptypb.Empty{}, nil
 }
+
+// The association RPCs exist so the fake keeps satisfying the client
+// interface; the Terraform side does not exercise them (cmdinfra does).
+func (f *fakePetStoreClient) AssociateToysToPet(_ context.Context, _ *petstorev1.AssociateToysToPetRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "not implemented in the terraform example fake")
+}
+
+func (f *fakePetStoreClient) ListToysByPet(_ context.Context, _ *petstorev1.ListToysByPetRequest, _ ...grpc.CallOption) (*petstorev1.ListToysByPetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "not implemented in the terraform example fake")
+}
