@@ -73,6 +73,10 @@ type Resource struct {
 	// Collection overrides the derived AIP collection name (lower-camel
 	// plural of the entity name, e.g. "appearanceProfiles").
 	Collection string
+	// TypeName overrides the derived Terraform type suffix (snake case of
+	// the entity name); useful for acronym-heavy names ("ProviderGitHub"
+	// derives "provider_git_hub" — override with "provider_github").
+	TypeName string
 	// UseUpdate selects the full-replace Update operation instead of Patch
 	// with an update mask.
 	UseUpdate bool
@@ -109,6 +113,8 @@ type DataSource struct{}
 //
 // Mutually exclusive with Resource on the same entry.
 type ConfigDataSource struct {
+	// TypeName overrides the derived Terraform type suffix.
+	TypeName string
 	// Required lists the config fields the practitioner must set.
 	Required []string
 	// Sensitive lists config fields masked in output (e.g. client secrets).

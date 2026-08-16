@@ -32,9 +32,19 @@ func namesFor(e Entry, res Resource) entityNames {
 		collection = lowerFirst(pluralizeClient.Plural(t.Name()))
 	}
 
+	typeName := res.TypeName
+	if typeName == "" {
+		if cds, ok := GetImplementation[ConfigDataSource](e); ok && cds.TypeName != "" {
+			typeName = cds.TypeName
+		}
+	}
+	if typeName == "" {
+		typeName = toSnake(t.Name())
+	}
+
 	return entityNames{
 		Entity:     t.Name(),
-		TypeName:   toSnake(t.Name()),
+		TypeName:   typeName,
 		Collection: collection,
 		Model:      t.Name() + "Model",
 		LowerCamel: lowerFirst(t.Name()),
