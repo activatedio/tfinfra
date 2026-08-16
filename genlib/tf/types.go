@@ -111,6 +111,11 @@ type DataSource struct{}
 type ConfigDataSource struct {
 	// Required lists the config fields the practitioner must set.
 	Required []string
+	// Sensitive lists config fields masked in output (e.g. client secrets).
+	Sensitive []string
+	// JSON lists message-typed config fields surfaced as
+	// jsontypes.Normalized protojson blobs.
+	JSON []string
 }
 
 // DataSourceList declares a plural data source (List under a parent) for

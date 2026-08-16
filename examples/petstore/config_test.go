@@ -20,6 +20,8 @@ import (
 
 const collarAnyJSON = `{"@type":"type.googleapis.com/petstore.v1.CollarConfig","color":"red","size":3}`
 
+const collarWithBuckleAnyJSON = `{"@type":"type.googleapis.com/petstore.v1.CollarConfig","color":"red","size":3,"buckle":{"material":"steel"}}`
+
 func TestCollarConfigDataSource_Read(t *testing.T) {
 
 	ctx := context.Background()
@@ -30,6 +32,7 @@ func TestCollarConfigDataSource_Read(t *testing.T) {
 	in := generated.NewCollarConfigModel()
 	in.Color = types.StringValue("red")
 	in.Size = types.Int64Value(3)
+	in.Buckle = jsontypes.NewNormalizedValue(`{"material":"steel"}`)
 	require.False(t, seed.Set(ctx, in).HasError())
 
 	resp := &datasource.ReadResponse{State: tfsdk.State{Schema: s, Raw: tftypes.NewValue(s.Type().TerraformType(ctx), nil)}}
@@ -43,8 +46,9 @@ func TestCollarConfigDataSource_Read(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(out.Any.ValueString()), &decoded))
 	assert.Equal(t, "type.googleapis.com/petstore.v1.CollarConfig", decoded["@type"])
 	assert.Equal(t, "red", decoded["color"])
+	assert.Equal(t, map[string]any{"material": "steel"}, decoded["buckle"])
 
-	eq, diags := out.Any.StringSemanticEquals(ctx, jsontypes.NewNormalizedValue(collarAnyJSON))
+	eq, diags := out.Any.StringSemanticEquals(ctx, jsontypes.NewNormalizedValue(collarWithBuckleAnyJSON))
 	require.False(t, diags.HasError(), diags)
 	assert.True(t, eq, "any output must be semantically the packed config: %s", out.Any.ValueString())
 

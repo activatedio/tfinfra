@@ -41,7 +41,7 @@ func shapeFor(kind FieldKind) attrShape {
 		return attrShape{"ListAttribute", "List", base + "listplanmodifier", true, false}
 	case FieldStringMap:
 		return attrShape{"MapAttribute", "Map", base + "mapplanmodifier", true, false}
-	case FieldAny, FieldStruct:
+	case FieldAny, FieldStruct, FieldJSONMessage:
 		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, true}
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
@@ -189,6 +189,9 @@ func attributeDescription(fd Field) string {
 	}
 	if fd.Kind == FieldStruct {
 		return fmt.Sprintf("`%s` as a JSON object.", fd.TfName())
+	}
+	if fd.Kind == FieldJSONMessage {
+		return fmt.Sprintf("`%s` as the protojson encoding of %s.", fd.TfName(), fd.GoType.Elem().Name())
 	}
 	return ""
 }

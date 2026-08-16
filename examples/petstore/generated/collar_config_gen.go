@@ -9,6 +9,7 @@ import (
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
+	path "github.com/hashicorp/terraform-plugin-framework/path"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -23,6 +24,10 @@ func CollarConfigDataSourceSchema() schema.Schema {
 				CustomType:          jsontypes.NormalizedType{},
 				MarkdownDescription: "protojson-encoded google.protobuf.Any (includes `@type`); reference this from Any-typed resource attributes.",
 			},
+			"buckle": schema.StringAttribute{
+				CustomType: jsontypes.NormalizedType{},
+				Optional:   true,
+			},
 			"color": schema.StringAttribute{Required: true},
 			"size":  schema.Int64Attribute{Optional: true},
 		},
@@ -32,17 +37,19 @@ func CollarConfigDataSourceSchema() schema.Schema {
 
 // CollarConfigModel is the Terraform model for the CollarConfig config data source.
 type CollarConfigModel struct {
-	Color types.String         `tfsdk:"color"`
-	Size  types.Int64          `tfsdk:"size"`
-	Any   jsontypes.Normalized `tfsdk:"any"`
+	Color  types.String         `tfsdk:"color"`
+	Size   types.Int64          `tfsdk:"size"`
+	Buckle jsontypes.Normalized `tfsdk:"buckle"`
+	Any    jsontypes.Normalized `tfsdk:"any"`
 }
 
 // NewCollarConfigModel returns a model with every attribute set to its typed null.
 func NewCollarConfigModel() *CollarConfigModel {
 	return &CollarConfigModel{
-		Any:   jsontypes.NewNormalizedNull(),
-		Color: types.StringNull(),
-		Size:  types.Int64Null(),
+		Any:    jsontypes.NewNormalizedNull(),
+		Buckle: jsontypes.NewNormalizedNull(),
+		Color:  types.StringNull(),
+		Size:   types.Int64Null(),
 	}
 }
 
@@ -52,6 +59,14 @@ func (m *CollarConfigModel) ToProto(ctx context.Context) (*v1.CollarConfig, diag
 	out := &v1.CollarConfig{}
 	out.Color = m.Color.ValueString()
 	out.Size = int32(m.Size.ValueInt64())
+	if !m.Buckle.IsNull() && !m.Buckle.IsUnknown() {
+		v := &v1.Buckle{}
+		if err := protojson.Unmarshal([]byte(m.Buckle.ValueString()), v); err != nil {
+			diags.AddAttributeError(path.Root("buckle"), "invalid Buckle JSON", err.Error())
+		} else {
+			out.Buckle = v
+		}
+	}
 	return out, diags
 }
 

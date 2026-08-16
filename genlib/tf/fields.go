@@ -43,6 +43,10 @@ const (
 	// FieldStruct is a google.protobuf.Struct, surfaced as
 	// jsontypes.Normalized holding a JSON object.
 	FieldStruct
+	// FieldJSONMessage is any other message field declared in the JSON
+	// list, surfaced as jsontypes.Normalized holding its protojson
+	// encoding.
+	FieldJSONMessage
 )
 
 // Field is the normalized view of one proto field: proto identity, Go
@@ -122,8 +126,8 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	}
 
 	for _, n := range res.JSON {
-		if k := byName[n].Kind; k != FieldAny && k != FieldStruct {
-			panic(fmt.Sprintf("%s.%s: JSON marker applies only to google.protobuf.Any and Struct fields", t.Name(), n))
+		if k := byName[n].Kind; k != FieldAny && k != FieldStruct && k != FieldJSONMessage {
+			panic(fmt.Sprintf("%s.%s: JSON marker applies only to message-typed fields", t.Name(), n))
 		}
 	}
 
@@ -150,21 +154,30 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 	msg := reflect.New(t).Interface().(proto.Message)
 	fds := msg.ProtoReflect().Descriptor().Fields()
 
+	jsonSet := map[string]bool{}
+	for _, n := range cds.JSON {
+		jsonSet[n] = true
+	}
+
 	valid := map[string]*Field{}
 	fields := make([]Field, 0, fds.Len())
 
 	for i := 0; i < fds.Len(); i++ {
-		fields = append(fields, normalizeField(t, fds.Get(i), nil))
+		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet))
 		valid[fields[i].ProtoName] = &fields[i]
 	}
 
-	for _, n := range cds.Required {
-		f, ok := valid[n]
-		if !ok {
-			panic(fmt.Sprintf("%s: Required references unknown field %q", t.Name(), n))
+	mark := func(list []string, label string, apply func(f *Field)) {
+		for _, n := range list {
+			f, ok := valid[n]
+			if !ok {
+				panic(fmt.Sprintf("%s: %s references unknown field %q", t.Name(), label, n))
+			}
+			apply(f)
 		}
-		f.Required = true
 	}
+	mark(cds.Required, "Required", func(f *Field) { f.Required = true })
+	mark(cds.Sensitive, "Sensitive", func(f *Field) { f.Sensitive = true })
 
 	return fields
 }
@@ -269,7 +282,10 @@ func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool
 		}
 		return FieldStruct
 	}
-	panic(fmt.Sprintf("%s.%s: message-typed fields are not yet supported (%s)", entity, fd.Name(), fd.Message().FullName()))
+	if jsonMarked {
+		return FieldJSONMessage
+	}
+	panic(fmt.Sprintf("%s.%s: message-typed field %s must be declared in the JSON list (typed nested attributes are not yet supported)", entity, fd.Name(), fd.Message().FullName()))
 }
 
 // validateFieldNames panics when a behavior list references a proto field

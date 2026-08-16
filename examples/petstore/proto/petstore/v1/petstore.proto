@@ -88,4 +88,9 @@ message Pet {
 message CollarConfig {
   string color = 1;
   int32 size = 2;
+  Buckle buckle = 3;
+}
+
+message Buckle {
+  string material = 1;
 }

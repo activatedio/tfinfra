@@ -109,12 +109,14 @@ strings on every resource schema.
 | google.protobuf.Timestamp   | StringAttribute (RFC 3339)   | types.String     |
 | google.protobuf.Any (JSON)  | jsontypes.Normalized (protojson, `@type`) | jsontypes.Normalized |
 | google.protobuf.Struct (JSON) | jsontypes.Normalized (JSON object) | jsontypes.Normalized |
+| any other message (JSON)    | jsontypes.Normalized (protojson)   | jsontypes.Normalized |
 
-Any/Struct fields MUST be listed in `Resource.JSON` — jsontypes semantic
+Message-typed fields (Any, Struct, or any concrete message) MUST be listed
+in the `JSON` list — they surface as protojson blobs; jsontypes semantic
 equality absorbs protojson's deliberately unstable formatting, on refresh
-and in the generated update-mask diff. Anything else (nested messages,
-repeated messages, bytes, real oneofs, non-string lists/maps) panics with a
-"not yet supported" message.
+and in the generated update-mask diff. Typed nested attributes are a
+future upgrade path. Anything else (repeated messages, bytes, real oneofs,
+non-string lists/maps) panics with a "not yet supported" message.
 
 ## Any-config pattern
 

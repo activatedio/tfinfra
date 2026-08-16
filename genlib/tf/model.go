@@ -30,7 +30,7 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "List")
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "Map")
-	case FieldAny, FieldStruct:
+	case FieldAny, FieldStruct, FieldJSONMessage:
 		return jen.Qual(pkgJsontypes, "Normalized")
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
@@ -126,7 +126,7 @@ func typedNull(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "ListNull").Call(jen.Qual(pkgTypes, "StringType"))
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "MapNull").Call(jen.Qual(pkgTypes, "StringType"))
-	case FieldAny, FieldStruct:
+	case FieldAny, FieldStruct, FieldJSONMessage:
 		return jen.Qual(pkgJsontypes, "NewNormalizedNull").Call()
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
@@ -183,7 +183,7 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 		if fd.ProtoName == NameField || fd.Computed {
 			continue
 		}
-		if fd.Kind == FieldAny || fd.Kind == FieldStruct {
+		if fd.Kind == FieldAny || fd.Kind == FieldStruct || fd.Kind == FieldJSONMessage {
 			// JSON attributes compare semantically so formatting-only
 			// differences never land in the mask. Value equality short-
 			// circuits first: semantic comparison cannot handle nulls.
@@ -247,10 +247,8 @@ func toProtoStatement(fd Field) jen.Code {
 				).Op("..."),
 			),
 		)
-	case FieldAny:
-		return toProtoJSON(fd, pkgAnypb, "Any", "invalid google.protobuf.Any JSON")
-	case FieldStruct:
-		return toProtoJSON(fd, pkgStructpb, "Struct", "invalid JSON object")
+	case FieldAny, FieldStruct, FieldJSONMessage:
+		return toProtoJSON(fd, jsonSummary(fd))
 	case FieldTimestamp:
 		return toProtoTimestamp(fd, out)
 	default:
@@ -309,7 +307,7 @@ func fromProtoStatement(fd Field) jen.Code {
 		return fromProtoCollection(fd, "ListNull", "ListValueFrom")
 	case FieldStringMap:
 		return fromProtoCollection(fd, "MapNull", "MapValueFrom")
-	case FieldAny, FieldStruct:
+	case FieldAny, FieldStruct, FieldJSONMessage:
 		return fromProtoJSON(fd)
 	case FieldTimestamp:
 		return jen.If(e().Op("==").Nil()).Block(
@@ -324,11 +322,24 @@ func fromProtoStatement(fd Field) jen.Code {
 	}
 }
 
+// jsonSummary is the diagnostic summary for a bad JSON attribute value.
+func jsonSummary(fd Field) string {
+	switch fd.Kind {
+	case FieldAny:
+		return "invalid google.protobuf.Any JSON"
+	case FieldStruct:
+		return "invalid JSON object"
+	default:
+		return fmt.Sprintf("invalid %s JSON", fd.GoType.Elem().Name())
+	}
+}
+
 // toProtoJSON emits: parse the jsontypes value via protojson into the
-// well-known type, with an attribute-anchored diagnostic on bad input.
-func toProtoJSON(fd Field, pkg, typ, summary string) jen.Code {
+// field's message type, with an attribute-anchored diagnostic on bad input.
+func toProtoJSON(fd Field, summary string) jen.Code {
+	t := fd.GoType.Elem()
 	return jen.If(notNullNotUnknown(fd.GoName)).Block(
-		jen.Id("v").Op(":=").Op("&").Qual(pkg, typ).Values(),
+		jen.Id("v").Op(":=").Op("&").Qual(t.PkgPath(), t.Name()).Values(),
 		jen.If(
 			jen.Id("err").Op(":=").Qual(pkgProtojson, "Unmarshal").Call(
 				jen.Id("[]byte").Call(jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call()),

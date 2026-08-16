@@ -115,7 +115,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 				return petEntry(), gentf.Resource{JSON: []string{"labels", "config", "metadata"}}
 			},
 			assert: func(t *testing.T, f func()) {
-				assert.PanicsWithValue(t, "Pet.labels: JSON marker applies only to google.protobuf.Any and Struct fields", f)
+				assert.PanicsWithValue(t, "Pet.labels: JSON marker applies only to message-typed fields", f)
 			},
 		},
 		"Any field without JSON marker": {

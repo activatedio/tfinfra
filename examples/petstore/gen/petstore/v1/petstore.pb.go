@@ -11,10 +11,6 @@
 package petstorev1
 
 import (
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -22,6 +18,9 @@ import (
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
 )
 
 const (
@@ -585,6 +584,7 @@ type CollarConfig struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Color         string                 `protobuf:"bytes,1,opt,name=color,proto3" json:"color,omitempty"`
 	Size          int32                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Buckle        *Buckle                `protobuf:"bytes,3,opt,name=buckle,proto3" json:"buckle,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -631,6 +631,57 @@ func (x *CollarConfig) GetSize() int32 {
 		return x.Size
 	}
 	return 0
+}
+
+func (x *CollarConfig) GetBuckle() *Buckle {
+	if x != nil {
+		return x.Buckle
+	}
+	return nil
+}
+
+type Buckle struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Material      string                 `protobuf:"bytes,1,opt,name=material,proto3" json:"material,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Buckle) Reset() {
+	*x = Buckle{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Buckle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Buckle) ProtoMessage() {}
+
+func (x *Buckle) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Buckle.ProtoReflect.Descriptor instead.
+func (*Buckle) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Buckle) GetMaterial() string {
+	if x != nil {
+		return x.Material
+	}
+	return ""
 }
 
 var File_petstore_v1_petstore_proto protoreflect.FileDescriptor
@@ -680,10 +731,13 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\bmetadata\x18\v \x01(\v2\x17.google.protobuf.StructR\bmetadata\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"8\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"e\n" +
 	"\fCollarConfig\x12\x14\n" +
 	"\x05color\x18\x01 \x01(\tR\x05color\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x05R\x04size*G\n" +
+	"\x04size\x18\x02 \x01(\x05R\x04size\x12+\n" +
+	"\x06buckle\x18\x03 \x01(\v2\x13.petstore.v1.BuckleR\x06buckle\"$\n" +
+	"\x06Buckle\x12\x1a\n" +
+	"\bmaterial\x18\x01 \x01(\tR\bmaterial*G\n" +
 	"\aPetType\x12\x18\n" +
 	"\x14PET_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPET_TYPE_DOG\x10\x01\x12\x10\n" +
@@ -709,7 +763,7 @@ func file_petstore_v1_petstore_proto_rawDescGZIP() []byte {
 }
 
 var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_petstore_v1_petstore_proto_goTypes = []any{
 	(PetType)(0),                  // 0: petstore.v1.PetType
 	(*GetPetRequest)(nil),         // 1: petstore.v1.GetPetRequest
@@ -721,41 +775,43 @@ var file_petstore_v1_petstore_proto_goTypes = []any{
 	(*DeletePetRequest)(nil),      // 7: petstore.v1.DeletePetRequest
 	(*Pet)(nil),                   // 8: petstore.v1.Pet
 	(*CollarConfig)(nil),          // 9: petstore.v1.CollarConfig
-	nil,                           // 10: petstore.v1.Pet.LabelsEntry
-	(*fieldmaskpb.FieldMask)(nil), // 11: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil), // 12: google.protobuf.Timestamp
-	(*anypb.Any)(nil),             // 13: google.protobuf.Any
-	(*structpb.Struct)(nil),       // 14: google.protobuf.Struct
-	(*emptypb.Empty)(nil),         // 15: google.protobuf.Empty
+	(*Buckle)(nil),                // 10: petstore.v1.Buckle
+	nil,                           // 11: petstore.v1.Pet.LabelsEntry
+	(*fieldmaskpb.FieldMask)(nil), // 12: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil), // 13: google.protobuf.Timestamp
+	(*anypb.Any)(nil),             // 14: google.protobuf.Any
+	(*structpb.Struct)(nil),       // 15: google.protobuf.Struct
+	(*emptypb.Empty)(nil),         // 16: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	8,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
 	8,  // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
 	8,  // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
 	8,  // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
-	11, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
+	12, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 5: petstore.v1.Pet.type:type_name -> petstore.v1.PetType
-	10, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
-	12, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
-	13, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
-	14, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
-	1,  // 10: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	2,  // 11: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	4,  // 12: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	5,  // 13: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	6,  // 14: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	7,  // 15: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	8,  // 16: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	3,  // 17: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	8,  // 18: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	8,  // 19: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	8,  // 20: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	15, // 21: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	16, // [16:22] is the sub-list for method output_type
-	10, // [10:16] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	11, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
+	13, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
+	14, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
+	15, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
+	10, // 10: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
+	1,  // 11: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	2,  // 12: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	4,  // 13: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	5,  // 14: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	6,  // 15: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	7,  // 16: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	8,  // 17: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	3,  // 18: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	8,  // 19: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	8,  // 20: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	8,  // 21: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	16, // 22: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	17, // [17:23] is the sub-list for method output_type
+	11, // [11:17] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }
@@ -769,7 +825,7 @@ func file_petstore_v1_petstore_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_petstore_v1_petstore_proto_rawDesc), len(file_petstore_v1_petstore_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
