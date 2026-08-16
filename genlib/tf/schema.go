@@ -148,7 +148,12 @@ func attributeFor(fd Field) jen.Code {
 	case fd.Required:
 		d[jen.Id("Required")] = jen.True()
 	default:
+		// Optional attributes are also Computed: proto3 cannot distinguish
+		// zero from unset, so reads echo server values into unset
+		// attributes — plain Optional would make that an "inconsistent
+		// result after apply" error for scalars.
 		d[jen.Id("Optional")] = jen.True()
+		d[jen.Id("Computed")] = jen.True()
 	}
 
 	if fd.Sensitive {
@@ -203,7 +208,9 @@ func planModifiers(fd Field, shape attrShape) jen.Code {
 	if fd.Immutable {
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "RequiresReplace").Call())
 	}
-	if fd.Computed {
+	if !fd.Required {
+		// Computed and optional-computed alike keep their prior value in
+		// plans instead of churning to unknown.
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "UseStateForUnknown").Call())
 	}
 	if len(mods) == 0 {

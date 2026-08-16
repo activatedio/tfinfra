@@ -143,6 +143,12 @@ resource "petstore_pet" "rex" {
 }
 ```
 
+**Optional means Optional+Computed**: proto3 cannot distinguish zero from
+unset, so reads echo server values into unset attributes; plain Optional
+would make that an "inconsistent result after apply" error. The tradeoff is
+the standard one: removing an attribute from config keeps its last value —
+unsetting requires an explicit zero value.
+
 **Read-side null convention** (to be refined with proto3 `optional`
 presence in the CRUD runtime task): strings, enums, lists, maps, and
 timestamps read a proto zero value as Terraform null — except `name` and
