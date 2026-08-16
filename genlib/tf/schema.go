@@ -78,6 +78,59 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, fields []Field) {
 	)
 }
 
+const pkgDatasourceSchema = "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+
+// writeDataSourceSchema emits func <Entity>DataSourceSchema() for the
+// singular data source: name required, everything else computed.
+func writeDataSourceSchema(f *jen.File, e Entry, res Resource, fields []Field) {
+
+	t := entityType(e)
+
+	attrs := jen.Dict{}
+
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		attrs[jen.Lit(attr)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Computed"): jen.True(),
+		})
+	}
+
+	for _, fd := range fields {
+		attrs[jen.Lit(fd.TfName())] = dataSourceAttributeFor(fd)
+	}
+
+	f.Commentf("%sDataSourceSchema returns the Terraform schema for the singular %s data source.", t.Name(), t.Name())
+	f.Func().Id(t.Name()+"DataSourceSchema").Params().Qual(pkgDatasourceSchema, "Schema").Block(
+		jen.Return(jen.Qual(pkgDatasourceSchema, "Schema").Values(jen.Dict{
+			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("%s data source: reads one %s by its full resource name.", t.Name(), t.Name())),
+			jen.Id("Attributes"): jen.Map(jen.String()).Qual(pkgDatasourceSchema, "Attribute").Values(
+				attrs,
+			),
+		})),
+	)
+}
+
+func dataSourceAttributeFor(fd Field) jen.Code {
+
+	shape := shapeFor(fd.Kind)
+	d := jen.Dict{}
+
+	if fd.ProtoName == NameField {
+		d[jen.Id("Required")] = jen.True()
+		d[jen.Id("MarkdownDescription")] = jen.Lit("Full resource name of the object to read.")
+	} else {
+		d[jen.Id("Computed")] = jen.True()
+	}
+
+	if fd.Sensitive {
+		d[jen.Id("Sensitive")] = jen.True()
+	}
+	if shape.elementType {
+		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
+	}
+
+	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
+}
+
 func attributeFor(fd Field) jen.Code {
 
 	shape := shapeFor(fd.Kind)

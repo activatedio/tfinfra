@@ -60,6 +60,22 @@ type Resource struct {
 	// Ops selects which operations the API exposes; the zero value means
 	// all (OpAll).
 	Ops Ops
+	// ClientType is the gRPC client interface carrying this resource's
+	// operations, e.g. reflect.TypeFor[petstorev1.PetStoreServiceClient]().
+	// Required.
+	ClientType reflect.Type
+	// Client is the ProviderData.Clients key the generated Configure reads
+	// the client from. Defaults to "default".
+	Client string
+	// Plural overrides the derived plural used in List method names
+	// ("List" + plural).
+	Plural string
+	// Collection overrides the derived AIP collection name (lower-camel
+	// plural of the entity name, e.g. "appearanceProfiles").
+	Collection string
+	// UseUpdate selects the full-replace Update operation instead of Patch
+	// with an update mask.
+	UseUpdate bool
 	// Required lists proto fields the practitioner must set.
 	Required []string
 	// Immutable lists proto fields that force replacement when changed

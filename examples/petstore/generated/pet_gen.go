@@ -4,15 +4,21 @@ package generated
 
 import (
 	"context"
+	"fmt"
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
+	tf "github.com/activatedio/tfinfra/pkg/tf"
 	stringvalidator "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
+	schema1 "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
 	path "github.com/hashicorp/terraform-plugin-framework/path"
+	resource "github.com/hashicorp/terraform-plugin-framework/resource"
 	schema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
+	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
@@ -70,6 +76,22 @@ type PetModel struct {
 	Tags        types.List    `tfsdk:"tags"`
 	Labels      types.Map     `tfsdk:"labels"`
 	CreateTime  types.String  `tfsdk:"create_time"`
+}
+
+// NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
+func NewPetModel() *PetModel {
+	return &PetModel{
+		Age:         types.Int64Null(),
+		CreateTime:  types.StringNull(),
+		DisplayName: types.StringNull(),
+		Labels:      types.MapNull(types.StringType),
+		Name:        types.StringNull(),
+		StoreId:     types.StringNull(),
+		Tags:        types.ListNull(types.StringType),
+		Type:        types.StringNull(),
+		Vaccinated:  types.BoolNull(),
+		Weight:      types.Float64Null(),
+	}
 }
 
 // ToProto converts the model to its proto message. Null and unknown attributes map to proto zero values.
@@ -134,4 +156,216 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		m.CreateTime = types.StringValue(e.CreateTime.AsTime().Format(time.RFC3339))
 	}
 	return diags
+}
+
+// GetName implements tf.Model.
+func (m *PetModel) GetName() types.String {
+	return m.Name
+}
+
+// ScopeIdentifiers implements tf.Model: per-resource scope attribute values, null as "".
+func (m *PetModel) ScopeIdentifiers() map[string]string {
+	return map[string]string{"store_id": m.StoreId.ValueString()}
+}
+
+// UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.
+func (m *PetModel) UpdateMask(prior *PetModel) []string {
+	var paths []string
+	if !m.DisplayName.Equal(prior.DisplayName) {
+		paths = append(paths, "display_name")
+	}
+	if !m.Type.Equal(prior.Type) {
+		paths = append(paths, "type")
+	}
+	if !m.Age.Equal(prior.Age) {
+		paths = append(paths, "age")
+	}
+	if !m.Vaccinated.Equal(prior.Vaccinated) {
+		paths = append(paths, "vaccinated")
+	}
+	if !m.Weight.Equal(prior.Weight) {
+		paths = append(paths, "weight")
+	}
+	if !m.Tags.Equal(prior.Tags) {
+		paths = append(paths, "tags")
+	}
+	if !m.Labels.Equal(prior.Labels) {
+		paths = append(paths, "labels")
+	}
+	return paths
+}
+
+// newPetCrud builds the pet runtime from provider data; it returns nil (no error) before the provider is configured.
+func newPetCrud(providerData any) (*tf.Crud[*v1.Pet, *PetModel], diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if providerData == nil {
+		return nil, diags
+	}
+	pd, ok := providerData.(*tf.ProviderData)
+	if !ok {
+		diags.AddError("unexpected provider data", fmt.Sprintf("expected *tf.ProviderData, got %T", providerData))
+		return nil, diags
+	}
+	client, ok := pd.Clients["petstore"].(v1.PetStoreServiceClient)
+	if !ok {
+		diags.AddError("missing client", "provider data key \"petstore\" is not a github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1.PetStoreServiceClient")
+		return nil, diags
+	}
+	return tf.NewCrud(tf.CrudParams[*v1.Pet, *PetModel]{
+		Client: tf.CrudClient[*v1.Pet]{
+			Create: func(ctx context.Context, parent string, entity *v1.Pet) (*v1.Pet, error) {
+				return client.CreatePet(ctx, &v1.CreatePetRequest{
+					Parent: parent,
+					Pet:    entity,
+				})
+			},
+			Delete: func(ctx context.Context, name string) error {
+				_, err := client.DeletePet(ctx, &v1.DeletePetRequest{Name: name})
+				return err
+			},
+			Get: func(ctx context.Context, name string) (*v1.Pet, error) {
+				return client.GetPet(ctx, &v1.GetPetRequest{Name: name})
+			},
+			List: func(ctx context.Context, parent string, pageToken string) ([]*v1.Pet, string, error) {
+				out, err := client.ListPets(ctx, &v1.ListPetsRequest{
+					PageToken: pageToken,
+					Parent:    parent,
+				})
+				if err != nil {
+					return nil, "", err
+				}
+				return out.Pets, out.NextPageToken, nil
+			},
+			Patch: func(ctx context.Context, name string, entity *v1.Pet, mask []string) (*v1.Pet, error) {
+				return client.PatchPet(ctx, &v1.PatchPetRequest{
+					Name:       name,
+					Pet:        entity,
+					UpdateMask: &fieldmaskpb.FieldMask{Paths: mask},
+				})
+			},
+			Update: func(ctx context.Context, name string, entity *v1.Pet) (*v1.Pet, error) {
+				return client.UpdatePet(ctx, &v1.UpdatePetRequest{
+					Name: name,
+					Pet:  entity,
+				})
+			},
+		},
+		Collection: "pets",
+		Defaults:   pd.Defaults,
+		NewModel:   NewPetModel,
+		Scope:      tf.NewScope("stores"),
+		TypeName:   "pet",
+	}), diags
+}
+
+// petResource is the generated Terraform resource for Pet.
+type petResource struct {
+	crud *tf.Crud[*v1.Pet, *PetModel]
+}
+
+// NewPetResource returns the generated pet resource; its client and scope defaults arrive via Configure from tf.ProviderData.
+func NewPetResource() resource.Resource {
+	return &petResource{}
+}
+func (r *petResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_pet"
+}
+func (r *petResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = PetResourceSchema()
+}
+func (r *petResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	crud, diags := newPetCrud(req.ProviderData)
+	resp.Diagnostics.Append(diags...)
+	r.crud = crud
+}
+func (r *petResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	if r.crud == nil {
+		resp.Diagnostics.AddError("pet resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.crud.Create(ctx, req, resp)
+}
+func (r *petResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.crud == nil {
+		resp.Diagnostics.AddError("pet resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.crud.Read(ctx, req, resp)
+}
+func (r *petResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	if r.crud == nil {
+		resp.Diagnostics.AddError("pet resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.crud.Update(ctx, req, resp)
+}
+func (r *petResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if r.crud == nil {
+		resp.Diagnostics.AddError("pet resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.crud.Delete(ctx, req, resp)
+}
+func (r *petResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	if r.crud == nil {
+		resp.Diagnostics.AddError("pet resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.crud.ImportState(ctx, req, resp)
+}
+
+// PetDataSourceSchema returns the Terraform schema for the singular Pet data source.
+func PetDataSourceSchema() schema1.Schema {
+	return schema1.Schema{
+		Attributes: map[string]schema1.Attribute{
+			"age":          schema1.Int64Attribute{Computed: true},
+			"create_time":  schema1.StringAttribute{Computed: true},
+			"display_name": schema1.StringAttribute{Computed: true},
+			"labels": schema1.MapAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"name": schema1.StringAttribute{
+				MarkdownDescription: "Full resource name of the object to read.",
+				Required:            true,
+			},
+			"store_id": schema1.StringAttribute{Computed: true},
+			"tags": schema1.ListAttribute{
+				Computed:    true,
+				ElementType: types.StringType,
+			},
+			"type":       schema1.StringAttribute{Computed: true},
+			"vaccinated": schema1.BoolAttribute{Computed: true},
+			"weight":     schema1.Float64Attribute{Computed: true},
+		},
+		MarkdownDescription: "Pet data source: reads one Pet by its full resource name.",
+	}
+}
+
+// petDataSource is the generated singular data source for Pet (Get by name).
+type petDataSource struct {
+	crud *tf.Crud[*v1.Pet, *PetModel]
+}
+
+// NewPetDataSource returns the generated pet data source.
+func NewPetDataSource() datasource.DataSource {
+	return &petDataSource{}
+}
+func (d *petDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_pet"
+}
+func (d *petDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = PetDataSourceSchema()
+}
+func (d *petDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	crud, diags := newPetCrud(req.ProviderData)
+	resp.Diagnostics.Append(diags...)
+	d.crud = crud
+}
+func (d *petDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	if d.crud == nil {
+		resp.Diagnostics.AddError("pet data source not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	d.crud.ReadDataSource(ctx, req, resp)
 }

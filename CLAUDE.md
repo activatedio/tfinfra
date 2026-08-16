@@ -18,15 +18,19 @@ genlib/           # build-time code generation (panics on error)
     types.go      # Spec, Entry, markers (Resource, DataSource, DataSourceList), Get/HasImplementation
     ops.go        # Ops bitmask (OpGet|OpList|OpCreate|OpUpdate|OpPatch|OpDelete; zero = all)
     fields.go     # protoreflect normalization: message descriptor + markers -> []Field
-    registry.go   # NewRegistry(), Spec directory handler, FileMain file handler
-    schema.go     # <Entity>ResourceSchema() emitter
-    model.go      # <Entity>Model struct + ToProto/FromProto emitters
+    client.go     # reflect analysis of the client interface: methods, request shapes
+    registry.go   # NewRegistry(), Spec directory handler, FileMain file handler, index_gen.go
+    schema.go     # <Entity>ResourceSchema() + <Entity>DataSourceSchema() emitters
+    model.go      # <Entity>Model struct, New<Entity>Model, ToProto/FromProto, GetName/ScopeIdentifiers/UpdateMask
+    resource.go   # crud factory, resource glue, data source glue, client adapters
     names.go      # snake/camel helpers
 pkg/              # runtime imported by generated code (returns errors)
   tf/
     scope.go      # Scope: AIP parent/name compose + parse, identifier attributes
+    crud.go       # Crud[E, M] runtime: CRUD/import/data-source read; ProviderData contract
+    errors.go     # gRPC status translation (IsNotFound)
 examples/petstore # end-to-end example; generated/ is the golden output contract
-  proto/          # toy proto (buf; regeneration is manual, output committed)
+  proto/          # toy proto + AIP service (buf; regeneration is manual, output committed)
   gen/main.go     # generator entry point (//go:generate go run .)
   generated/      # generated golden output
 ```
@@ -65,11 +69,17 @@ github.com/activatedio/tfinfra. DO NOT EDIT.` header (`golangci-lint`'s
 
 ## Markers
 
-| Marker              | Generates                                                    |
-| ------------------- | ------------------------------------------------------------ |
-| `tf.Resource`       | resource schema + model + conversions (CRUD glue pending)    |
-| `tf.DataSource`     | PENDING: singular data source (Get by name)                  |
-| `tf.DataSourceList` | PENDING: plural data source (List under parent)              |
+| Marker              | Generates                                                        |
+| ------------------- | ---------------------------------------------------------------- |
+| `tf.Resource`       | schema, model + conversions, crud factory, full resource glue    |
+| `tf.DataSource`     | singular data source (Get by full name); requires `tf.Resource`  |
+| `tf.DataSourceList` | PENDING: plural data source (declaring it panics)                |
+
+`Resource` also carries the client binding: `ClientType` (the gRPC client
+interface, analyzed via reflect — method presence per `Ops`, request/response
+shapes read from protoc-gen-go struct tags), `Client` (the
+`ProviderData.Clients` key, default `"default"`), plus optional `Plural`,
+`Collection`, and `UseUpdate` (full-replace instead of Patch) overrides.
 
 `Resource` behavior lists reference proto field names (snake_case); unknown
 names, conflicting behavior, and unsupported shapes all **panic at
@@ -106,20 +116,42 @@ timestamps read a proto zero value as Terraform null — except `name` and
 `Required` fields, which always carry a value. Bools and numbers always
 carry a value, because proto3 cannot distinguish zero from unset.
 
+## Provider wiring
+
+The provider's Configure places a `*tf.ProviderData{Clients, Defaults}` in
+`resp.ResourceData` / `resp.DataSourceData`. Generated resources pull their
+client from `Clients[<Resource.Client>]` (type-asserted against
+`ClientType`, misconfiguration is a diagnostic, never a panic) and merge
+per-resource scope attributes over `Defaults` to compose AIP parents. The
+generated `index_gen.go` exposes `Resources()` / `DataSources()` slices for
+registration.
+
+## Runtime semantics
+
+- Create: resolve parent (resource attr > provider default > actionable
+  error), `Create*(parent, entity)`, state from the response.
+- Read: `Get*(name)`; gRPC NotFound removes the resource from state.
+- Update: `Patch*` with `update_mask` from the generated plan/state
+  `UpdateMask` diff (empty mask → read back instead of an empty patch);
+  `UseUpdate` switches to full-replace `Update*`.
+- Delete: NotFound counts as success.
+- Import: ID is the full AIP name, validated against the scope pattern.
+- Data source (singular): Get by full name; NotFound is an error.
+
 ## Status
 
-Implemented: repo bootstrap, spec model, Ops, Scope runtime
-(compose/parse/identifiers), protoreflect normalization, schema emitter,
-model emitter, golden example, determinism (regeneration is
-byte-identical).
+Implemented: repo bootstrap, spec model, Ops, Scope runtime, protoreflect
+normalization, client reflect analysis, schema + data source schema
+emitters, model emitter (constructor, conversions, GetName /
+ScopeIdentifiers / UpdateMask), Crud runtime, generated resource + singular
+data source glue, index generation, full-lifecycle tests against a fake
+client, determinism (regeneration is byte-identical).
 
-Pending (tracked in the terraform-provider-authwise plan, tasks #4–#7 and
-#13): CRUD resource glue (Create/Read/Patch+update_mask/Delete/Import
-delegating to a pkg CrudTemplate), data sources, context resolvers wired to
-provider config, client_credentials auth (ships in
-`api-client-go/credentials/bearer`), update-mask computation, Struct/Any
-via jsontypes, write-only arguments, association resources, Wiring/index
-generation.
+Pending (tracked in the terraform-provider-authwise plan): plural list data
+sources (DataSourceList), Struct/Any via jsontypes, write-only arguments,
+proto3 `optional` presence in the null convention, association resources
+(`tf.Associate`), Wiring/DI index variant, pagination surfacing for list
+data sources. Auth ships separately in `api-client-go/credentials/bearer`.
 
 ## Working in this repo
 

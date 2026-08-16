@@ -5,9 +5,58 @@ syntax = "proto3";
 
 package petstore.v1;
 
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1";
+
+// PetStoreService is AIP-shaped: Get/List/Create/Update/Patch/Delete with
+// name/parent/update_mask, mirroring the surfaces tfinfra targets.
+service PetStoreService {
+  rpc GetPet(GetPetRequest) returns (Pet);
+  rpc ListPets(ListPetsRequest) returns (ListPetsResponse);
+  rpc CreatePet(CreatePetRequest) returns (Pet);
+  rpc UpdatePet(UpdatePetRequest) returns (Pet);
+  rpc PatchPet(PatchPetRequest) returns (Pet);
+  rpc DeletePet(DeletePetRequest) returns (google.protobuf.Empty);
+}
+
+message GetPetRequest {
+  string name = 1;
+}
+
+message ListPetsRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  string filter = 4;
+}
+
+message ListPetsResponse {
+  repeated Pet pets = 1;
+  string next_page_token = 2;
+}
+
+message CreatePetRequest {
+  string parent = 1;
+  Pet pet = 2;
+}
+
+message UpdatePetRequest {
+  string name = 1;
+  Pet pet = 2;
+}
+
+message PatchPetRequest {
+  string name = 1;
+  Pet pet = 2;
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+message DeletePetRequest {
+  string name = 1;
+}
 
 enum PetType {
   PET_TYPE_UNSPECIFIED = 0;

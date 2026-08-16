@@ -1,6 +1,7 @@
 package tf
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/activatedio/gen"
@@ -33,12 +34,14 @@ func NewRegistry() gen.Registry {
 }
 
 // specDirectoryHandler owns the target directory: one <entity>_gen.go per
-// entry that declares a Resource.
+// entry that declares a Resource, plus index_gen.go with the registration
+// slices.
 func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 
 	spec := entry.(*Spec)
 
 	for _, e := range spec.Entries {
+		validateEntry(e)
 		if !HasImplementation[Resource](e) {
 			continue
 		}
@@ -48,18 +51,68 @@ func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 			r.RunFileHandler(f, fm)
 		}, gen.WithGeneratedBy(GeneratedBy))
 	}
+
+	gen.WithFile(spec.Package, filepath.Join(dirPath, "index_gen.go"), func(f *jen.File) {
+		writeIndex(f, spec)
+	}, gen.WithGeneratedBy(GeneratedBy))
 }
 
-// fileMainHandler composes the sections of one entry's file: the resource
-// schema and the plan/state model with proto conversions. CRUD glue emitters
-// follow in a later task.
+func validateEntry(e Entry) {
+
+	if HasImplementation[DataSourceList](e) {
+		panic(fmt.Sprintf("%s: DataSourceList is not yet supported", entityType(e).Name()))
+	}
+	if HasImplementation[DataSource](e) && !HasImplementation[Resource](e) {
+		panic(fmt.Sprintf("%s: DataSource currently requires a Resource marker on the same entry", entityType(e).Name()))
+	}
+}
+
+// fileMainHandler composes the sections of one entry's file: schema(s), the
+// plan/state model with proto conversions and accessors, the shared crud
+// factory, the resource glue, and (when marked) the singular data source.
 func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 
 	fm := entry.(*FileMain)
 
 	res, _ := GetImplementation[Resource](fm.Entry)
 	fields := NormalizeFields(fm.Entry, res)
+	cm := analyzeClient(fm.Entry, res)
+	n := namesFor(fm.Entry, res)
 
 	writeResourceSchema(f, fm.Entry, res, fields)
 	writeModel(f, fm.Entry, res, fields)
+	writeCrudFactory(f, fm.Entry, res, cm, n)
+	writeResource(f, fm.Entry, n)
+
+	if HasImplementation[DataSource](fm.Entry) {
+		writeDataSourceSchema(f, fm.Entry, res, fields)
+		writeDataSource(f, fm.Entry, n)
+	}
+}
+
+// writeIndex emits the registration slices the provider hands to the
+// framework.
+func writeIndex(f *jen.File, spec *Spec) {
+
+	var resources, dataSources []jen.Code
+
+	for _, e := range spec.Entries {
+		if res, ok := GetImplementation[Resource](e); ok {
+			n := namesFor(e, res)
+			resources = append(resources, jen.Id("New"+n.Entity+"Resource"))
+			if HasImplementation[DataSource](e) {
+				dataSources = append(dataSources, jen.Id("New"+n.Entity+"DataSource"))
+			}
+		}
+	}
+
+	f.Commentf("Resources returns the generated resource constructors for provider registration.")
+	f.Func().Id("Resources").Params().Index().Func().Params().Qual(pkgResource, "Resource").Block(
+		jen.Return(jen.Index().Func().Params().Qual(pkgResource, "Resource").Values(resources...)),
+	)
+
+	f.Commentf("DataSources returns the generated data source constructors for provider registration.")
+	f.Func().Id("DataSources").Params().Index().Func().Params().Qual(pkgDatasource, "DataSource").Block(
+		jen.Return(jen.Index().Func().Params().Qual(pkgDatasource, "DataSource").Values(dataSources...)),
+	)
 }

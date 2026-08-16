@@ -33,11 +33,14 @@ func main() {
 				Type: reflect.TypeFor[petstorev1.Pet](),
 				Implementations: []any{
 					gentf.Resource{
-						Scope:     scopeStore,
-						Required:  []string{"display_name"},
-						Immutable: []string{"type"},
-						Computed:  []string{"create_time"},
+						Scope:      scopeStore,
+						ClientType: reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:     "petstore",
+						Required:   []string{"display_name"},
+						Immutable:  []string{"type"},
+						Computed:   []string{"create_time"},
 					},
+					gentf.DataSource{},
 				},
 			},
 		},

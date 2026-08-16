@@ -67,6 +67,8 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
 	f.Type().Id(modelName).Struct(structFields...)
 
+	writeModelConstructor(f, res, fields, modelName)
+
 	// ToProto
 	to := make([]jen.Code, 0, len(fields)+3)
 	to = append(to,
@@ -97,6 +99,94 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("e").Op("*").Add(entityQual())).
 		Qual(pkgDiag, "Diagnostics").
 		Block(from...)
+
+	writeModelAccessors(f, res, fields, modelName)
+}
+
+// typedNull returns the typed null expression for a kind. The zero value of
+// collection types carries no element type, so models must be constructed
+// with typed nulls.
+func typedNull(kind FieldKind) *jen.Statement {
+	switch kind {
+	case FieldString, FieldEnum, FieldTimestamp:
+		return jen.Qual(pkgTypes, "StringNull").Call()
+	case FieldBool:
+		return jen.Qual(pkgTypes, "BoolNull").Call()
+	case FieldInt64:
+		return jen.Qual(pkgTypes, "Int64Null").Call()
+	case FieldFloat64:
+		return jen.Qual(pkgTypes, "Float64Null").Call()
+	case FieldStringList:
+		return jen.Qual(pkgTypes, "ListNull").Call(jen.Qual(pkgTypes, "StringType"))
+	case FieldStringMap:
+		return jen.Qual(pkgTypes, "MapNull").Call(jen.Qual(pkgTypes, "StringType"))
+	default:
+		panic(fmt.Sprintf("unhandled field kind %d", kind))
+	}
+}
+
+// writeModelConstructor emits New<Entity>Model with every attribute as a
+// typed null.
+func writeModelConstructor(f *jen.File, res Resource, fields []Field, modelName string) {
+
+	d := jen.Dict{
+		jen.Id("Name"): typedNull(FieldString),
+	}
+
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		d[jen.Id(snakeToCamel(attr))] = typedNull(FieldString)
+	}
+
+	for _, fd := range fields {
+		if fd.ProtoName == NameField {
+			continue
+		}
+		d[jen.Id(fd.GoName)] = typedNull(fd.Kind)
+	}
+
+	f.Commentf("New%s returns a model with every attribute set to its typed null; collection types cannot be zero-valued.", modelName)
+	f.Func().Id("New" + modelName).Params().Op("*").Id(modelName).Block(
+		jen.Return(jen.Op("&").Id(modelName).Values(d)),
+	)
+}
+
+// writeModelAccessors emits the tf.Model interface methods beyond the proto
+// conversions: GetName, ScopeIdentifiers, and UpdateMask.
+func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName string) {
+
+	f.Commentf("GetName implements tf.Model.")
+	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("GetName").Params().Qual(pkgTypes, "String").Block(
+		jen.Return(jen.Id("m").Dot("Name")),
+	)
+
+	scope := jen.Dict{}
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		scope[jen.Lit(attr)] = jen.Id("m").Dot(snakeToCamel(attr)).Dot("ValueString").Call()
+	}
+
+	f.Commentf("ScopeIdentifiers implements tf.Model: per-resource scope attribute values, null as \"\".")
+	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("ScopeIdentifiers").Params().Map(jen.String()).String().Block(
+		jen.Return(jen.Map(jen.String()).String().Values(scope)),
+	)
+
+	var mask []jen.Code
+	mask = append(mask, jen.Var().Id("paths").Index().String())
+	for _, fd := range fields {
+		if fd.ProtoName == NameField || fd.Computed {
+			continue
+		}
+		mask = append(mask, jen.If(
+			jen.Op("!").Id("m").Dot(fd.GoName).Dot("Equal").Call(jen.Id("prior").Dot(fd.GoName)),
+		).Block(
+			jen.Id("paths").Op("=").Append(jen.Id("paths"), jen.Lit(fd.ProtoName)),
+		))
+	}
+	mask = append(mask, jen.Return(jen.Id("paths")))
+
+	f.Commentf("UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.")
+	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("UpdateMask").
+		Params(jen.Id("prior").Op("*").Id(modelName)).Index().String().
+		Block(mask...)
 }
 
 func notNullNotUnknown(goName string) *jen.Statement {
