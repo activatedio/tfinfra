@@ -80,7 +80,7 @@ func (f Field) TfName() string {
 // if the spec declared one.
 func entityType(e Entry) reflect.Type {
 	t := e.Type
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {

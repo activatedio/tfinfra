@@ -101,7 +101,7 @@ func analyzeOp(entity string, entityType reflect.Type, m reflect.Method) clientO
 
 	mt := m.Type
 
-	if mt.NumIn() < 2 || mt.In(1).Kind() != reflect.Ptr || mt.In(1).Elem().Kind() != reflect.Struct {
+	if mt.NumIn() < 2 || mt.In(1).Kind() != reflect.Pointer || mt.In(1).Elem().Kind() != reflect.Struct {
 		panic(fmt.Sprintf("%s.%s: expected an AIP-shaped signature func(ctx, *Request, ...) — got %s", entity, m.Name, mt))
 	}
 
@@ -118,7 +118,7 @@ func analyzeOp(entity string, entityType reflect.Type, m reflect.Method) clientO
 	}
 
 	if strings.HasPrefix(m.Name, "List") {
-		if mt.NumOut() < 1 || mt.Out(0).Kind() != reflect.Ptr {
+		if mt.NumOut() < 1 || mt.Out(0).Kind() != reflect.Pointer {
 			panic(fmt.Sprintf("%s.%s: expected a response pointer return", entity, m.Name))
 		}
 		res := mt.Out(0).Elem()

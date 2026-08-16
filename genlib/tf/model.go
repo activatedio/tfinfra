@@ -15,6 +15,9 @@ const (
 	pkgStructpb    = "google.golang.org/protobuf/types/known/structpb"
 )
 
+// tfsdkTag is the struct tag key the framework binds attributes with.
+const tfsdkTag = "tfsdk"
+
 // modelFieldType returns the model struct field type for a kind.
 func modelFieldType(kind FieldKind) *jen.Statement {
 	switch kind {
@@ -55,11 +58,11 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 	var structFields []jen.Code
 
 	structFields = append(structFields,
-		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{"tfsdk": NameField}))
+		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: NameField}))
 
 	for _, attr := range res.Scope.IdentifierAttributes() {
 		structFields = append(structFields,
-			jen.Id(snakeToCamel(attr)).Qual(pkgTypes, "String").Tag(map[string]string{"tfsdk": attr}))
+			jen.Id(snakeToCamel(attr)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: attr}))
 	}
 
 	for _, fd := range fields {
@@ -67,7 +70,7 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 			continue
 		}
 		structFields = append(structFields,
-			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{"tfsdk": fd.TfName()}))
+			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{tfsdkTag: fd.TfName()}))
 	}
 
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
@@ -429,10 +432,10 @@ func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
 	structFields := make([]jen.Code, 0, len(fields)+1)
 	for _, fd := range fields {
 		structFields = append(structFields,
-			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{"tfsdk": fd.TfName()}))
+			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{tfsdkTag: fd.TfName()}))
 	}
 	structFields = append(structFields,
-		jen.Id("Any").Qual(pkgJsontypes, "Normalized").Tag(map[string]string{"tfsdk": AnyAttribute}))
+		jen.Id("Any").Qual(pkgJsontypes, "Normalized").Tag(map[string]string{tfsdkTag: AnyAttribute}))
 
 	f.Commentf("%s is the Terraform model for the %s config data source.", modelName, t.Name())
 	f.Type().Id(modelName).Struct(structFields...)
