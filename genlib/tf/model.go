@@ -9,23 +9,29 @@ import (
 
 const (
 	pkgTimestamppb = "google.golang.org/protobuf/types/known/timestamppb"
+	pkgJsontypes   = "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	pkgProtojson   = "google.golang.org/protobuf/encoding/protojson"
+	pkgAnypb       = "google.golang.org/protobuf/types/known/anypb"
+	pkgStructpb    = "google.golang.org/protobuf/types/known/structpb"
 )
 
-// tfType returns the framework value type name (in pkgTypes) for a kind.
-func tfType(kind FieldKind) string {
+// modelFieldType returns the model struct field type for a kind.
+func modelFieldType(kind FieldKind) *jen.Statement {
 	switch kind {
 	case FieldString, FieldEnum, FieldTimestamp:
-		return "String"
+		return jen.Qual(pkgTypes, "String")
 	case FieldBool:
-		return "Bool"
+		return jen.Qual(pkgTypes, "Bool")
 	case FieldInt64:
-		return "Int64"
+		return jen.Qual(pkgTypes, "Int64")
 	case FieldFloat64:
-		return "Float64"
+		return jen.Qual(pkgTypes, "Float64")
 	case FieldStringList:
-		return "List"
+		return jen.Qual(pkgTypes, "List")
 	case FieldStringMap:
-		return "Map"
+		return jen.Qual(pkgTypes, "Map")
+	case FieldAny, FieldStruct:
+		return jen.Qual(pkgJsontypes, "Normalized")
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
@@ -61,7 +67,7 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 			continue
 		}
 		structFields = append(structFields,
-			jen.Id(fd.GoName).Qual(pkgTypes, tfType(fd.Kind)).Tag(map[string]string{"tfsdk": fd.TfName()}))
+			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{"tfsdk": fd.TfName()}))
 	}
 
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
@@ -120,6 +126,8 @@ func typedNull(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "ListNull").Call(jen.Qual(pkgTypes, "StringType"))
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "MapNull").Call(jen.Qual(pkgTypes, "StringType"))
+	case FieldAny, FieldStruct:
+		return jen.Qual(pkgJsontypes, "NewNormalizedNull").Call()
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
@@ -175,6 +183,21 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 		if fd.ProtoName == NameField || fd.Computed {
 			continue
 		}
+		if fd.Kind == FieldAny || fd.Kind == FieldStruct {
+			// JSON attributes compare semantically so formatting-only
+			// differences never land in the mask. Value equality short-
+			// circuits first: semantic comparison cannot handle nulls.
+			mask = append(mask,
+				jen.If(jen.Op("!").Id("m").Dot(fd.GoName).Dot("Equal").Call(jen.Id("prior").Dot(fd.GoName))).Block(
+					jen.If(
+						jen.List(jen.Id("eq"), jen.Id("_")).Op(":=").Id("m").Dot(fd.GoName).Dot("StringSemanticEquals").Call(jen.Id("ctx"), jen.Id("prior").Dot(fd.GoName)),
+						jen.Op("!").Id("eq"),
+					).Block(
+						jen.Id("paths").Op("=").Append(jen.Id("paths"), jen.Lit(fd.ProtoName)),
+					),
+				))
+			continue
+		}
 		mask = append(mask, jen.If(
 			jen.Op("!").Id("m").Dot(fd.GoName).Dot("Equal").Call(jen.Id("prior").Dot(fd.GoName)),
 		).Block(
@@ -185,7 +208,7 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 
 	f.Commentf("UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.")
 	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("UpdateMask").
-		Params(jen.Id("prior").Op("*").Id(modelName)).Index().String().
+		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("prior").Op("*").Id(modelName)).Index().String().
 		Block(mask...)
 }
 
@@ -205,17 +228,9 @@ func toProtoStatement(fd Field) jen.Code {
 	case FieldBool:
 		return out.Op("=").Add(val).Dot("ValueBool").Call()
 	case FieldInt64:
-		expr := jen.Id("m").Dot(fd.GoName).Dot("ValueInt64").Call()
-		if fd.GoType.Kind() != reflect.Int64 {
-			expr = jen.Id(fd.GoType.Kind().String()).Call(expr)
-		}
-		return out.Op("=").Add(expr)
+		return out.Op("=").Add(toProtoNumeric(fd, "ValueInt64", reflect.Int64))
 	case FieldFloat64:
-		expr := jen.Id("m").Dot(fd.GoName).Dot("ValueFloat64").Call()
-		if fd.GoType.Kind() != reflect.Float64 {
-			expr = jen.Id(fd.GoType.Kind().String()).Call(expr)
-		}
-		return out.Op("=").Add(expr)
+		return out.Op("=").Add(toProtoNumeric(fd, "ValueFloat64", reflect.Float64))
 	case FieldEnum:
 		return jen.If(notNullNotUnknown(fd.GoName)).Block(
 			out.Op("=").Qual(fd.GoType.PkgPath(), fd.GoType.Name()).Call(
@@ -232,24 +247,42 @@ func toProtoStatement(fd Field) jen.Code {
 				).Op("..."),
 			),
 		)
+	case FieldAny:
+		return toProtoJSON(fd, pkgAnypb, "Any", "invalid google.protobuf.Any JSON")
+	case FieldStruct:
+		return toProtoJSON(fd, pkgStructpb, "Struct", "invalid JSON object")
 	case FieldTimestamp:
-		return jen.If(notNullNotUnknown(fd.GoName)).Block(
-			jen.List(jen.Id("t"), jen.Id("err")).Op(":=").Qual("time", "Parse").Call(
-				jen.Qual("time", "RFC3339"), jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call(),
-			),
-			jen.If(jen.Id("err").Op("!=").Nil()).Block(
-				jen.Id("diags").Dot("AddAttributeError").Call(
-					jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
-					jen.Lit("invalid RFC 3339 timestamp"),
-					jen.Id("err").Dot("Error").Call(),
-				),
-			).Else().Block(
-				out.Op("=").Qual(pkgTimestamppb, "New").Call(jen.Id("t")),
-			),
-		)
+		return toProtoTimestamp(fd, out)
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
+}
+
+// toProtoNumeric emits m.<Field>.Value<Wide>(), narrowed to the pb struct
+// field's kind when necessary.
+func toProtoNumeric(fd Field, valueMethod string, wideKind reflect.Kind) *jen.Statement {
+	expr := jen.Id("m").Dot(fd.GoName).Dot(valueMethod).Call()
+	if fd.GoType.Kind() != wideKind {
+		return jen.Id(fd.GoType.Kind().String()).Call(expr)
+	}
+	return expr
+}
+
+func toProtoTimestamp(fd Field, out *jen.Statement) jen.Code {
+	return jen.If(notNullNotUnknown(fd.GoName)).Block(
+		jen.List(jen.Id("t"), jen.Id("err")).Op(":=").Qual("time", "Parse").Call(
+			jen.Qual("time", "RFC3339"), jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call(),
+		),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Id("diags").Dot("AddAttributeError").Call(
+				jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
+				jen.Lit("invalid RFC 3339 timestamp"),
+				jen.Id("err").Dot("Error").Call(),
+			),
+		).Else().Block(
+			out.Op("=").Qual(pkgTimestamppb, "New").Call(jen.Id("t")),
+		),
+	)
 }
 
 func fromProtoStatement(fd Field) jen.Code {
@@ -276,6 +309,8 @@ func fromProtoStatement(fd Field) jen.Code {
 		return fromProtoCollection(fd, "ListNull", "ListValueFrom")
 	case FieldStringMap:
 		return fromProtoCollection(fd, "MapNull", "MapValueFrom")
+	case FieldAny, FieldStruct:
+		return fromProtoJSON(fd)
 	case FieldTimestamp:
 		return jen.If(e().Op("==").Nil()).Block(
 			m().Op("=").Qual(pkgTypes, "StringNull").Call(),
@@ -287,6 +322,47 @@ func fromProtoStatement(fd Field) jen.Code {
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
+}
+
+// toProtoJSON emits: parse the jsontypes value via protojson into the
+// well-known type, with an attribute-anchored diagnostic on bad input.
+func toProtoJSON(fd Field, pkg, typ, summary string) jen.Code {
+	return jen.If(notNullNotUnknown(fd.GoName)).Block(
+		jen.Id("v").Op(":=").Op("&").Qual(pkg, typ).Values(),
+		jen.If(
+			jen.Id("err").Op(":=").Qual(pkgProtojson, "Unmarshal").Call(
+				jen.Id("[]byte").Call(jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call()),
+				jen.Id("v"),
+			),
+			jen.Id("err").Op("!=").Nil(),
+		).Block(
+			jen.Id("diags").Dot("AddAttributeError").Call(
+				jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
+				jen.Lit(summary),
+				jen.Id("err").Dot("Error").Call(),
+			),
+		).Else().Block(
+			jen.Id("out").Dot(fd.GoName).Op("=").Id("v"),
+		),
+	)
+}
+
+// fromProtoJSON emits: protojson-encode the well-known type into the
+// jsontypes attribute; nil reads as null.
+func fromProtoJSON(fd Field) jen.Code {
+	return jen.If(jen.Id("e").Dot(fd.GoName).Op("==").Nil()).Block(
+		jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedNull").Call(),
+	).Else().Block(
+		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(jen.Id("e").Dot(fd.GoName)),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Id("diags").Dot("AddError").Call(
+				jen.Lit(fmt.Sprintf("cannot encode %s", fd.TfName())),
+				jen.Id("err").Dot("Error").Call(),
+			),
+		).Else().Block(
+			jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedValue").Call(jen.Id("string").Call(jen.Id("b"))),
+		),
+	)
 }
 
 func fromProtoString(fd Field) jen.Code {
@@ -326,4 +402,55 @@ func fromProtoCollection(fd Field, nullFunc, valueFunc string) jen.Code {
 		jen.Id("diags").Dot("Append").Call(jen.Id("d").Op("...")),
 		jen.Id("m").Dot(fd.GoName).Op("=").Id("v"),
 	)
+}
+
+// AnyAttribute is the computed output attribute on config data sources:
+// the protojson-encoded google.protobuf.Any.
+const AnyAttribute = "any"
+
+// writeConfigModel emits the config data source model: typed input fields
+// plus the computed "any" output, a typed-null constructor, and ToProto.
+func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
+
+	t := entityType(e)
+	entityQual := func() *jen.Statement { return jen.Qual(t.PkgPath(), t.Name()) }
+
+	structFields := make([]jen.Code, 0, len(fields)+1)
+	for _, fd := range fields {
+		structFields = append(structFields,
+			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{"tfsdk": fd.TfName()}))
+	}
+	structFields = append(structFields,
+		jen.Id("Any").Qual(pkgJsontypes, "Normalized").Tag(map[string]string{"tfsdk": AnyAttribute}))
+
+	f.Commentf("%s is the Terraform model for the %s config data source.", modelName, t.Name())
+	f.Type().Id(modelName).Struct(structFields...)
+
+	d := jen.Dict{
+		jen.Id("Any"): typedNull(FieldAny),
+	}
+	for _, fd := range fields {
+		d[jen.Id(fd.GoName)] = typedNull(fd.Kind)
+	}
+
+	f.Commentf("New%s returns a model with every attribute set to its typed null.", modelName)
+	f.Func().Id("New" + modelName).Params().Op("*").Id(modelName).Block(
+		jen.Return(jen.Op("&").Id(modelName).Values(d)),
+	)
+
+	to := make([]jen.Code, 0, len(fields)+3)
+	to = append(to,
+		jen.Var().Id("diags").Qual(pkgDiag, "Diagnostics"),
+		jen.Id("out").Op(":=").Op("&").Add(entityQual()).Values(),
+	)
+	for _, fd := range fields {
+		to = append(to, toProtoStatement(fd))
+	}
+	to = append(to, jen.Return(jen.Id("out"), jen.Id("diags")))
+
+	f.Commentf("ToProto converts the model to its proto message. Null and unknown attributes map to proto zero values.")
+	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("ToProto").
+		Params(jen.Id("ctx").Qual("context", "Context")).
+		Params(jen.Op("*").Add(entityQual()), jen.Qual(pkgDiag, "Diagnostics")).
+		Block(to...)
 }

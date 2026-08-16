@@ -32,8 +32,15 @@ func main() {
 						Required:   []string{"display_name"},
 						Immutable:  []string{"type"},
 						Computed:   []string{"create_time"},
+						JSON:       []string{"config", "metadata"},
 					},
 					gentf.DataSource{},
+				},
+			},
+			{
+				Type: reflect.TypeFor[petstorev1.CollarConfig](),
+				Implementations: []any{
+					gentf.ConfigDataSource{Required: []string{"color"}},
 				},
 			},
 		},

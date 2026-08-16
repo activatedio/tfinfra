@@ -5,8 +5,10 @@ syntax = "proto3";
 
 package petstore.v1;
 
+import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1";
@@ -75,4 +77,15 @@ message Pet {
   repeated string tags = 7;
   map<string, string> labels = 8;
   google.protobuf.Timestamp create_time = 9;
+  // Typed config packed as Any; see CollarConfig and its generated config
+  // data source.
+  google.protobuf.Any config = 10;
+  google.protobuf.Struct metadata = 11;
+}
+
+// CollarConfig is a concrete config type packed into Pet.config; it gets a
+// generated builder data source exposing its Any encoding.
+message CollarConfig {
+  string color = 1;
+  int32 size = 2;
 }

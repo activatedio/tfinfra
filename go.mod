@@ -7,6 +7,7 @@ require (
 	github.com/dave/jennifer v1.7.1
 	github.com/gertd/go-pluralize v0.2.1
 	github.com/hashicorp/terraform-plugin-framework v1.19.0
+	github.com/hashicorp/terraform-plugin-framework-jsontypes v0.2.0
 	github.com/hashicorp/terraform-plugin-framework-validators v0.19.0
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/stretchr/testify v1.11.1

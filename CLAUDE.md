@@ -69,11 +69,12 @@ github.com/activatedio/tfinfra. DO NOT EDIT.` header (`golangci-lint`'s
 
 ## Markers
 
-| Marker              | Generates                                                        |
-| ------------------- | ---------------------------------------------------------------- |
-| `tf.Resource`       | schema, model + conversions, crud factory, full resource glue    |
-| `tf.DataSource`     | singular data source (Get by full name); requires `tf.Resource`  |
-| `tf.DataSourceList` | PENDING: plural data source (declaring it panics)                |
+| Marker                | Generates                                                        |
+| --------------------- | ---------------------------------------------------------------- |
+| `tf.Resource`         | schema, model + conversions, crud factory, full resource glue    |
+| `tf.DataSource`       | singular data source (Get by full name); requires `tf.Resource`  |
+| `tf.ConfigDataSource` | typed builder for Any-packed configs (no API calls); exclusive with `tf.Resource` |
+| `tf.DataSourceList`   | PENDING: plural data source (declaring it panics)                |
 
 `Resource` also carries the client binding: `ClientType` (the gRPC client
 interface, analyzed via reflect — method presence per `Ops`, request/response
@@ -106,9 +107,39 @@ strings on every resource schema.
 | repeated string             | ListAttribute[String]        | types.List       |
 | map<string, string>         | MapAttribute[String]         | types.Map        |
 | google.protobuf.Timestamp   | StringAttribute (RFC 3339)   | types.String     |
+| google.protobuf.Any (JSON)  | jsontypes.Normalized (protojson, `@type`) | jsontypes.Normalized |
+| google.protobuf.Struct (JSON) | jsontypes.Normalized (JSON object) | jsontypes.Normalized |
 
-Anything else (nested messages, repeated messages, Struct, Any, bytes, real
-oneofs, non-string lists/maps) panics with a "not yet supported" message.
+Any/Struct fields MUST be listed in `Resource.JSON` — jsontypes semantic
+equality absorbs protojson's deliberately unstable formatting, on refresh
+and in the generated update-mask diff. Anything else (nested messages,
+repeated messages, bytes, real oneofs, non-string lists/maps) panics with a
+"not yet supported" message.
+
+## Any-config pattern
+
+Resources whose API field is `google.protobuf.Any` get two lanes:
+
+1. **Free-form**: write the protojson Any directly (JSON object with
+   `@type`) into the JSON-marked attribute; bad type URLs or unknown fields
+   fail with an attribute-anchored diagnostic at apply time.
+2. **Type-safe**: declare the concrete config message as its own entry with
+   `tf.ConfigDataSource{}`. The generated data source exposes the message's
+   fields as typed attributes (enum validators included) and computes an
+   `any` output — the packed protojson Any — to reference from the
+   resource:
+
+```hcl
+data "petstore_collar_config" "c" {
+  color = "red"
+  size  = 3
+}
+
+resource "petstore_pet" "rex" {
+  display_name = "Rex"
+  config       = data.petstore_collar_config.c.any
+}
+```
 
 **Read-side null convention** (to be refined with proto3 `optional`
 presence in the CRUD runtime task): strings, enums, lists, maps, and
@@ -143,15 +174,17 @@ registration.
 Implemented: repo bootstrap, spec model, Ops, Scope runtime, protoreflect
 normalization, client reflect analysis, schema + data source schema
 emitters, model emitter (constructor, conversions, GetName /
-ScopeIdentifiers / UpdateMask), Crud runtime, generated resource + singular
-data source glue, index generation, full-lifecycle tests against a fake
-client, determinism (regeneration is byte-identical).
+ScopeIdentifiers / UpdateMask with JSON semantic comparison), Crud runtime,
+generated resource + singular data source glue, Any/Struct via jsontypes,
+config builder data sources (`tf.ConfigDataSource`), index generation,
+full-lifecycle tests against a fake client, determinism (regeneration is
+byte-identical).
 
 Pending (tracked in the terraform-provider-authwise plan): plural list data
-sources (DataSourceList), Struct/Any via jsontypes, write-only arguments,
-proto3 `optional` presence in the null convention, association resources
-(`tf.Associate`), Wiring/DI index variant, pagination surfacing for list
-data sources. Auth ships separately in `api-client-go/credentials/bearer`.
+sources (DataSourceList), write-only arguments, proto3 `optional` presence
+in the null convention, association resources (`tf.Associate`), Wiring/DI
+index variant, pagination surfacing for list data sources. Auth ships
+separately in `api-client-go/credentials/bearer`.
 
 ## Working in this repo
 

@@ -42,7 +42,7 @@ func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 
 	for _, e := range spec.Entries {
 		validateEntry(e)
-		if !HasImplementation[Resource](e) {
+		if !HasImplementation[Resource](e) && !HasImplementation[ConfigDataSource](e) {
 			continue
 		}
 		path := filepath.Join(dirPath, toSnake(entityType(e).Name())+"_gen.go")
@@ -65,6 +65,9 @@ func validateEntry(e Entry) {
 	if HasImplementation[DataSource](e) && !HasImplementation[Resource](e) {
 		panic(fmt.Sprintf("%s: DataSource currently requires a Resource marker on the same entry", entityType(e).Name()))
 	}
+	if HasImplementation[ConfigDataSource](e) && HasImplementation[Resource](e) {
+		panic(fmt.Sprintf("%s: ConfigDataSource and Resource are mutually exclusive on one entry", entityType(e).Name()))
+	}
 }
 
 // fileMainHandler composes the sections of one entry's file: schema(s), the
@@ -73,6 +76,15 @@ func validateEntry(e Entry) {
 func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 
 	fm := entry.(*FileMain)
+
+	if cds, ok := GetImplementation[ConfigDataSource](fm.Entry); ok {
+		fields := NormalizeConfigFields(fm.Entry, cds)
+		n := namesFor(fm.Entry, Resource{})
+		writeConfigDataSourceSchema(f, fm.Entry, fields)
+		writeConfigModel(f, fm.Entry, fields, n.Model)
+		writeConfigDataSource(f, fm.Entry, n)
+		return
+	}
 
 	res, _ := GetImplementation[Resource](fm.Entry)
 	fields := NormalizeFields(fm.Entry, res)
@@ -103,6 +115,9 @@ func writeIndex(f *jen.File, spec *Spec) {
 			if HasImplementation[DataSource](e) {
 				dataSources = append(dataSources, jen.Id("New"+n.Entity+"DataSource"))
 			}
+		}
+		if HasImplementation[ConfigDataSource](e) {
+			dataSources = append(dataSources, jen.Id("New"+namesFor(e, Resource{}).Entity+"DataSource"))
 		}
 	}
 

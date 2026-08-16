@@ -23,23 +23,26 @@ type attrShape struct {
 	planModifier    string
 	planModifierPkg string
 	elementType     bool
+	jsonCustomType  bool
 }
 
 func shapeFor(kind FieldKind) attrShape {
 	base := "github.com/hashicorp/terraform-plugin-framework/resource/schema/"
 	switch kind {
 	case FieldString, FieldEnum, FieldTimestamp:
-		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false}
+		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, false}
 	case FieldBool:
-		return attrShape{"BoolAttribute", "Bool", base + "boolplanmodifier", false}
+		return attrShape{"BoolAttribute", "Bool", base + "boolplanmodifier", false, false}
 	case FieldInt64:
-		return attrShape{"Int64Attribute", "Int64", base + "int64planmodifier", false}
+		return attrShape{"Int64Attribute", "Int64", base + "int64planmodifier", false, false}
 	case FieldFloat64:
-		return attrShape{"Float64Attribute", "Float64", base + "float64planmodifier", false}
+		return attrShape{"Float64Attribute", "Float64", base + "float64planmodifier", false, false}
 	case FieldStringList:
-		return attrShape{"ListAttribute", "List", base + "listplanmodifier", true}
+		return attrShape{"ListAttribute", "List", base + "listplanmodifier", true, false}
 	case FieldStringMap:
-		return attrShape{"MapAttribute", "Map", base + "mapplanmodifier", true}
+		return attrShape{"MapAttribute", "Map", base + "mapplanmodifier", true, false}
+	case FieldAny, FieldStruct:
+		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, true}
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
@@ -127,6 +130,9 @@ func dataSourceAttributeFor(fd Field) jen.Code {
 	if shape.elementType {
 		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
 	}
+	if shape.jsonCustomType {
+		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
+	}
 
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
 }
@@ -152,6 +158,9 @@ func attributeFor(fd Field) jen.Code {
 	if shape.elementType {
 		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
 	}
+	if shape.jsonCustomType {
+		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
+	}
 
 	if desc := attributeDescription(fd); desc != "" {
 		d[jen.Id("MarkdownDescription")] = jen.Lit(desc)
@@ -174,6 +183,12 @@ func attributeDescription(fd Field) string {
 	}
 	if fd.Kind == FieldTimestamp {
 		return fmt.Sprintf("`%s` as an RFC 3339 timestamp.", fd.TfName())
+	}
+	if fd.Kind == FieldAny {
+		return fmt.Sprintf("`%s` as protojson-encoded google.protobuf.Any (JSON object with `@type`); reference a generated config data source's `any` output for the type-safe form.", fd.TfName())
+	}
+	if fd.Kind == FieldStruct {
+		return fmt.Sprintf("`%s` as a JSON object.", fd.TfName())
 	}
 	return ""
 }
@@ -205,4 +220,60 @@ func enumValidators(fd Field) jen.Code {
 	return jen.Index().Qual(pkgSchemaValidator, "String").Values(
 		jen.Qual(pkgStringValidators, "OneOf").Call(values...),
 	)
+}
+
+// writeConfigDataSourceSchema emits the schema for a ConfigDataSource
+// entry: the config message's fields as inputs plus the computed "any"
+// output.
+func writeConfigDataSourceSchema(f *jen.File, e Entry, fields []Field) {
+
+	t := entityType(e)
+
+	attrs := jen.Dict{
+		jen.Lit(AnyAttribute): jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Computed"):            jen.True(),
+			jen.Id("CustomType"):          jen.Qual(pkgJsontypes, "NormalizedType").Values(),
+			jen.Id("MarkdownDescription"): jen.Lit("protojson-encoded google.protobuf.Any (includes `@type`); reference this from Any-typed resource attributes."),
+		}),
+	}
+
+	for _, fd := range fields {
+		attrs[jen.Lit(fd.TfName())] = configInputAttributeFor(fd)
+	}
+
+	f.Commentf("%sDataSourceSchema returns the Terraform schema for the %s config data source.", t.Name(), t.Name())
+	f.Func().Id(t.Name()+"DataSourceSchema").Params().Qual(pkgDatasourceSchema, "Schema").Block(
+		jen.Return(jen.Qual(pkgDatasourceSchema, "Schema").Values(jen.Dict{
+			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Builds a %s config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.", t.Name())),
+			jen.Id("Attributes"): jen.Map(jen.String()).Qual(pkgDatasourceSchema, "Attribute").Values(
+				attrs,
+			),
+		})),
+	)
+}
+
+func configInputAttributeFor(fd Field) jen.Code {
+
+	shape := shapeFor(fd.Kind)
+	d := jen.Dict{}
+
+	if fd.Required {
+		d[jen.Id("Required")] = jen.True()
+	} else {
+		d[jen.Id("Optional")] = jen.True()
+	}
+	if fd.Sensitive {
+		d[jen.Id("Sensitive")] = jen.True()
+	}
+	if shape.elementType {
+		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
+	}
+	if shape.jsonCustomType {
+		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
+	}
+	if fd.Kind == FieldEnum {
+		d[jen.Id("Validators")] = enumValidators(fd)
+	}
+
+	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
 }

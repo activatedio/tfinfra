@@ -90,16 +90,29 @@ type Resource struct {
 	// (Terraform >= 1.11). PENDING: not yet implemented; declaring one
 	// panics at generation time.
 	WriteOnly []string
-	// JSON lists google.protobuf.Struct / Any fields surfaced as
-	// jsontypes.Normalized. PENDING: not yet implemented; declaring one
-	// panics at generation time.
+	// JSON lists google.protobuf.Any / Struct fields surfaced as
+	// jsontypes.Normalized: Any as its protojson encoding (with "@type"),
+	// Struct as a JSON object. Any/Struct fields MUST be listed here.
 	JSON []string
 }
 
-// DataSource declares a singular data source (Get by name) for the entry.
-// PENDING: recognized in the spec but not yet generated.
+// DataSource declares a singular data source (Get by full resource name)
+// for the entry. Requires a Resource marker on the same entry.
 type DataSource struct{}
 
+// ConfigDataSource declares a typed builder data source for a config
+// message that resources receive as google.protobuf.Any. It makes no API
+// calls: it exposes the message's fields as typed attributes and computes
+// an "any" attribute holding the protojson-encoded Any (with "@type") to
+// reference from JSON-marked resource attributes — the type-safe
+// alternative to hand-written Any JSON.
+//
+// Mutually exclusive with Resource on the same entry.
+type ConfigDataSource struct {
+	// Required lists the config fields the practitioner must set.
+	Required []string
+}
+
 // DataSourceList declares a plural data source (List under a parent) for
-// the entry. PENDING: recognized in the spec but not yet generated.
+// the entry. PENDING: declaring it panics at generation time.
 type DataSourceList struct{}

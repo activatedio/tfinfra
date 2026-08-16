@@ -37,6 +37,12 @@ const (
 	FieldStringList
 	// FieldStringMap is a map<string, string>.
 	FieldStringMap
+	// FieldAny is a google.protobuf.Any, surfaced as jsontypes.Normalized
+	// holding the protojson encoding (with "@type").
+	FieldAny
+	// FieldStruct is a google.protobuf.Struct, surfaced as
+	// jsontypes.Normalized holding a JSON object.
+	FieldStruct
 )
 
 // Field is the normalized view of one proto field: proto identity, Go
@@ -96,9 +102,6 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	if len(res.WriteOnly) > 0 {
 		panic(fmt.Sprintf("%s: WriteOnly fields are not yet supported", t.Name()))
 	}
-	if len(res.JSON) > 0 {
-		panic(fmt.Sprintf("%s: JSON fields are not yet supported", t.Name()))
-	}
 
 	desc := msg.ProtoReflect().Descriptor()
 	fds := desc.Fields()
@@ -106,11 +109,22 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	byName := map[string]*Field{}
 	res.validateFieldNames(t.Name(), fds)
 
+	jsonSet := map[string]bool{}
+	for _, n := range res.JSON {
+		jsonSet[n] = true
+	}
+
 	fields := make([]Field, 0, fds.Len())
 
 	for i := 0; i < fds.Len(); i++ {
-		fields = append(fields, normalizeField(t, fds.Get(i)))
+		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet))
 		byName[fields[i].ProtoName] = &fields[i]
+	}
+
+	for _, n := range res.JSON {
+		if k := byName[n].Kind; k != FieldAny && k != FieldStruct {
+			panic(fmt.Sprintf("%s.%s: JSON marker applies only to google.protobuf.Any and Struct fields", t.Name(), n))
+		}
 	}
 
 	if _, ok := byName[NameField]; !ok {
@@ -123,9 +137,41 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	return fields
 }
 
+// NormalizeConfigFields is the variant for ConfigDataSource entries: config
+// messages carry no AIP name and no behavior beyond Required.
+func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
+
+	t := entityType(e)
+
+	if _, ok := reflect.New(t).Interface().(proto.Message); !ok {
+		panic(fmt.Sprintf("entry type %s is not a proto.Message", t))
+	}
+
+	msg := reflect.New(t).Interface().(proto.Message)
+	fds := msg.ProtoReflect().Descriptor().Fields()
+
+	valid := map[string]*Field{}
+	fields := make([]Field, 0, fds.Len())
+
+	for i := 0; i < fds.Len(); i++ {
+		fields = append(fields, normalizeField(t, fds.Get(i), nil))
+		valid[fields[i].ProtoName] = &fields[i]
+	}
+
+	for _, n := range cds.Required {
+		f, ok := valid[n]
+		if !ok {
+			panic(fmt.Sprintf("%s: Required references unknown field %q", t.Name(), n))
+		}
+		f.Required = true
+	}
+
+	return fields
+}
+
 // normalizeField maps one field descriptor to its normalized form, binding
 // the Go struct field along the way.
-func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor) Field {
+func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map[string]bool) Field {
 
 	name := string(fd.Name())
 
@@ -151,7 +197,7 @@ func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor) Field {
 		}
 		f.Kind = FieldStringList
 	default:
-		f.Kind = scalarKind(t.Name(), fd)
+		f.Kind = scalarKind(t.Name(), fd, jsonSet[name])
 	}
 
 	if f.Kind == FieldEnum {
@@ -185,7 +231,7 @@ func applyBehavior(entity string, res Resource, byName map[string]*Field) {
 	}
 }
 
-func scalarKind(entity string, fd protoreflect.FieldDescriptor) FieldKind {
+func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool) FieldKind {
 	switch fd.Kind() {
 	case protoreflect.StringKind:
 		return FieldString
@@ -201,13 +247,29 @@ func scalarKind(entity string, fd protoreflect.FieldDescriptor) FieldKind {
 	case protoreflect.EnumKind:
 		return FieldEnum
 	case protoreflect.MessageKind:
-		if fd.Message().FullName() == "google.protobuf.Timestamp" {
-			return FieldTimestamp
-		}
-		panic(fmt.Sprintf("%s.%s: message-typed fields are not yet supported (%s)", entity, fd.Name(), fd.Message().FullName()))
+		return messageKind(entity, fd, jsonMarked)
 	default:
 		panic(fmt.Sprintf("%s.%s: field kind %s is not yet supported", entity, fd.Name(), fd.Kind()))
 	}
+}
+
+// messageKind classifies the supported well-known message types.
+func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool) FieldKind {
+	switch fd.Message().FullName() {
+	case "google.protobuf.Timestamp":
+		return FieldTimestamp
+	case "google.protobuf.Any":
+		if !jsonMarked {
+			panic(fmt.Sprintf("%s.%s: google.protobuf.Any fields must be declared in Resource.JSON", entity, fd.Name()))
+		}
+		return FieldAny
+	case "google.protobuf.Struct":
+		if !jsonMarked {
+			panic(fmt.Sprintf("%s.%s: google.protobuf.Struct fields must be declared in Resource.JSON", entity, fd.Name()))
+		}
+		return FieldStruct
+	}
+	panic(fmt.Sprintf("%s.%s: message-typed fields are not yet supported (%s)", entity, fd.Name(), fd.Message().FullName()))
 }
 
 // validateFieldNames panics when a behavior list references a proto field

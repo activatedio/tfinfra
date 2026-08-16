@@ -342,3 +342,65 @@ func writeDataSource(f *jen.File, e Entry, n entityNames) {
 		jen.Id("d").Dot("crud").Dot("ReadDataSource").Call(jen.Id("ctx"), jen.Id("req"), jen.Id("resp")),
 	)
 }
+
+// writeConfigDataSource emits the stateless builder data source for a
+// ConfigDataSource entry: Read converts the typed inputs to the proto
+// message, packs it into a google.protobuf.Any, and exposes the protojson
+// encoding as "any".
+func writeConfigDataSource(f *jen.File, _ Entry, n entityNames) {
+
+	recvName := n.LowerCamel + "DataSource"
+
+	f.Commentf("%s is the generated config builder data source for %s; it makes no API calls.", recvName, n.Entity)
+	f.Type().Id(recvName).Struct()
+
+	f.Commentf("New%sDataSource returns the generated %s config data source.", n.Entity, n.TypeName)
+	f.Func().Id("New"+n.Entity+"DataSource").Params().Qual(pkgDatasource, "DataSource").Block(
+		jen.Return(jen.Op("&").Id(recvName).Values()),
+	)
+
+	recv := func() *jen.Statement {
+		return f.Func().Params(jen.Id("d").Op("*").Id(recvName))
+	}
+
+	recv().Id("Metadata").Params(
+		jen.Id("_").Qual("context", "Context"),
+		jen.Id("req").Qual(pkgDatasource, "MetadataRequest"),
+		jen.Id("resp").Op("*").Qual(pkgDatasource, "MetadataResponse"),
+	).Block(
+		jen.Id("resp").Dot("TypeName").Op("=").Id("req").Dot("ProviderTypeName").Op("+").Lit("_" + n.TypeName),
+	)
+
+	recv().Id("Schema").Params(
+		jen.Id("_").Qual("context", "Context"),
+		jen.Id("_").Qual(pkgDatasource, "SchemaRequest"),
+		jen.Id("resp").Op("*").Qual(pkgDatasource, "SchemaResponse"),
+	).Block(
+		jen.Id("resp").Dot("Schema").Op("=").Id(n.Entity + "DataSourceSchema").Call(),
+	)
+
+	recv().Id("Read").Params(
+		jen.Id("ctx").Qual("context", "Context"),
+		jen.Id("req").Qual(pkgDatasource, "ReadRequest"),
+		jen.Id("resp").Op("*").Qual(pkgDatasource, "ReadResponse"),
+	).Block(
+		jen.Id("m").Op(":=").Id("New"+n.Model).Call(),
+		jen.Id("resp").Dot("Diagnostics").Dot("Append").Call(jen.Id("req").Dot("Config").Dot("Get").Call(jen.Id("ctx"), jen.Id("m")).Op("...")),
+		jen.If(jen.Id("resp").Dot("Diagnostics").Dot("HasError").Call()).Block(jen.Return()),
+		jen.List(jen.Id("e"), jen.Id("diags")).Op(":=").Id("m").Dot("ToProto").Call(jen.Id("ctx")),
+		jen.Id("resp").Dot("Diagnostics").Dot("Append").Call(jen.Id("diags").Op("...")),
+		jen.If(jen.Id("resp").Dot("Diagnostics").Dot("HasError").Call()).Block(jen.Return()),
+		jen.List(jen.Id("a"), jen.Id("err")).Op(":=").Qual(pkgAnypb, "New").Call(jen.Id("e")),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Id("resp").Dot("Diagnostics").Dot("AddError").Call(jen.Lit(fmt.Sprintf("cannot pack %s", n.TypeName)), jen.Id("err").Dot("Error").Call()),
+			jen.Return(),
+		),
+		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(jen.Id("a")),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Id("resp").Dot("Diagnostics").Dot("AddError").Call(jen.Lit(fmt.Sprintf("cannot encode %s", n.TypeName)), jen.Id("err").Dot("Error").Call()),
+			jen.Return(),
+		),
+		jen.Id("m").Dot("Any").Op("=").Qual(pkgJsontypes, "NewNormalizedValue").Call(jen.Id("string").Call(jen.Id("b"))),
+		jen.Id("resp").Dot("Diagnostics").Dot("Append").Call(jen.Id("resp").Dot("State").Dot("Set").Call(jen.Id("ctx"), jen.Id("m")).Op("...")),
+	)
+}

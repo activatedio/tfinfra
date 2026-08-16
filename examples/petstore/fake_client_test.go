@@ -92,6 +92,10 @@ func (f *fakePetStoreClient) PatchPet(_ context.Context, in *petstorev1.PatchPet
 			existing.Tags = in.GetPet().GetTags()
 		case "labels":
 			existing.Labels = in.GetPet().GetLabels()
+		case "config":
+			existing.Config = in.GetPet().GetConfig()
+		case "metadata":
+			existing.Metadata = in.GetPet().GetMetadata()
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "unsupported update_mask path %q", path)
 		}

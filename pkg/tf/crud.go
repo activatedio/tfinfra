@@ -36,8 +36,9 @@ type Model[E proto.Message, M any] interface {
 	// (null attributes as ""), keyed by attribute name.
 	ScopeIdentifiers() map[string]string
 	// UpdateMask returns the proto field paths whose values differ from
-	// prior, skipping computed fields and scope identifiers.
-	UpdateMask(prior M) []string
+	// prior, skipping computed fields and scope identifiers. JSON-typed
+	// attributes compare semantically.
+	UpdateMask(ctx context.Context, prior M) []string
 }
 
 // CrudClient adapts one resource's operations on a gRPC client. Generated
@@ -213,7 +214,7 @@ func (c *Crud[E, M]) doUpdate(ctx context.Context, name string, e E, plan, state
 		return c.params.Client.Update(ctx, name, e)
 	}
 
-	mask := plan.UpdateMask(state)
+	mask := plan.UpdateMask(ctx, state)
 	if len(mask) == 0 {
 		// Nothing diffable changed; read back the current entity instead of
 		// issuing an empty patch.

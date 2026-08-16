@@ -30,6 +30,7 @@ func TestNormalizeFields(t *testing.T) {
 					Immutable: []string{"type"},
 					Computed:  []string{"create_time"},
 					Sensitive: []string{"labels"},
+					JSON:      []string{"config", "metadata"},
 				}
 			},
 			assert: func(t *testing.T, got []gentf.Field) {
@@ -38,7 +39,7 @@ func TestNormalizeFields(t *testing.T) {
 				for _, f := range got {
 					byName[f.ProtoName] = f
 				}
-				require.Len(t, got, 9)
+				require.Len(t, got, 11)
 
 				assert.Equal(t, gentf.FieldString, byName["name"].Kind)
 				assert.True(t, byName["name"].Computed)
@@ -60,6 +61,8 @@ func TestNormalizeFields(t *testing.T) {
 				assert.True(t, byName["labels"].Sensitive)
 				assert.Equal(t, gentf.FieldTimestamp, byName["create_time"].Kind)
 				assert.True(t, byName["create_time"].Computed)
+				assert.Equal(t, gentf.FieldAny, byName["config"].Kind)
+				assert.Equal(t, gentf.FieldStruct, byName["metadata"].Kind)
 			},
 		},
 	}
@@ -83,17 +86,17 @@ func TestNormalizeFields_Panics(t *testing.T) {
 	cases := map[string]s{
 		"unknown field reference lists valid names": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{Required: []string{"nope"}}
+				return petEntry(), gentf.Resource{Required: []string{"nope"}, JSON: []string{"config", "metadata"}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t,
-					`Pet: Required references unknown field "nope" (fields: age, create_time, display_name, labels, name, tags, type, vaccinated, weight)`,
+					`Pet: Required references unknown field "nope" (fields: age, config, create_time, display_name, labels, metadata, name, tags, type, vaccinated, weight)`,
 					f)
 			},
 		},
 		"required and computed conflict": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{Required: []string{"create_time"}, Computed: []string{"create_time"}}
+				return petEntry(), gentf.Resource{Required: []string{"create_time"}, Computed: []string{"create_time"}, JSON: []string{"config", "metadata"}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t, "Pet.create_time: field cannot be both required and computed", f)
@@ -107,12 +110,20 @@ func TestNormalizeFields_Panics(t *testing.T) {
 				assert.PanicsWithValue(t, "Pet: WriteOnly fields are not yet supported", f)
 			},
 		},
-		"pending JSON fails loudly": {
+		"JSON marker on a non-Any field": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"labels"}}
+				return petEntry(), gentf.Resource{JSON: []string{"labels", "config", "metadata"}}
 			},
 			assert: func(t *testing.T, f func()) {
-				assert.PanicsWithValue(t, "Pet: JSON fields are not yet supported", f)
+				assert.PanicsWithValue(t, "Pet.labels: JSON marker applies only to google.protobuf.Any and Struct fields", f)
+			},
+		},
+		"Any field without JSON marker": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{}
+			},
+			assert: func(t *testing.T, f func()) {
+				assert.PanicsWithValue(t, "Pet.config: google.protobuf.Any fields must be declared in Resource.JSON", f)
 			},
 		},
 		"non-message type": {

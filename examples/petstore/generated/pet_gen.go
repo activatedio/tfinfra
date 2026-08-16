@@ -7,6 +7,7 @@ import (
 	"fmt"
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
 	tf "github.com/activatedio/tfinfra/pkg/tf"
+	jsontypes "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	stringvalidator "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema1 "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -18,7 +19,10 @@ import (
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
+	protojson "google.golang.org/protobuf/encoding/protojson"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	"time"
 )
@@ -28,6 +32,11 @@ func PetResourceSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"age": schema.Int64Attribute{Optional: true},
+			"config": schema.StringAttribute{
+				CustomType:          jsontypes.NormalizedType{},
+				MarkdownDescription: "`config` as protojson-encoded google.protobuf.Any (JSON object with `@type`); reference a generated config data source's `any` output for the type-safe form.",
+				Optional:            true,
+			},
 			"create_time": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "`create_time` as an RFC 3339 timestamp.",
@@ -37,6 +46,11 @@ func PetResourceSchema() schema.Schema {
 			"labels": schema.MapAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
+			},
+			"metadata": schema.StringAttribute{
+				CustomType:          jsontypes.NormalizedType{},
+				MarkdownDescription: "`metadata` as a JSON object.",
+				Optional:            true,
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
@@ -66,25 +80,29 @@ func PetResourceSchema() schema.Schema {
 
 // PetModel is the Terraform plan/state model for Pet.
 type PetModel struct {
-	Name        types.String  `tfsdk:"name"`
-	StoreId     types.String  `tfsdk:"store_id"`
-	DisplayName types.String  `tfsdk:"display_name"`
-	Type        types.String  `tfsdk:"type"`
-	Age         types.Int64   `tfsdk:"age"`
-	Vaccinated  types.Bool    `tfsdk:"vaccinated"`
-	Weight      types.Float64 `tfsdk:"weight"`
-	Tags        types.List    `tfsdk:"tags"`
-	Labels      types.Map     `tfsdk:"labels"`
-	CreateTime  types.String  `tfsdk:"create_time"`
+	Name        types.String         `tfsdk:"name"`
+	StoreId     types.String         `tfsdk:"store_id"`
+	DisplayName types.String         `tfsdk:"display_name"`
+	Type        types.String         `tfsdk:"type"`
+	Age         types.Int64          `tfsdk:"age"`
+	Vaccinated  types.Bool           `tfsdk:"vaccinated"`
+	Weight      types.Float64        `tfsdk:"weight"`
+	Tags        types.List           `tfsdk:"tags"`
+	Labels      types.Map            `tfsdk:"labels"`
+	CreateTime  types.String         `tfsdk:"create_time"`
+	Config      jsontypes.Normalized `tfsdk:"config"`
+	Metadata    jsontypes.Normalized `tfsdk:"metadata"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
 func NewPetModel() *PetModel {
 	return &PetModel{
 		Age:         types.Int64Null(),
+		Config:      jsontypes.NewNormalizedNull(),
 		CreateTime:  types.StringNull(),
 		DisplayName: types.StringNull(),
 		Labels:      types.MapNull(types.StringType),
+		Metadata:    jsontypes.NewNormalizedNull(),
 		Name:        types.StringNull(),
 		StoreId:     types.StringNull(),
 		Tags:        types.ListNull(types.StringType),
@@ -118,6 +136,22 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 			diags.AddAttributeError(path.Root("create_time"), "invalid RFC 3339 timestamp", err.Error())
 		} else {
 			out.CreateTime = timestamppb.New(t)
+		}
+	}
+	if !m.Config.IsNull() && !m.Config.IsUnknown() {
+		v := &anypb.Any{}
+		if err := protojson.Unmarshal([]byte(m.Config.ValueString()), v); err != nil {
+			diags.AddAttributeError(path.Root("config"), "invalid google.protobuf.Any JSON", err.Error())
+		} else {
+			out.Config = v
+		}
+	}
+	if !m.Metadata.IsNull() && !m.Metadata.IsUnknown() {
+		v := &structpb.Struct{}
+		if err := protojson.Unmarshal([]byte(m.Metadata.ValueString()), v); err != nil {
+			diags.AddAttributeError(path.Root("metadata"), "invalid JSON object", err.Error())
+		} else {
+			out.Metadata = v
 		}
 	}
 	return out, diags
@@ -155,6 +189,26 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	} else {
 		m.CreateTime = types.StringValue(e.CreateTime.AsTime().Format(time.RFC3339))
 	}
+	if e.Config == nil {
+		m.Config = jsontypes.NewNormalizedNull()
+	} else {
+		b, err := protojson.Marshal(e.Config)
+		if err != nil {
+			diags.AddError("cannot encode config", err.Error())
+		} else {
+			m.Config = jsontypes.NewNormalizedValue(string(b))
+		}
+	}
+	if e.Metadata == nil {
+		m.Metadata = jsontypes.NewNormalizedNull()
+	} else {
+		b, err := protojson.Marshal(e.Metadata)
+		if err != nil {
+			diags.AddError("cannot encode metadata", err.Error())
+		} else {
+			m.Metadata = jsontypes.NewNormalizedValue(string(b))
+		}
+	}
 	return diags
 }
 
@@ -169,7 +223,7 @@ func (m *PetModel) ScopeIdentifiers() map[string]string {
 }
 
 // UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.
-func (m *PetModel) UpdateMask(prior *PetModel) []string {
+func (m *PetModel) UpdateMask(ctx context.Context, prior *PetModel) []string {
 	var paths []string
 	if !m.DisplayName.Equal(prior.DisplayName) {
 		paths = append(paths, "display_name")
@@ -191,6 +245,16 @@ func (m *PetModel) UpdateMask(prior *PetModel) []string {
 	}
 	if !m.Labels.Equal(prior.Labels) {
 		paths = append(paths, "labels")
+	}
+	if !m.Config.Equal(prior.Config) {
+		if eq, _ := m.Config.StringSemanticEquals(ctx, prior.Config); !eq {
+			paths = append(paths, "config")
+		}
+	}
+	if !m.Metadata.Equal(prior.Metadata) {
+		if eq, _ := m.Metadata.StringSemanticEquals(ctx, prior.Metadata); !eq {
+			paths = append(paths, "metadata")
+		}
 	}
 	return paths
 }
@@ -318,12 +382,20 @@ func (r *petResource) ImportState(ctx context.Context, req resource.ImportStateR
 func PetDataSourceSchema() schema1.Schema {
 	return schema1.Schema{
 		Attributes: map[string]schema1.Attribute{
-			"age":          schema1.Int64Attribute{Computed: true},
+			"age": schema1.Int64Attribute{Computed: true},
+			"config": schema1.StringAttribute{
+				Computed:   true,
+				CustomType: jsontypes.NormalizedType{},
+			},
 			"create_time":  schema1.StringAttribute{Computed: true},
 			"display_name": schema1.StringAttribute{Computed: true},
 			"labels": schema1.MapAttribute{
 				Computed:    true,
 				ElementType: types.StringType,
+			},
+			"metadata": schema1.StringAttribute{
+				Computed:   true,
+				CustomType: jsontypes.NormalizedType{},
 			},
 			"name": schema1.StringAttribute{
 				MarkdownDescription: "Full resource name of the object to read.",
