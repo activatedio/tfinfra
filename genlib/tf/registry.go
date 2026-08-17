@@ -68,6 +68,9 @@ func validateEntry(e Entry) {
 	if HasImplementation[ConfigDataSource](e) && HasImplementation[Resource](e) {
 		panic(fmt.Sprintf("%s: ConfigDataSource and Resource are mutually exclusive on one entry", entityType(e).Name()))
 	}
+	if len(Associations(e)) > 0 && !HasImplementation[Resource](e) {
+		panic(fmt.Sprintf("%s: Associate requires a Resource marker on the same entry", entityType(e).Name()))
+	}
 }
 
 // fileMainHandler composes the sections of one entry's file: schema(s), the
@@ -100,6 +103,12 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 		writeDataSourceSchema(f, fm.Entry, res, fields)
 		writeDataSource(f, fm.Entry, n)
 	}
+
+	for _, a := range Associations(fm.Entry) {
+		am := AnalyzeAssociation(fm.Entry, res, a)
+		writeAssociationFactory(f, res, n, am)
+		writeAssociationResource(f, n, am)
+	}
 }
 
 // writeIndex emits the registration slices the provider hands to the
@@ -114,6 +123,10 @@ func writeIndex(f *jen.File, spec *Spec) {
 			resources = append(resources, jen.Id("New"+n.Entity+"Resource"))
 			if HasImplementation[DataSource](e) {
 				dataSources = append(dataSources, jen.Id("New"+n.Entity+"DataSource"))
+			}
+			for _, a := range Associations(e) {
+				am := AnalyzeAssociation(e, res, a)
+				resources = append(resources, jen.Id("New"+am.Combined+"Resource"))
 			}
 		}
 		if HasImplementation[ConfigDataSource](e) {

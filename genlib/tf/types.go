@@ -127,3 +127,24 @@ type ConfigDataSource struct {
 // DataSourceList declares a plural data source (List under a parent) for
 // the entry. PENDING: declaring it panics at generation time.
 type DataSourceList struct{}
+
+// Associate declares an authoritative association resource for the entry —
+// the Terraform surface of the kit Associate{Targets}To{Entity} /
+// List{Targets}By{Entity} RPC pair. The generated resource owns the
+// entity's FULL association set: members present on the server but absent
+// from the configuration are removed on apply.
+//
+// Requires a Resource marker on the same entry (the RPC pair is validated
+// against its ClientType). An entry may declare multiple Associate markers,
+// one per edge.
+type Associate struct {
+	// Target is the associated entity's pb message type, e.g.
+	// reflect.TypeFor[petstorev1.Toy](). Required.
+	Target reflect.Type
+	// Attribute overrides the derived member-set attribute name (the snake
+	// plural of the target type, e.g. "toys").
+	Attribute string
+	// TypeName overrides the derived Terraform type suffix
+	// ("<entity>_<attribute>", e.g. "pet_toys").
+	TypeName string
+}

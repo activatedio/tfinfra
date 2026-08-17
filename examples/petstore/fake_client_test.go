@@ -3,6 +3,7 @@ package petstore_test
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,11 +21,14 @@ import (
 // generated adapters sent.
 type fakePetStoreClient struct {
 	pets map[string]*petstorev1.Pet
+	toys map[string]map[string]bool
 	seq  int
 
-	lastCreateParent string
-	lastPatchPaths   []string
-	lastListParent   string
+	lastCreateParent    string
+	lastPatchPaths      []string
+	lastListParent      string
+	lastAssociateSet    []string
+	lastAssociateRemove []string
 }
 
 func newFakePetStoreClient() *fakePetStoreClient {
@@ -111,12 +115,57 @@ func (f *fakePetStoreClient) DeletePet(_ context.Context, in *petstorev1.DeleteP
 	return &emptypb.Empty{}, nil
 }
 
-// The association RPCs exist so the fake keeps satisfying the client
-// interface; the Terraform side does not exercise them (cmdinfra does).
-func (f *fakePetStoreClient) AssociateToysToPet(_ context.Context, _ *petstorev1.AssociateToysToPetRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "not implemented in the terraform example fake")
+// AssociateToysToPet applies set/remove semantics over the pet's toy set
+// and records the last edge payload so tests can assert what the generated
+// adapter sent.
+func (f *fakePetStoreClient) AssociateToysToPet(_ context.Context, in *petstorev1.AssociateToysToPetRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if _, ok := f.pets[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "pet %q not found", in.GetName())
+	}
+	f.lastAssociateSet = in.GetAssociation().GetSet()
+	f.lastAssociateRemove = in.GetAssociation().GetRemove()
+	if f.toys == nil {
+		f.toys = map[string]map[string]bool{}
+	}
+	if f.toys[in.GetName()] == nil {
+		f.toys[in.GetName()] = map[string]bool{}
+	}
+	for _, n := range in.GetAssociation().GetSet() {
+		f.toys[in.GetName()][n] = true
+	}
+	for _, n := range in.GetAssociation().GetRemove() {
+		delete(f.toys[in.GetName()], n)
+	}
+	return &emptypb.Empty{}, nil
 }
 
-func (f *fakePetStoreClient) ListToysByPet(_ context.Context, _ *petstorev1.ListToysByPetRequest, _ ...grpc.CallOption) (*petstorev1.ListToysByPetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "not implemented in the terraform example fake")
+// ListToysByPet pages one toy at a time so the runtime's token walk is
+// exercised.
+func (f *fakePetStoreClient) ListToysByPet(_ context.Context, in *petstorev1.ListToysByPetRequest, _ ...grpc.CallOption) (*petstorev1.ListToysByPetResponse, error) {
+	if _, ok := f.pets[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "pet %q not found", in.GetName())
+	}
+	names := f.petToys(in.GetName())
+	start := 0
+	if in.GetPageToken() != "" {
+		fmt.Sscanf(in.GetPageToken(), "%d", &start)
+	}
+	res := &petstorev1.ListToysByPetResponse{}
+	if start < len(names) {
+		res.Toys = []*petstorev1.Toy{{Name: names[start]}}
+		if start+1 < len(names) {
+			res.NextPageToken = fmt.Sprintf("%d", start+1)
+		}
+	}
+	return res, nil
+}
+
+// petToys returns the pet's current toy names, sorted.
+func (f *fakePetStoreClient) petToys(pet string) []string {
+	names := make([]string, 0, len(f.toys[pet]))
+	for n := range f.toys[pet] {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
 }

@@ -467,3 +467,110 @@ func (d *petDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	}
 	d.crud.ReadDataSource(ctx, req, resp)
 }
+
+// newPetToysAssociation builds the pet_toys runtime from provider data; it returns nil (no error) before the provider is configured.
+func newPetToysAssociation(providerData any) (*tf.Association, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	if providerData == nil {
+		return nil, diags
+	}
+	pd, ok := providerData.(*tf.ProviderData)
+	if !ok {
+		diags.AddError("unexpected provider data", fmt.Sprintf("expected *tf.ProviderData, got %T", providerData))
+		return nil, diags
+	}
+	client, ok := pd.Clients["petstore"].(v1.PetStoreServiceClient)
+	if !ok {
+		diags.AddError("missing client", "provider data key \"petstore\" is not a github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1.PetStoreServiceClient")
+		return nil, diags
+	}
+	return tf.NewAssociation(tf.AssociationParams{
+		Attribute: "toys",
+		Client: tf.AssociationClient{
+			Associate: func(ctx context.Context, name string, set, remove []string) error {
+				_, err := client.AssociateToysToPet(ctx, &v1.AssociateToysToPetRequest{
+					Association: &v1.AssociationRequest{
+						Remove: remove,
+						Set:    set,
+					},
+					Name: name,
+				})
+				return err
+			},
+			ListBy: func(ctx context.Context, name, pageToken string) ([]string, string, error) {
+				out, err := client.ListToysByPet(ctx, &v1.ListToysByPetRequest{
+					Name:      name,
+					PageToken: pageToken,
+				})
+				if err != nil {
+					return nil, "", err
+				}
+				names := make([]string, 0, len(out.Toys))
+				for _, item := range out.Toys {
+					names = append(names, item.GetName())
+				}
+				return names, out.NextPageToken, nil
+			},
+		},
+		Collection:      "pets",
+		EntityAttribute: "pet",
+		Scope:           tf.NewScope("stores"),
+		TypeName:        "pet_toys",
+	}), diags
+}
+
+// petToysResource is the generated authoritative association resource for a pet's toys.
+type petToysResource struct {
+	assoc *tf.Association
+}
+
+// NewPetToysResource returns the generated pet_toys resource; its client arrives via Configure from tf.ProviderData.
+func NewPetToysResource() resource.Resource {
+	return &petToysResource{}
+}
+func (r *petToysResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_pet_toys"
+}
+func (r *petToysResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = tf.AssociationSchema("pet", "toys")
+}
+func (r *petToysResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+	assoc, diags := newPetToysAssociation(req.ProviderData)
+	resp.Diagnostics.Append(diags...)
+	r.assoc = assoc
+}
+func (r *petToysResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	if r.assoc == nil {
+		resp.Diagnostics.AddError("pet_toys resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.assoc.Create(ctx, req, resp)
+}
+func (r *petToysResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	if r.assoc == nil {
+		resp.Diagnostics.AddError("pet_toys resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.assoc.Read(ctx, req, resp)
+}
+func (r *petToysResource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	if r.assoc == nil {
+		resp.Diagnostics.AddError("pet_toys resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.assoc.Update(ctx, req, resp)
+}
+func (r *petToysResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	if r.assoc == nil {
+		resp.Diagnostics.AddError("pet_toys resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.assoc.Delete(ctx, req, resp)
+}
+func (r *petToysResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	if r.assoc == nil {
+		resp.Diagnostics.AddError("pet_toys resource not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	r.assoc.ImportState(ctx, req, resp)
+}

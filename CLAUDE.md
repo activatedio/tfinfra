@@ -176,6 +176,13 @@ registration.
 - Delete: NotFound counts as success.
 - Import: ID is the full AIP name, validated against the scope pattern.
 - Data source (singular): Get by full name; NotFound is an error.
+- Association (`tf.Associate`): an authoritative resource over the kit
+  `Associate{Targets}To{Entity}` / `List{Targets}By{Entity}` pair — two
+  attributes (entity full name, RequiresReplace; member-name set). Create
+  and Update reconcile the server to exactly the planned set (one call:
+  `set` = missing, `remove` = unmanaged), Read walks the list pages into
+  state (entity NotFound removes the resource), Delete removes every
+  current member, import ID is the entity's full name.
 
 ## Status
 
@@ -186,13 +193,14 @@ ScopeIdentifiers / UpdateMask with JSON semantic comparison), Crud runtime,
 generated resource + singular data source glue, Any/Struct via jsontypes,
 config builder data sources (`tf.ConfigDataSource`), index generation,
 full-lifecycle tests against a fake client, determinism (regeneration is
-byte-identical).
+byte-identical), association resources (`tf.Associate` + the Association
+runtime).
 
 Pending (tracked in the terraform-provider-authwise plan): plural list data
 sources (DataSourceList), write-only arguments, proto3 `optional` presence
-in the null convention, association resources (`tf.Associate`), Wiring/DI
-index variant, pagination surfacing for list data sources. Auth ships
-separately in `api-client-go/credentials/bearer`.
+in the null convention, Wiring/DI index variant, pagination surfacing for
+list data sources. Auth ships separately in
+`api-client-go/credentials/bearer`.
 
 ## Working in this repo
 

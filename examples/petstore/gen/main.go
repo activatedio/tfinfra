@@ -35,6 +35,7 @@ func main() {
 						JSON:       []string{"config", "metadata"},
 					},
 					gentf.DataSource{},
+					gentf.Associate{Target: reflect.TypeFor[petstorev1.Toy]()},
 				},
 			},
 			{
