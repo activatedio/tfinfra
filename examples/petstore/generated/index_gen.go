@@ -9,10 +9,10 @@ import (
 
 // Resources returns the generated resource constructors for provider registration.
 func Resources() []func() resource.Resource {
-	return []func() resource.Resource{NewPetResource, NewPetToysResource}
+	return []func() resource.Resource{NewPetResource, NewPetToysResource, NewToyResource}
 }
 
 // DataSources returns the generated data source constructors for provider registration.
 func DataSources() []func() datasource.DataSource {
-	return []func() datasource.DataSource{NewPetDataSource, NewCollarConfigDataSource}
+	return []func() datasource.DataSource{NewPetDataSource, NewToyDataSource, NewCollarConfigDataSource}
 }

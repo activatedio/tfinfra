@@ -39,6 +39,21 @@ func main() {
 				},
 			},
 			{
+				// Toy is caller-named: the practitioner supplies "toy_id"
+				// and the server composes the name from it.
+				Type: reflect.TypeFor[petstorev1.Toy](),
+				Implementations: []any{
+					gentf.Resource{
+						Scope:       scopeStore,
+						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:      "petstore",
+						CallerNamed: true,
+						Required:    []string{"display_name"},
+					},
+					gentf.DataSource{},
+				},
+			},
+			{
 				Type: reflect.TypeFor[petstorev1.CollarConfig](),
 				Implementations: []any{
 					gentf.ConfigDataSource{Required: []string{"color"}, JSON: []string{"buckle"}},

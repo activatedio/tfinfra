@@ -80,6 +80,15 @@ type Resource struct {
 	// UseUpdate selects the full-replace Update operation instead of Patch
 	// with an update mask.
 	UseUpdate bool
+	// CallerNamed declares that the resource's own id comes from the caller
+	// rather than the server: the create request carries it in the entity's
+	// "name" field, and the server composes the full resource name from the
+	// parent and that id.
+	//
+	// It generates a required, replace-on-change "<type_name>_id" attribute
+	// holding the id (the last segment of "name"); "name" stays computed and
+	// keeps its role as the full resource name and the Terraform ID.
+	CallerNamed bool
 	// Required lists proto fields the practitioner must set.
 	Required []string
 	// Immutable lists proto fields that force replacement when changed

@@ -2,6 +2,7 @@ package tf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -10,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // ProviderData is the contract between a provider's Configure and the
@@ -68,6 +70,11 @@ type CrudParams[E proto.Message, M Model[E, M]] struct {
 	// UseUpdate selects the full-replace Update operation instead of
 	// Patch with an update mask.
 	UseUpdate bool
+	// IDAttribute is the attribute holding the caller-assigned resource id
+	// for a CallerNamed resource ("toy_id"); empty when the server assigns
+	// the id. Create copies its value into the entity's name field, and
+	// import and data source reads fill it from the resource name.
+	IDAttribute string
 }
 
 // Crud is the generic runtime behind generated resources and singular data
@@ -126,6 +133,21 @@ func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, res
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
+	}
+
+	// Caller-named resources carry their id in the entity's name field;
+	// the server composes the full resource name from parent and id.
+	if c.params.IDAttribute != "" {
+		var id types.String
+		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(c.params.IDAttribute), &id)...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		if err := setResourceID(e, id.ValueString()); err != nil {
+			resp.Diagnostics.AddAttributeError(path.Root(c.params.IDAttribute),
+				fmt.Sprintf("cannot set the %s id", c.params.TypeName), err.Error())
+			return
+		}
 	}
 
 	out, err := c.params.Client.Create(ctx, parent, e)
@@ -249,12 +271,19 @@ func (c *Crud[E, M]) Delete(ctx context.Context, req resource.DeleteRequest, res
 // the full AIP resource name.
 func (c *Crud[E, M]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 
-	if _, _, err := c.params.Scope.ParseName(c.params.Collection, req.ID); err != nil {
+	_, id, err := c.params.Scope.ParseName(c.params.Collection, req.ID)
+	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("invalid import ID for %s", c.params.TypeName), err.Error())
 		return
 	}
 
 	resource.ImportStatePassthroughID(ctx, path.Root(NameAttribute), req, resp)
+
+	// A caller-named resource's id attribute is required, so it must land in
+	// state on import or the first plan after it would force replacement.
+	if c.params.IDAttribute != "" {
+		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
+	}
 }
 
 // ReadDataSource implements the singular data source Read: Get by full name.
@@ -279,7 +308,36 @@ func (c *Crud[E, M]) ReadDataSource(ctx context.Context, req datasource.ReadRequ
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
+	if resp.Diagnostics.HasError() || c.params.IDAttribute == "" {
+		return
+	}
+
+	_, id, err := c.params.Scope.ParseName(c.params.Collection, m.GetName().ValueString())
+	if err != nil {
+		resp.Diagnostics.AddError(fmt.Sprintf("unexpected %s name", c.params.TypeName), err.Error())
+		return
+	}
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
 }
 
 // NameAttribute is the Terraform attribute holding the AIP resource name.
 const NameAttribute = "name"
+
+// setResourceID writes the caller-assigned id into the entity's AIP name
+// field, which is where the API takes it from on create.
+func setResourceID(e proto.Message, id string) error {
+
+	if id == "" {
+		return errors.New("the id must not be empty")
+	}
+
+	m := e.ProtoReflect()
+	fd := m.Descriptor().Fields().ByName(NameAttribute)
+	if fd == nil || fd.Kind() != protoreflect.StringKind {
+		return fmt.Errorf("%s has no string %q field", m.Descriptor().FullName(), NameAttribute)
+	}
+
+	m.Set(fd, protoreflect.ValueOfString(id))
+
+	return nil
+}

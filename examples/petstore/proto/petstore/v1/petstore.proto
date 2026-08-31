@@ -23,6 +23,15 @@ service PetStoreService {
   rpc PatchPet(PatchPetRequest) returns (Pet);
   rpc DeletePet(DeletePetRequest) returns (google.protobuf.Empty);
 
+  // Toy is the caller-named counterpart of Pet: same AIP family, but the
+  // create request carries the caller's own id in the entity's name field.
+  rpc GetToy(GetToyRequest) returns (Toy);
+  rpc ListToys(ListToysRequest) returns (ListToysResponse);
+  rpc CreateToy(CreateToyRequest) returns (Toy);
+  rpc UpdateToy(UpdateToyRequest) returns (Toy);
+  rpc PatchToy(PatchToyRequest) returns (Toy);
+  rpc DeleteToy(DeleteToyRequest) returns (google.protobuf.Empty);
+
   // The association RPC family, kit-shaped: an authoritative set/remove
   // edge plus its paginated read-back.
   rpc AssociateToysToPet(AssociateToysToPetRequest) returns (google.protobuf.Empty);
@@ -123,7 +132,44 @@ message ListToysByPetResponse {
   string next_page_token = 2;
 }
 
-// Toy is the association target entity.
+message GetToyRequest {
+  string name = 1;
+}
+
+message ListToysRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListToysResponse {
+  repeated Toy toys = 1;
+  string next_page_token = 2;
+}
+
+message CreateToyRequest {
+  string parent = 1;
+  Toy toy = 2;
+}
+
+message UpdateToyRequest {
+  string name = 1;
+  Toy toy = 2;
+}
+
+message PatchToyRequest {
+  string name = 1;
+  Toy toy = 2;
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+message DeleteToyRequest {
+  string name = 1;
+}
+
+// Toy is the association target entity and the caller-named resource: its
+// AIP name is stores/{store}/toys/{toy}, where {toy} is the id the caller
+// puts in name on create rather than one the server mints.
 message Toy {
   string name = 1;
   string display_name = 2;

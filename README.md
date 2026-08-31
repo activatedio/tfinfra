@@ -52,6 +52,17 @@ The behavioral layer (required / immutable / computed / sensitive) lives in
 the spec because AIP protos without `google.api.field_behavior` cannot
 express it; everything structural comes from the descriptors.
 
+Resources whose id the caller chooses rather than the server — the API takes
+it from the entity's `name` field on create — declare `CallerNamed: true`,
+which adds a required, replace-on-change `<type_name>_id` attribute:
+
+```hcl
+resource "petstore_toy" "bone" {
+  toy_id       = "squeaky-bone"     # name = stores/s1/toys/squeaky-bone
+  display_name = "Squeaky bone"
+}
+```
+
 See `examples/petstore/` for the end-to-end example (its `generated/`
 directory is the golden output contract) and `CLAUDE.md` for architecture,
 supported field shapes, and status.

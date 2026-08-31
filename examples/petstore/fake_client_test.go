@@ -22,17 +22,25 @@ import (
 type fakePetStoreClient struct {
 	pets map[string]*petstorev1.Pet
 	toys map[string]map[string]bool
-	seq  int
+	// toyEntities are the caller-named Toy resources, keyed by full name.
+	toyEntities map[string]*petstorev1.Toy
+	seq         int
 
 	lastCreateParent    string
 	lastPatchPaths      []string
 	lastListParent      string
 	lastAssociateSet    []string
 	lastAssociateRemove []string
+	// lastCreateToyID is the id the create request carried in the entity's
+	// name field — what a caller-named API keys the row on.
+	lastCreateToyID string
 }
 
 func newFakePetStoreClient() *fakePetStoreClient {
-	return &fakePetStoreClient{pets: map[string]*petstorev1.Pet{}}
+	return &fakePetStoreClient{
+		pets:        map[string]*petstorev1.Pet{},
+		toyEntities: map[string]*petstorev1.Toy{},
+	}
 }
 
 func (f *fakePetStoreClient) GetPet(_ context.Context, in *petstorev1.GetPetRequest, _ ...grpc.CallOption) (*petstorev1.Pet, error) {
@@ -112,6 +120,78 @@ func (f *fakePetStoreClient) DeletePet(_ context.Context, in *petstorev1.DeleteP
 		return nil, status.Errorf(codes.NotFound, "pet %q not found", in.GetName())
 	}
 	delete(f.pets, in.GetName())
+	return &emptypb.Empty{}, nil
+}
+
+// --- Toy: the caller-named lane. Create takes the row's id from the
+// entity's name field and composes the full name from the parent, the way
+// kit's name-keyed entities do.
+
+func (f *fakePetStoreClient) GetToy(_ context.Context, in *petstorev1.GetToyRequest, _ ...grpc.CallOption) (*petstorev1.Toy, error) {
+	t, ok := f.toyEntities[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "toy %q not found", in.GetName())
+	}
+	return proto.Clone(t).(*petstorev1.Toy), nil
+}
+
+func (f *fakePetStoreClient) ListToys(_ context.Context, _ *petstorev1.ListToysRequest, _ ...grpc.CallOption) (*petstorev1.ListToysResponse, error) {
+	res := &petstorev1.ListToysResponse{}
+	for _, t := range f.toyEntities {
+		res.Toys = append(res.Toys, proto.Clone(t).(*petstorev1.Toy))
+	}
+	return res, nil
+}
+
+func (f *fakePetStoreClient) CreateToy(_ context.Context, in *petstorev1.CreateToyRequest, _ ...grpc.CallOption) (*petstorev1.Toy, error) {
+
+	f.lastCreateParent = in.GetParent()
+	f.lastCreateToyID = in.GetToy().GetName()
+
+	if f.lastCreateToyID == "" {
+		return nil, status.Error(codes.InvalidArgument, "toy name is required")
+	}
+
+	t := proto.Clone(in.GetToy()).(*petstorev1.Toy)
+	t.Name = fmt.Sprintf("%s/toys/%s", in.GetParent(), f.lastCreateToyID)
+	if _, exists := f.toyEntities[t.GetName()]; exists {
+		return nil, status.Errorf(codes.AlreadyExists, "toy %q already exists", t.GetName())
+	}
+	f.toyEntities[t.GetName()] = t
+
+	return proto.Clone(t).(*petstorev1.Toy), nil
+}
+
+func (f *fakePetStoreClient) UpdateToy(_ context.Context, in *petstorev1.UpdateToyRequest, _ ...grpc.CallOption) (*petstorev1.Toy, error) {
+	if _, ok := f.toyEntities[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "toy %q not found", in.GetName())
+	}
+	t := proto.Clone(in.GetToy()).(*petstorev1.Toy)
+	t.Name = in.GetName()
+	f.toyEntities[in.GetName()] = t
+	return proto.Clone(t).(*petstorev1.Toy), nil
+}
+
+func (f *fakePetStoreClient) PatchToy(_ context.Context, in *petstorev1.PatchToyRequest, _ ...grpc.CallOption) (*petstorev1.Toy, error) {
+	existing, ok := f.toyEntities[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "toy %q not found", in.GetName())
+	}
+	f.lastPatchPaths = in.GetUpdateMask().GetPaths()
+	for _, path := range in.GetUpdateMask().GetPaths() {
+		if path != "display_name" {
+			return nil, status.Errorf(codes.InvalidArgument, "unsupported update_mask path %q", path)
+		}
+		existing.DisplayName = in.GetToy().GetDisplayName()
+	}
+	return proto.Clone(existing).(*petstorev1.Toy), nil
+}
+
+func (f *fakePetStoreClient) DeleteToy(_ context.Context, in *petstorev1.DeleteToyRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if _, ok := f.toyEntities[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "toy %q not found", in.GetName())
+	}
+	delete(f.toyEntities, in.GetName())
 	return &emptypb.Empty{}, nil
 }
 

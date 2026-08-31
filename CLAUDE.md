@@ -82,6 +82,18 @@ shapes read from protoc-gen-go struct tags), `Client` (the
 `ProviderData.Clients` key, default `"default"`), plus optional `Plural`,
 `Collection`, and `UseUpdate` (full-replace instead of Patch) overrides.
 
+`Resource.CallerNamed` covers APIs where the resource id comes from the
+caller rather than the server — kit's name-keyed entities (`AccessPermission`
+`guardcontrol.tenants.get`, `Domain` `example.com`), whose create request
+carries the id in the entity's `name` field. It emits a required,
+`RequiresReplace` `<type_name>_id` attribute; `name` stays computed and keeps
+its role as the full resource name and the Terraform ID. The runtime copies
+the attribute into the entity's name field on create (protoreflect, so no
+generated conversion changes), and fills it from the last name segment on
+import and on data source reads — a required attribute missing from imported
+state would force replacement on the next plan. `Toy` in the petstore example
+is the golden case; `Pet` remains the server-named one.
+
 `Resource` behavior lists reference proto field names (snake_case); unknown
 names, conflicting behavior, and unsupported shapes all **panic at
 generation time** — failures must be loud, never silent omissions.
@@ -168,13 +180,16 @@ registration.
 ## Runtime semantics
 
 - Create: resolve parent (resource attr > provider default > actionable
-  error), `Create*(parent, entity)`, state from the response.
+  error), `Create*(parent, entity)`, state from the response. For a
+  `CallerNamed` resource the `<type_name>_id` attribute is written into the
+  entity's name field first; an empty id is an attribute-anchored error.
 - Read: `Get*(name)`; gRPC NotFound removes the resource from state.
 - Update: `Patch*` with `update_mask` from the generated plan/state
   `UpdateMask` diff (empty mask → read back instead of an empty patch);
   `UseUpdate` switches to full-replace `Update*`.
 - Delete: NotFound counts as success.
-- Import: ID is the full AIP name, validated against the scope pattern.
+- Import: ID is the full AIP name, validated against the scope pattern; a
+  `CallerNamed` resource's id attribute is filled from its last segment.
 - Data source (singular): Get by full name; NotFound is an error.
 - Association (`tf.Associate`): an authoritative resource over the kit
   `Associate{Targets}To{Entity}` / `List{Targets}By{Entity}` pair — two
@@ -194,7 +209,7 @@ generated resource + singular data source glue, Any/Struct via jsontypes,
 config builder data sources (`tf.ConfigDataSource`), index generation,
 full-lifecycle tests against a fake client, determinism (regeneration is
 byte-identical), association resources (`tf.Associate` + the Association
-runtime).
+runtime), caller-assigned resource ids (`Resource.CallerNamed`).
 
 Pending (tracked in the terraform-provider-authwise plan): plural list data
 sources (DataSourceList), write-only arguments, proto3 `optional` presence

@@ -47,18 +47,23 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 // timestamps read a proto zero value as Terraform null (except "name" and
 // Required fields, which always carry a value); bools and numbers always
 // carry a value because proto3 cannot distinguish zero from unset.
-func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
+func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Field) {
 
 	t := entityType(e)
 	modelName := t.Name() + "Model"
 	entityQual := func() *jen.Statement { return jen.Qual(t.PkgPath(), t.Name()) }
 
-	// Struct: name first, then scope identifiers, then remaining proto
-	// fields in declaration order.
+	// Struct: name first, then the caller-assigned id, then scope
+	// identifiers, then remaining proto fields in declaration order.
 	var structFields []jen.Code
 
 	structFields = append(structFields,
 		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: NameField}))
+
+	if n.IDAttribute != "" {
+		structFields = append(structFields,
+			jen.Id(snakeToCamel(n.IDAttribute)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: n.IDAttribute}))
+	}
 
 	for _, attr := range res.Scope.IdentifierAttributes() {
 		structFields = append(structFields,
@@ -76,7 +81,7 @@ func writeModel(f *jen.File, e Entry, res Resource, fields []Field) {
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
 	f.Type().Id(modelName).Struct(structFields...)
 
-	writeModelConstructor(f, res, fields, modelName)
+	writeModelConstructor(f, res, n, fields, modelName)
 
 	// ToProto
 	to := make([]jen.Code, 0, len(fields)+3)
@@ -138,10 +143,14 @@ func typedNull(kind FieldKind) *jen.Statement {
 
 // writeModelConstructor emits New<Entity>Model with every attribute as a
 // typed null.
-func writeModelConstructor(f *jen.File, res Resource, fields []Field, modelName string) {
+func writeModelConstructor(f *jen.File, res Resource, n entityNames, fields []Field, modelName string) {
 
 	d := jen.Dict{
 		jen.Id("Name"): typedNull(FieldString),
+	}
+
+	if n.IDAttribute != "" {
+		d[jen.Id(snakeToCamel(n.IDAttribute))] = typedNull(FieldString)
 	}
 
 	for _, attr := range res.Scope.IdentifierAttributes() {

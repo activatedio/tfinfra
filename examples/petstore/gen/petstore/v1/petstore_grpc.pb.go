@@ -30,6 +30,12 @@ const (
 	PetStoreService_UpdatePet_FullMethodName          = "/petstore.v1.PetStoreService/UpdatePet"
 	PetStoreService_PatchPet_FullMethodName           = "/petstore.v1.PetStoreService/PatchPet"
 	PetStoreService_DeletePet_FullMethodName          = "/petstore.v1.PetStoreService/DeletePet"
+	PetStoreService_GetToy_FullMethodName             = "/petstore.v1.PetStoreService/GetToy"
+	PetStoreService_ListToys_FullMethodName           = "/petstore.v1.PetStoreService/ListToys"
+	PetStoreService_CreateToy_FullMethodName          = "/petstore.v1.PetStoreService/CreateToy"
+	PetStoreService_UpdateToy_FullMethodName          = "/petstore.v1.PetStoreService/UpdateToy"
+	PetStoreService_PatchToy_FullMethodName           = "/petstore.v1.PetStoreService/PatchToy"
+	PetStoreService_DeleteToy_FullMethodName          = "/petstore.v1.PetStoreService/DeleteToy"
 	PetStoreService_AssociateToysToPet_FullMethodName = "/petstore.v1.PetStoreService/AssociateToysToPet"
 	PetStoreService_ListToysByPet_FullMethodName      = "/petstore.v1.PetStoreService/ListToysByPet"
 )
@@ -47,6 +53,14 @@ type PetStoreServiceClient interface {
 	UpdatePet(ctx context.Context, in *UpdatePetRequest, opts ...grpc.CallOption) (*Pet, error)
 	PatchPet(ctx context.Context, in *PatchPetRequest, opts ...grpc.CallOption) (*Pet, error)
 	DeletePet(ctx context.Context, in *DeletePetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Toy is the caller-named counterpart of Pet: same AIP family, but the
+	// create request carries the caller's own id in the entity's name field.
+	GetToy(ctx context.Context, in *GetToyRequest, opts ...grpc.CallOption) (*Toy, error)
+	ListToys(ctx context.Context, in *ListToysRequest, opts ...grpc.CallOption) (*ListToysResponse, error)
+	CreateToy(ctx context.Context, in *CreateToyRequest, opts ...grpc.CallOption) (*Toy, error)
+	UpdateToy(ctx context.Context, in *UpdateToyRequest, opts ...grpc.CallOption) (*Toy, error)
+	PatchToy(ctx context.Context, in *PatchToyRequest, opts ...grpc.CallOption) (*Toy, error)
+	DeleteToy(ctx context.Context, in *DeleteToyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// The association RPC family, kit-shaped: an authoritative set/remove
 	// edge plus its paginated read-back.
 	AssociateToysToPet(ctx context.Context, in *AssociateToysToPetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -121,6 +135,66 @@ func (c *petStoreServiceClient) DeletePet(ctx context.Context, in *DeletePetRequ
 	return out, nil
 }
 
+func (c *petStoreServiceClient) GetToy(ctx context.Context, in *GetToyRequest, opts ...grpc.CallOption) (*Toy, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Toy)
+	err := c.cc.Invoke(ctx, PetStoreService_GetToy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListToys(ctx context.Context, in *ListToysRequest, opts ...grpc.CallOption) (*ListToysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListToysResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListToys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) CreateToy(ctx context.Context, in *CreateToyRequest, opts ...grpc.CallOption) (*Toy, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Toy)
+	err := c.cc.Invoke(ctx, PetStoreService_CreateToy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) UpdateToy(ctx context.Context, in *UpdateToyRequest, opts ...grpc.CallOption) (*Toy, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Toy)
+	err := c.cc.Invoke(ctx, PetStoreService_UpdateToy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) PatchToy(ctx context.Context, in *PatchToyRequest, opts ...grpc.CallOption) (*Toy, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Toy)
+	err := c.cc.Invoke(ctx, PetStoreService_PatchToy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) DeleteToy(ctx context.Context, in *DeleteToyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, PetStoreService_DeleteToy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *petStoreServiceClient) AssociateToysToPet(ctx context.Context, in *AssociateToysToPetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(emptypb.Empty)
@@ -154,6 +228,14 @@ type PetStoreServiceServer interface {
 	UpdatePet(context.Context, *UpdatePetRequest) (*Pet, error)
 	PatchPet(context.Context, *PatchPetRequest) (*Pet, error)
 	DeletePet(context.Context, *DeletePetRequest) (*emptypb.Empty, error)
+	// Toy is the caller-named counterpart of Pet: same AIP family, but the
+	// create request carries the caller's own id in the entity's name field.
+	GetToy(context.Context, *GetToyRequest) (*Toy, error)
+	ListToys(context.Context, *ListToysRequest) (*ListToysResponse, error)
+	CreateToy(context.Context, *CreateToyRequest) (*Toy, error)
+	UpdateToy(context.Context, *UpdateToyRequest) (*Toy, error)
+	PatchToy(context.Context, *PatchToyRequest) (*Toy, error)
+	DeleteToy(context.Context, *DeleteToyRequest) (*emptypb.Empty, error)
 	// The association RPC family, kit-shaped: an authoritative set/remove
 	// edge plus its paginated read-back.
 	AssociateToysToPet(context.Context, *AssociateToysToPetRequest) (*emptypb.Empty, error)
@@ -185,6 +267,24 @@ func (UnimplementedPetStoreServiceServer) PatchPet(context.Context, *PatchPetReq
 }
 func (UnimplementedPetStoreServiceServer) DeletePet(context.Context, *DeletePetRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeletePet not implemented")
+}
+func (UnimplementedPetStoreServiceServer) GetToy(context.Context, *GetToyRequest) (*Toy, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetToy not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListToys(context.Context, *ListToysRequest) (*ListToysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListToys not implemented")
+}
+func (UnimplementedPetStoreServiceServer) CreateToy(context.Context, *CreateToyRequest) (*Toy, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateToy not implemented")
+}
+func (UnimplementedPetStoreServiceServer) UpdateToy(context.Context, *UpdateToyRequest) (*Toy, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateToy not implemented")
+}
+func (UnimplementedPetStoreServiceServer) PatchToy(context.Context, *PatchToyRequest) (*Toy, error) {
+	return nil, status.Error(codes.Unimplemented, "method PatchToy not implemented")
+}
+func (UnimplementedPetStoreServiceServer) DeleteToy(context.Context, *DeleteToyRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteToy not implemented")
 }
 func (UnimplementedPetStoreServiceServer) AssociateToysToPet(context.Context, *AssociateToysToPetRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method AssociateToysToPet not implemented")
@@ -321,6 +421,114 @@ func _PetStoreService_DeletePet_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PetStoreService_GetToy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetToyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).GetToy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_GetToy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).GetToy(ctx, req.(*GetToyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListToys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListToysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListToys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListToys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListToys(ctx, req.(*ListToysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_CreateToy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateToyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).CreateToy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_CreateToy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).CreateToy(ctx, req.(*CreateToyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_UpdateToy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateToyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).UpdateToy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_UpdateToy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).UpdateToy(ctx, req.(*UpdateToyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_PatchToy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PatchToyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).PatchToy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_PatchToy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).PatchToy(ctx, req.(*PatchToyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_DeleteToy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteToyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).DeleteToy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_DeleteToy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).DeleteToy(ctx, req.(*DeleteToyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PetStoreService_AssociateToysToPet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AssociateToysToPetRequest)
 	if err := dec(in); err != nil {
@@ -387,6 +595,30 @@ var PetStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeletePet",
 			Handler:    _PetStoreService_DeletePet_Handler,
+		},
+		{
+			MethodName: "GetToy",
+			Handler:    _PetStoreService_GetToy_Handler,
+		},
+		{
+			MethodName: "ListToys",
+			Handler:    _PetStoreService_ListToys_Handler,
+		},
+		{
+			MethodName: "CreateToy",
+			Handler:    _PetStoreService_CreateToy_Handler,
+		},
+		{
+			MethodName: "UpdateToy",
+			Handler:    _PetStoreService_UpdateToy_Handler,
+		},
+		{
+			MethodName: "PatchToy",
+			Handler:    _PetStoreService_PatchToy_Handler,
+		},
+		{
+			MethodName: "DeleteToy",
+			Handler:    _PetStoreService_DeleteToy_Handler,
 		},
 		{
 			MethodName: "AssociateToysToPet",

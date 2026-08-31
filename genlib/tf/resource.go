@@ -21,6 +21,9 @@ type entityNames struct {
 	Collection string // pets (AIP collection)
 	Model      string // PetModel
 	LowerCamel string // pet (Go identifier prefix for unexported types)
+	// IDAttribute is the caller-assigned id attribute ("toy_id"), empty
+	// unless the Resource is marked CallerNamed.
+	IDAttribute string
 }
 
 func namesFor(e Entry, res Resource) entityNames {
@@ -42,12 +45,18 @@ func namesFor(e Entry, res Resource) entityNames {
 		typeName = toSnake(t.Name())
 	}
 
+	idAttribute := ""
+	if res.CallerNamed {
+		idAttribute = typeName + "_id"
+	}
+
 	return entityNames{
-		Entity:     t.Name(),
-		TypeName:   typeName,
-		Collection: collection,
-		Model:      t.Name() + "Model",
-		LowerCamel: lowerFirst(t.Name()),
+		Entity:      t.Name(),
+		TypeName:    typeName,
+		Collection:  collection,
+		Model:       t.Name() + "Model",
+		LowerCamel:  lowerFirst(t.Name()),
+		IDAttribute: idAttribute,
 	}
 }
 
@@ -95,6 +104,9 @@ func writeCrudFactory(f *jen.File, e Entry, res Resource, cm ClientModel, n enti
 	}
 	if res.UseUpdate {
 		params[jen.Id("UseUpdate")] = jen.True()
+	}
+	if n.IDAttribute != "" {
+		params[jen.Id("IDAttribute")] = jen.Lit(n.IDAttribute)
 	}
 
 	f.Commentf("new%sCrud builds the %s runtime from provider data; it returns nil (no error) before the provider is configured.", n.Entity, n.TypeName)

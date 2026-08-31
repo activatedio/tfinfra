@@ -49,11 +49,23 @@ func shapeFor(kind FieldKind) attrShape {
 }
 
 // writeResourceSchema emits func <Entity>ResourceSchema() schema.Schema.
-func writeResourceSchema(f *jen.File, e Entry, res Resource, fields []Field) {
+func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fields []Field) {
 
 	t := entityType(e)
 
 	attrs := jen.Dict{}
+
+	// The caller-assigned id: required, replacement on change — the server
+	// composes "name" from the parent and this id.
+	if n.IDAttribute != "" {
+		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Required"):            jen.True(),
+			jen.Id("MarkdownDescription"): jen.Lit("Caller-assigned resource id — the last segment of `name`, which the server composes from the parent and this id. Changing it replaces the resource."),
+			jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
+				jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
+			),
+		})
+	}
 
 	// Scope identifier attributes: optional, replacement on change.
 	for _, attr := range res.Scope.IdentifierAttributes() {
@@ -85,11 +97,18 @@ const pkgDatasourceSchema = "github.com/hashicorp/terraform-plugin-framework/dat
 
 // writeDataSourceSchema emits func <Entity>DataSourceSchema() for the
 // singular data source: name required, everything else computed.
-func writeDataSourceSchema(f *jen.File, e Entry, res Resource, fields []Field) {
+func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fields []Field) {
 
 	t := entityType(e)
 
 	attrs := jen.Dict{}
+
+	if n.IDAttribute != "" {
+		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Computed"):            jen.True(),
+			jen.Id("MarkdownDescription"): jen.Lit("Caller-assigned resource id — the last segment of `name`."),
+		})
+	}
 
 	for _, attr := range res.Scope.IdentifierAttributes() {
 		attrs[jen.Lit(attr)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{

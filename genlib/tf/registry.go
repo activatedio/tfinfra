@@ -94,13 +94,13 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	cm := AnalyzeClient(fm.Entry, res)
 	n := namesFor(fm.Entry, res)
 
-	writeResourceSchema(f, fm.Entry, res, fields)
-	writeModel(f, fm.Entry, res, fields)
+	writeResourceSchema(f, fm.Entry, res, n, fields)
+	writeModel(f, fm.Entry, res, n, fields)
 	writeCrudFactory(f, fm.Entry, res, cm, n)
 	writeResource(f, fm.Entry, n)
 
 	if HasImplementation[DataSource](fm.Entry) {
-		writeDataSourceSchema(f, fm.Entry, res, fields)
+		writeDataSourceSchema(f, fm.Entry, res, n, fields)
 		writeDataSource(f, fm.Entry, n)
 	}
 
