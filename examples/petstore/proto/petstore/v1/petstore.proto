@@ -1,6 +1,8 @@
 // Petstore is the toy API surface used as tfinfra's golden example. It
-// exercises every field shape the generator supports; unsupported shapes
-// belong in genlib tests, not here.
+// exercises every field shape the generator supports. One message, Kennel,
+// carries a shape the generator refuses, so the genlib tests can reach it
+// through a real descriptor; it is absent from the spec table and generates
+// nothing.
 syntax = "proto3";
 
 package petstore.v1;
@@ -95,6 +97,26 @@ message Pet {
   // data source.
   google.protobuf.Any config = 10;
   google.protobuf.Struct metadata = 11;
+  // A singular nested message: the typed nested attribute lane, as opposed
+  // to the protojson lane config/metadata take.
+  Feeding feeding = 12;
+
+  // Input only, and only on create: the shelter intake parameters. The
+  // server consumes them to place the animal and never echoes them back on
+  // a read — age and weight above are the answers, read from what was
+  // actually recorded.
+  string intake_code = 13;
+  int32 intake_age_days = 14;
+}
+
+// Feeding is a singular nested message surfaced as a typed nested
+// attribute. Its own fields cover the scalar, list and map shapes; a
+// message inside it would not be supported (nesting is one level deep).
+message Feeding {
+  string schedule = 1;
+  int32 portions = 2;
+  repeated string foods = 3;
+  map<string, string> notes = 4;
 }
 
 // CollarConfig is a concrete config type packed into Pet.config; it gets a
@@ -102,7 +124,17 @@ message Pet {
 message CollarConfig {
   string color = 1;
   int32 size = 2;
+  // Declared in the JSON list: the protojson lane.
   Buckle buckle = 3;
+  // Left out of the JSON list: the typed nested attribute lane. Both lanes
+  // coexist on one message.
+  Engraving engraving = 4;
+}
+
+message Engraving {
+  string text = 1;
+  string font = 2;
+  repeated string lines = 3;
 }
 
 message Buckle {
@@ -165,6 +197,14 @@ message PatchToyRequest {
 
 message DeleteToyRequest {
   string name = 1;
+}
+
+// Kennel exists for the generator's own tests: its collar field reaches a
+// message (Buckle, inside CollarConfig) two levels down, which is one level
+// deeper than typed nested attributes go. Nothing generates from it.
+message Kennel {
+  string name = 1;
+  CollarConfig collar = 2;
 }
 
 // Toy is the association target entity and the caller-named resource: its

@@ -94,6 +94,21 @@ import and on data source reads — a required attribute missing from imported
 state would force replacement on the next plan. `Toy` in the petstore example
 is the golden case; `Pet` remains the server-named one.
 
+`Resource.InputOnly` covers fields the API consumes but never echoes back:
+creation parameters that describe how to make something rather than what was
+made (a certificate's `validity_days`, `key_size`, `subject_common_name`),
+and material accepted once and stored transformed. They are Optional but
+never Computed, and the generated `FromProto` **omits them entirely**.
+
+The default Optional+Computed shape is wrong for them in both directions: a
+read would null the configured value on every refresh (a permanent diff, or
+replacement on every plan once the field is also `Immutable`), while
+Computed would leave the attribute unknown after an apply that never reads
+it back — which Terraform rejects. The tradeoff is that an imported resource
+has no value for them and a data source always reads them as null, both of
+which the generated attribute descriptions say. `InputOnly` with `Computed`
+on the same field panics.
+
 `Resource` behavior lists reference proto field names (snake_case); unknown
 names, conflicting behavior, and unsupported shapes all **panic at
 generation time** — failures must be loud, never silent omissions.
@@ -122,13 +137,30 @@ strings on every resource schema.
 | google.protobuf.Any (JSON)  | jsontypes.Normalized (protojson, `@type`) | jsontypes.Normalized |
 | google.protobuf.Struct (JSON) | jsontypes.Normalized (JSON object) | jsontypes.Normalized |
 | any other message (JSON)    | jsontypes.Normalized (protojson)   | jsontypes.Normalized |
+| singular message (no JSON marker) | SingleNestedAttribute       | types.Object     |
 
-Message-typed fields (Any, Struct, or any concrete message) MUST be listed
-in the `JSON` list — they surface as protojson blobs; jsontypes semantic
-equality absorbs protojson's deliberately unstable formatting, on refresh
-and in the generated update-mask diff. Typed nested attributes are a
-future upgrade path. Anything else (repeated messages, bytes, real oneofs,
-non-string lists/maps) panics with a "not yet supported" message.
+Any and Struct MUST be listed in the `JSON` list. Any other singular
+message field takes one of two lanes:
+
+- **JSON**: list it in `JSON` and it surfaces as a protojson blob;
+  jsontypes semantic equality absorbs protojson's deliberately unstable
+  formatting, on refresh and in the generated update-mask diff.
+- **Typed nested attribute**: leave it out of `JSON` and it surfaces as a
+  `SingleNestedAttribute` over the message's own fields, modelled as a
+  `types.Object` with a generated `<Entity><Field>Model` and
+  `<Entity><Field>AttrTypes()`. The two lanes coexist on one message —
+  `CollarConfig` in the example takes `buckle` as JSON and `engraving` as
+  a nested attribute.
+
+Nested attributes nest **one level**: a message inside a nested message
+panics, and belongs on the JSON lane. Nested children are Optional+Computed
+with no plan modifiers — `UseStateForUnknown` on a child reads prior state
+at its own path, which is null whenever the parent object was null, and
+would pin the child against what the server returns. The whole object is
+one update-mask path, which is what replacing a message means.
+
+Anything else (repeated messages, bytes, real oneofs, non-string
+lists/maps) panics with a "not yet supported" message.
 
 ## Any-config pattern
 
@@ -209,12 +241,16 @@ generated resource + singular data source glue, Any/Struct via jsontypes,
 config builder data sources (`tf.ConfigDataSource`), index generation,
 full-lifecycle tests against a fake client, determinism (regeneration is
 byte-identical), association resources (`tf.Associate` + the Association
-runtime), caller-assigned resource ids (`Resource.CallerNamed`).
+runtime), caller-assigned resource ids (`Resource.CallerNamed`), typed
+nested attributes (one level, resources and config data sources alike),
+input-only fields (`Resource.InputOnly`).
 
 Pending (tracked in the terraform-provider-authwise plan): plural list data
-sources (DataSourceList), write-only arguments, proto3 `optional` presence
-in the null convention, Wiring/DI index variant, pagination surfacing for
-list data sources. Auth ships separately in
+sources (DataSourceList), write-only arguments (the ephemeral Terraform
+≥1.11 kind — `InputOnly` covers the never-echoed case, not the
+never-stored one), proto3 `optional` presence in the null convention,
+Wiring/DI index variant, pagination surfacing for list data sources,
+nested attributes more than one level deep. Auth ships separately in
 `api-client-go/credentials/bearer`.
 
 ## Working in this repo

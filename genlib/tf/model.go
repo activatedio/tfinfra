@@ -13,7 +13,43 @@ const (
 	pkgProtojson   = "google.golang.org/protobuf/encoding/protojson"
 	pkgAnypb       = "google.golang.org/protobuf/types/known/anypb"
 	pkgStructpb    = "google.golang.org/protobuf/types/known/structpb"
+	pkgAttr        = "github.com/hashicorp/terraform-plugin-framework/attr"
+	pkgBasetypes   = "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
+
+// conv names the variables one conversion statement reads and writes, so a
+// single set of emitters serves both the top-level model and a nested one.
+// The fields are constructors, not values: jen statements are mutable, so
+// each use needs its own.
+type conv struct {
+	model func() *jen.Statement
+	proto func() *jen.Statement
+}
+
+// m returns the model-side expression for a field, e.g. m.Feeding.
+func (c conv) m(goName string) *jen.Statement { return c.model().Dot(goName) }
+
+// p returns the proto-side expression for a field, e.g. out.Feeding.
+func (c conv) p(goName string) *jen.Statement { return c.proto().Dot(goName) }
+
+func ident(name string) func() *jen.Statement {
+	return func() *jen.Statement { return jen.Id(name) }
+}
+
+// The top-level bindings: the model is always "m", the proto is the value
+// being built ("out") or the one being read ("e").
+var (
+	convToProto   = conv{model: ident("m"), proto: ident("out")}
+	convFromProto = conv{model: ident("m"), proto: ident("e")}
+)
+
+// nestedModelName is the generated model type for a nested message
+// attribute: PetFeedingModel for Pet's "feeding".
+func nestedModelName(owner string, fd Field) string { return owner + fd.GoName + "Model" }
+
+// nestedAttrTypesName is the generated attribute-type map function for a
+// nested message attribute: PetFeedingAttrTypes.
+func nestedAttrTypesName(owner string, fd Field) string { return owner + fd.GoName + "AttrTypes" }
 
 // tfsdkTag is the struct tag key the framework binds attributes with.
 const tfsdkTag = "tfsdk"
@@ -35,8 +71,61 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "Map")
 	case FieldAny, FieldStruct, FieldJSONMessage:
 		return jen.Qual(pkgJsontypes, "Normalized")
+	case FieldNestedMessage:
+		return jen.Qual(pkgTypes, "Object")
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
+	}
+}
+
+// attrTypeFor returns the attr.Type of a field, for the attribute-type maps
+// a types.Object needs to carry.
+func attrTypeFor(fd Field) *jen.Statement {
+	switch fd.Kind {
+	case FieldString, FieldEnum, FieldTimestamp:
+		return jen.Qual(pkgTypes, "StringType")
+	case FieldBool:
+		return jen.Qual(pkgTypes, "BoolType")
+	case FieldInt64:
+		return jen.Qual(pkgTypes, "Int64Type")
+	case FieldFloat64:
+		return jen.Qual(pkgTypes, "Float64Type")
+	case FieldStringList:
+		return jen.Qual(pkgTypes, "ListType").Values(jen.Dict{jen.Id("ElemType"): jen.Qual(pkgTypes, "StringType")})
+	case FieldStringMap:
+		return jen.Qual(pkgTypes, "MapType").Values(jen.Dict{jen.Id("ElemType"): jen.Qual(pkgTypes, "StringType")})
+	case FieldAny, FieldStruct, FieldJSONMessage:
+		return jen.Qual(pkgJsontypes, "NormalizedType").Values()
+	default:
+		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
+	}
+}
+
+// writeNestedModels emits, for each nested message attribute, the model
+// struct the framework converts the object to and from, plus its
+// attribute-type map.
+func writeNestedModels(f *jen.File, owner string, fields []Field) {
+
+	for _, fd := range fields {
+		if fd.Kind != FieldNestedMessage {
+			continue
+		}
+
+		structFields := make([]jen.Code, 0, len(fd.Nested))
+		attrTypes := jen.Dict{}
+		for _, nf := range fd.Nested {
+			structFields = append(structFields,
+				jen.Id(nf.GoName).Add(modelFieldType(nf.Kind)).Tag(map[string]string{tfsdkTag: nf.TfName()}))
+			attrTypes[jen.Lit(nf.TfName())] = attrTypeFor(nf)
+		}
+
+		f.Commentf("%s is the Terraform model for %s's %q nested attribute.", nestedModelName(owner, fd), owner, fd.TfName())
+		f.Type().Id(nestedModelName(owner, fd)).Struct(structFields...)
+
+		f.Commentf("%s returns the attribute types of the %q nested attribute.", nestedAttrTypesName(owner, fd), fd.TfName())
+		f.Func().Id(nestedAttrTypesName(owner, fd)).Params().Map(jen.String()).Qual(pkgAttr, "Type").Block(
+			jen.Return(jen.Map(jen.String()).Qual(pkgAttr, "Type").Values(attrTypes)),
+		)
 	}
 }
 
@@ -47,11 +136,17 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 // timestamps read a proto zero value as Terraform null (except "name" and
 // Required fields, which always carry a value); bools and numbers always
 // carry a value because proto3 cannot distinguish zero from unset.
+//
+// InputOnly fields are absent from FromProto altogether: the server never
+// returns them, so reading one back would null the value the practitioner
+// configured on every refresh.
 func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Field) {
 
 	t := entityType(e)
 	modelName := t.Name() + "Model"
 	entityQual := func() *jen.Statement { return jen.Qual(t.PkgPath(), t.Name()) }
+
+	writeNestedModels(f, t.Name(), fields)
 
 	// Struct: name first, then the caller-assigned id, then scope
 	// identifiers, then remaining proto fields in declaration order.
@@ -81,7 +176,7 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
 	f.Type().Id(modelName).Struct(structFields...)
 
-	writeModelConstructor(f, res, n, fields, modelName)
+	writeModelConstructor(f, res, n, fields, modelName, t.Name())
 
 	// ToProto
 	to := make([]jen.Code, 0, len(fields)+3)
@@ -90,7 +185,7 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 		jen.Id("out").Op(":=").Op("&").Add(entityQual()).Values(),
 	)
 	for _, fd := range fields {
-		to = append(to, toProtoStatement(fd))
+		to = append(to, toProtoStatement(fd, convToProto, t.Name()))
 	}
 	to = append(to, jen.Return(jen.Id("out"), jen.Id("diags")))
 
@@ -100,15 +195,19 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 		Params(jen.Op("*").Add(entityQual()), jen.Qual(pkgDiag, "Diagnostics")).
 		Block(to...)
 
-	// FromProto
+	// FromProto. Input-only fields are skipped: the API never echoes them
+	// back, so reading one would replace the configured value with null.
 	from := make([]jen.Code, 0, len(fields)+2)
 	from = append(from, jen.Var().Id("diags").Qual(pkgDiag, "Diagnostics"))
 	for _, fd := range fields {
-		from = append(from, fromProtoStatement(fd))
+		if fd.InputOnly {
+			continue
+		}
+		from = append(from, fromProtoStatement(fd, convFromProto, t.Name()))
 	}
 	from = append(from, jen.Return(jen.Id("diags")))
 
-	f.Commentf("FromProto populates the model from its proto message. Scope identifier attributes are left untouched.")
+	f.Commentf("FromProto populates the model from its proto message. Scope identifier attributes and input-only attributes are left untouched.")
 	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("FromProto").
 		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("e").Op("*").Add(entityQual())).
 		Qual(pkgDiag, "Diagnostics").
@@ -117,10 +216,19 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 	writeModelAccessors(f, res, fields, modelName)
 }
 
-// typedNull returns the typed null expression for a kind. The zero value of
-// collection types carries no element type, so models must be constructed
-// with typed nulls.
-func typedNull(kind FieldKind) *jen.Statement {
+// typedNull returns the typed null expression for a field, including the
+// attribute-type map an object null needs.
+func typedNull(fd Field, owner string) *jen.Statement {
+	if fd.Kind == FieldNestedMessage {
+		return jen.Qual(pkgTypes, "ObjectNull").Call(jen.Id(nestedAttrTypesName(owner, fd)).Call())
+	}
+	return typedNullKind(fd.Kind)
+}
+
+// typedNullKind returns the typed null expression for a kind. The zero
+// value of collection types carries no element type, so models must be
+// constructed with typed nulls.
+func typedNullKind(kind FieldKind) *jen.Statement {
 	switch kind {
 	case FieldString, FieldEnum, FieldTimestamp:
 		return jen.Qual(pkgTypes, "StringNull").Call()
@@ -143,25 +251,25 @@ func typedNull(kind FieldKind) *jen.Statement {
 
 // writeModelConstructor emits New<Entity>Model with every attribute as a
 // typed null.
-func writeModelConstructor(f *jen.File, res Resource, n entityNames, fields []Field, modelName string) {
+func writeModelConstructor(f *jen.File, res Resource, n entityNames, fields []Field, modelName, owner string) {
 
 	d := jen.Dict{
-		jen.Id("Name"): typedNull(FieldString),
+		jen.Id("Name"): typedNullKind(FieldString),
 	}
 
 	if n.IDAttribute != "" {
-		d[jen.Id(snakeToCamel(n.IDAttribute))] = typedNull(FieldString)
+		d[jen.Id(snakeToCamel(n.IDAttribute))] = typedNullKind(FieldString)
 	}
 
 	for _, attr := range res.Scope.IdentifierAttributes() {
-		d[jen.Id(snakeToCamel(attr))] = typedNull(FieldString)
+		d[jen.Id(snakeToCamel(attr))] = typedNullKind(FieldString)
 	}
 
 	for _, fd := range fields {
 		if fd.ProtoName == NameField {
 			continue
 		}
-		d[jen.Id(fd.GoName)] = typedNull(fd.Kind)
+		d[jen.Id(fd.GoName)] = typedNull(fd, owner)
 	}
 
 	f.Commentf("New%s returns a model with every attribute set to its typed null; collection types cannot be zero-valued.", modelName)
@@ -224,15 +332,15 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 		Block(mask...)
 }
 
-func notNullNotUnknown(goName string) *jen.Statement {
-	return jen.Op("!").Id("m").Dot(goName).Dot("IsNull").Call().
-		Op("&&").Op("!").Id("m").Dot(goName).Dot("IsUnknown").Call()
+func notNullNotUnknown(c conv, goName string) *jen.Statement {
+	return jen.Op("!").Add(c.m(goName)).Dot("IsNull").Call().
+		Op("&&").Op("!").Add(c.m(goName)).Dot("IsUnknown").Call()
 }
 
-func toProtoStatement(fd Field) jen.Code {
+func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 
-	out := jen.Id("out").Dot(fd.GoName)
-	val := jen.Id("m").Dot(fd.GoName)
+	out := c.p(fd.GoName)
+	val := c.m(fd.GoName)
 
 	switch fd.Kind {
 	case FieldString:
@@ -240,48 +348,79 @@ func toProtoStatement(fd Field) jen.Code {
 	case FieldBool:
 		return out.Op("=").Add(val).Dot("ValueBool").Call()
 	case FieldInt64:
-		return out.Op("=").Add(toProtoNumeric(fd, "ValueInt64", reflect.Int64))
+		return out.Op("=").Add(toProtoNumeric(fd, c, "ValueInt64", reflect.Int64))
 	case FieldFloat64:
-		return out.Op("=").Add(toProtoNumeric(fd, "ValueFloat64", reflect.Float64))
+		return out.Op("=").Add(toProtoNumeric(fd, c, "ValueFloat64", reflect.Float64))
 	case FieldEnum:
-		return jen.If(notNullNotUnknown(fd.GoName)).Block(
+		return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
 			out.Op("=").Qual(fd.GoType.PkgPath(), fd.GoType.Name()).Call(
 				jen.Qual(fd.GoType.PkgPath(), fd.GoType.Name()+"_value").Index(
-					jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call(),
+					c.m(fd.GoName).Dot("ValueString").Call(),
 				),
 			),
 		)
 	case FieldStringList, FieldStringMap:
-		return jen.If(notNullNotUnknown(fd.GoName)).Block(
+		return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
 			jen.Id("diags").Dot("Append").Call(
-				jen.Id("m").Dot(fd.GoName).Dot("ElementsAs").Call(
+				c.m(fd.GoName).Dot("ElementsAs").Call(
 					jen.Id("ctx"), jen.Op("&").Add(out), jen.False(),
 				).Op("..."),
 			),
 		)
 	case FieldAny, FieldStruct, FieldJSONMessage:
-		return toProtoJSON(fd, jsonSummary(fd))
+		return toProtoJSON(fd, c, jsonSummary(fd))
+	case FieldNestedMessage:
+		return toProtoNested(fd, c, owner)
 	case FieldTimestamp:
-		return toProtoTimestamp(fd, out)
+		return toProtoTimestamp(fd, c, out)
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
 }
 
+// toProtoNested emits: convert the object attribute into the generated
+// nested model, then map its fields onto a fresh nested message. A null or
+// unknown object leaves the proto field nil.
+func toProtoNested(fd Field, c conv, owner string) jen.Code {
+
+	t := fd.GoType
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	nc := conv{model: ident("n"), proto: ident("v")}
+
+	body := []jen.Code{
+		jen.Var().Id("n").Id(nestedModelName(owner, fd)),
+		jen.Id("diags").Dot("Append").Call(
+			c.m(fd.GoName).Dot("As").Call(
+				jen.Id("ctx"), jen.Op("&").Id("n"), jen.Qual(pkgBasetypes, "ObjectAsOptions").Values(),
+			).Op("..."),
+		),
+		jen.Id("v").Op(":=").Op("&").Qual(t.PkgPath(), t.Name()).Values(),
+	}
+	for _, nf := range fd.Nested {
+		body = append(body, toProtoStatement(nf, nc, owner))
+	}
+	body = append(body, c.p(fd.GoName).Op("=").Id("v"))
+
+	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(body...)
+}
+
 // toProtoNumeric emits m.<Field>.Value<Wide>(), narrowed to the pb struct
 // field's kind when necessary.
-func toProtoNumeric(fd Field, valueMethod string, wideKind reflect.Kind) *jen.Statement {
-	expr := jen.Id("m").Dot(fd.GoName).Dot(valueMethod).Call()
+func toProtoNumeric(fd Field, c conv, valueMethod string, wideKind reflect.Kind) *jen.Statement {
+	expr := c.m(fd.GoName).Dot(valueMethod).Call()
 	if fd.GoType.Kind() != wideKind {
 		return jen.Id(fd.GoType.Kind().String()).Call(expr)
 	}
 	return expr
 }
 
-func toProtoTimestamp(fd Field, out *jen.Statement) jen.Code {
-	return jen.If(notNullNotUnknown(fd.GoName)).Block(
+func toProtoTimestamp(fd Field, c conv, out *jen.Statement) jen.Code {
+	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
 		jen.List(jen.Id("t"), jen.Id("err")).Op(":=").Qual("time", "Parse").Call(
-			jen.Qual("time", "RFC3339"), jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call(),
+			jen.Qual("time", "RFC3339"), c.m(fd.GoName).Dot("ValueString").Call(),
 		),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("diags").Dot("AddAttributeError").Call(
@@ -295,43 +434,96 @@ func toProtoTimestamp(fd Field, out *jen.Statement) jen.Code {
 	)
 }
 
-func fromProtoStatement(fd Field) jen.Code {
+func fromProtoStatement(fd Field, c conv, owner string) jen.Code {
 
-	m := func() *jen.Statement { return jen.Id("m").Dot(fd.GoName) }
-	e := func() *jen.Statement { return jen.Id("e").Dot(fd.GoName) }
+	if stmt, ok := fromProtoScalar(fd, c); ok {
+		return stmt
+	}
+
+	switch fd.Kind {
+	case FieldStringList:
+		return fromProtoCollection(fd, c, "ListNull", "ListValueFrom")
+	case FieldStringMap:
+		return fromProtoCollection(fd, c, "MapNull", "MapValueFrom")
+	case FieldAny, FieldStruct, FieldJSONMessage:
+		return fromProtoJSON(fd, c)
+	case FieldNestedMessage:
+		return fromProtoNested(fd, c, owner)
+	case FieldTimestamp:
+		return fromProtoTimestamp(fd, c)
+	default:
+		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
+	}
+}
+
+// fromProtoScalar handles the kinds that read back as a single framework
+// scalar; ok is false for the composite shapes.
+func fromProtoScalar(fd Field, c conv) (jen.Code, bool) {
+
+	m := func() *jen.Statement { return c.m(fd.GoName) }
+	e := func() *jen.Statement { return c.p(fd.GoName) }
 
 	switch fd.Kind {
 	case FieldString:
-		return fromProtoString(fd)
+		return fromProtoString(fd, c), true
 	case FieldBool:
-		return m().Op("=").Qual(pkgTypes, "BoolValue").Call(e())
+		return m().Op("=").Qual(pkgTypes, "BoolValue").Call(e()), true
 	case FieldInt64:
-		return m().Op("=").Qual(pkgTypes, "Int64Value").Call(numericCast(fd, reflect.Int64, "int64"))
+		return m().Op("=").Qual(pkgTypes, "Int64Value").Call(numericCast(fd, c, reflect.Int64, "int64")), true
 	case FieldFloat64:
-		return m().Op("=").Qual(pkgTypes, "Float64Value").Call(numericCast(fd, reflect.Float64, "float64"))
+		return m().Op("=").Qual(pkgTypes, "Float64Value").Call(numericCast(fd, c, reflect.Float64, "float64")), true
 	case FieldEnum:
 		return jen.If(e().Op("==").Lit(0)).Block(
 			m().Op("=").Qual(pkgTypes, "StringNull").Call(),
 		).Else().Block(
 			m().Op("=").Qual(pkgTypes, "StringValue").Call(e().Dot("String").Call()),
-		)
-	case FieldStringList:
-		return fromProtoCollection(fd, "ListNull", "ListValueFrom")
-	case FieldStringMap:
-		return fromProtoCollection(fd, "MapNull", "MapValueFrom")
-	case FieldAny, FieldStruct, FieldJSONMessage:
-		return fromProtoJSON(fd)
-	case FieldTimestamp:
-		return jen.If(e().Op("==").Nil()).Block(
-			m().Op("=").Qual(pkgTypes, "StringNull").Call(),
-		).Else().Block(
-			m().Op("=").Qual(pkgTypes, "StringValue").Call(
-				e().Dot("AsTime").Call().Dot("Format").Call(jen.Qual("time", "RFC3339")),
-			),
-		)
+		), true
 	default:
-		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
+		return nil, false
 	}
+}
+
+// fromProtoTimestamp emits: a nil timestamp reads as null, otherwise RFC 3339.
+func fromProtoTimestamp(fd Field, c conv) jen.Code {
+
+	m := func() *jen.Statement { return c.m(fd.GoName) }
+	e := func() *jen.Statement { return c.p(fd.GoName) }
+
+	return jen.If(e().Op("==").Nil()).Block(
+		m().Op("=").Qual(pkgTypes, "StringNull").Call(),
+	).Else().Block(
+		m().Op("=").Qual(pkgTypes, "StringValue").Call(
+			e().Dot("AsTime").Call().Dot("Format").Call(jen.Qual("time", "RFC3339")),
+		),
+	)
+}
+
+// fromProtoNested emits: populate the generated nested model from the
+// nested message, then wrap it as an object. A nil message reads as a typed
+// object null.
+func fromProtoNested(fd Field, c conv, owner string) jen.Code {
+
+	attrTypes := func() *jen.Statement { return jen.Id(nestedAttrTypesName(owner, fd)).Call() }
+
+	// Inside the nested message the proto side is the nested message
+	// itself: e.Feeding.Schedule rather than e.Schedule.
+	nc := conv{model: ident("n"), proto: func() *jen.Statement { return c.p(fd.GoName) }}
+
+	body := []jen.Code{jen.Var().Id("n").Id(nestedModelName(owner, fd))}
+	for _, nf := range fd.Nested {
+		body = append(body, fromProtoStatement(nf, nc, owner))
+	}
+	body = append(body,
+		jen.List(jen.Id("obj"), jen.Id("d")).Op(":=").Qual(pkgTypes, "ObjectValueFrom").Call(
+			jen.Id("ctx"), attrTypes(), jen.Id("n"),
+		),
+		jen.Id("diags").Dot("Append").Call(jen.Id("d").Op("...")),
+		c.m(fd.GoName).Op("=").Id("obj"),
+	)
+
+	return jen.If(c.p(fd.GoName).Op("==").Nil()).Block(
+		c.m(fd.GoName).Op("=").Qual(pkgTypes, "ObjectNull").Call(attrTypes()),
+	).Else().Block(body...)
 }
 
 // jsonSummary is the diagnostic summary for a bad JSON attribute value.
@@ -348,13 +540,13 @@ func jsonSummary(fd Field) string {
 
 // toProtoJSON emits: parse the jsontypes value via protojson into the
 // field's message type, with an attribute-anchored diagnostic on bad input.
-func toProtoJSON(fd Field, summary string) jen.Code {
+func toProtoJSON(fd Field, c conv, summary string) jen.Code {
 	t := fd.GoType.Elem()
-	return jen.If(notNullNotUnknown(fd.GoName)).Block(
+	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
 		jen.Id("v").Op(":=").Op("&").Qual(t.PkgPath(), t.Name()).Values(),
 		jen.If(
 			jen.Id("err").Op(":=").Qual(pkgProtojson, "Unmarshal").Call(
-				jen.Id("[]byte").Call(jen.Id("m").Dot(fd.GoName).Dot("ValueString").Call()),
+				jen.Id("[]byte").Call(c.m(fd.GoName).Dot("ValueString").Call()),
 				jen.Id("v"),
 			),
 			jen.Id("err").Op("!=").Nil(),
@@ -365,47 +557,47 @@ func toProtoJSON(fd Field, summary string) jen.Code {
 				jen.Id("err").Dot("Error").Call(),
 			),
 		).Else().Block(
-			jen.Id("out").Dot(fd.GoName).Op("=").Id("v"),
+			c.p(fd.GoName).Op("=").Id("v"),
 		),
 	)
 }
 
 // fromProtoJSON emits: protojson-encode the well-known type into the
 // jsontypes attribute; nil reads as null.
-func fromProtoJSON(fd Field) jen.Code {
-	return jen.If(jen.Id("e").Dot(fd.GoName).Op("==").Nil()).Block(
-		jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedNull").Call(),
+func fromProtoJSON(fd Field, c conv) jen.Code {
+	return jen.If(c.p(fd.GoName).Op("==").Nil()).Block(
+		c.m(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedNull").Call(),
 	).Else().Block(
-		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(jen.Id("e").Dot(fd.GoName)),
+		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(c.p(fd.GoName)),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("diags").Dot("AddError").Call(
 				jen.Lit(fmt.Sprintf("cannot encode %s", fd.TfName())),
 				jen.Id("err").Dot("Error").Call(),
 			),
 		).Else().Block(
-			jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedValue").Call(jen.Id("string").Call(jen.Id("b"))),
+			c.m(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedValue").Call(jen.Id("string").Call(jen.Id("b"))),
 		),
 	)
 }
 
-func fromProtoString(fd Field) jen.Code {
+func fromProtoString(fd Field, c conv) jen.Code {
 
-	value := jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgTypes, "StringValue").Call(jen.Id("e").Dot(fd.GoName))
+	value := c.m(fd.GoName).Op("=").Qual(pkgTypes, "StringValue").Call(c.p(fd.GoName))
 
 	if fd.ProtoName == NameField || fd.Required {
 		return value
 	}
 
-	return jen.If(jen.Id("e").Dot(fd.GoName).Op("==").Lit("")).Block(
-		jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgTypes, "StringNull").Call(),
+	return jen.If(c.p(fd.GoName).Op("==").Lit("")).Block(
+		c.m(fd.GoName).Op("=").Qual(pkgTypes, "StringNull").Call(),
 	).Else().Block(value)
 }
 
 // numericCast returns e.<Field>, wrapped in a conversion to wide when the
 // pb struct field is a narrower kind.
-func numericCast(fd Field, wideKind reflect.Kind, wide string) jen.Code {
+func numericCast(fd Field, c conv, wideKind reflect.Kind, wide string) jen.Code {
 
-	expr := jen.Id("e").Dot(fd.GoName)
+	expr := c.p(fd.GoName)
 
 	if fd.GoType.Kind() != wideKind {
 		return jen.Id(wide).Call(expr)
@@ -414,16 +606,16 @@ func numericCast(fd Field, wideKind reflect.Kind, wide string) jen.Code {
 	return expr
 }
 
-func fromProtoCollection(fd Field, nullFunc, valueFunc string) jen.Code {
+func fromProtoCollection(fd Field, c conv, nullFunc, valueFunc string) jen.Code {
 
-	return jen.If(jen.Len(jen.Id("e").Dot(fd.GoName)).Op("==").Lit(0)).Block(
-		jen.Id("m").Dot(fd.GoName).Op("=").Qual(pkgTypes, nullFunc).Call(jen.Qual(pkgTypes, "StringType")),
+	return jen.If(jen.Len(c.p(fd.GoName)).Op("==").Lit(0)).Block(
+		c.m(fd.GoName).Op("=").Qual(pkgTypes, nullFunc).Call(jen.Qual(pkgTypes, "StringType")),
 	).Else().Block(
 		jen.List(jen.Id("v"), jen.Id("d")).Op(":=").Qual(pkgTypes, valueFunc).Call(
-			jen.Id("ctx"), jen.Qual(pkgTypes, "StringType"), jen.Id("e").Dot(fd.GoName),
+			jen.Id("ctx"), jen.Qual(pkgTypes, "StringType"), c.p(fd.GoName),
 		),
 		jen.Id("diags").Dot("Append").Call(jen.Id("d").Op("...")),
-		jen.Id("m").Dot(fd.GoName).Op("=").Id("v"),
+		c.m(fd.GoName).Op("=").Id("v"),
 	)
 }
 
@@ -438,6 +630,8 @@ func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
 	t := entityType(e)
 	entityQual := func() *jen.Statement { return jen.Qual(t.PkgPath(), t.Name()) }
 
+	writeNestedModels(f, t.Name(), fields)
+
 	structFields := make([]jen.Code, 0, len(fields)+1)
 	for _, fd := range fields {
 		structFields = append(structFields,
@@ -450,10 +644,10 @@ func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
 	f.Type().Id(modelName).Struct(structFields...)
 
 	d := jen.Dict{
-		jen.Id("Any"): typedNull(FieldAny),
+		jen.Id("Any"): typedNullKind(FieldAny),
 	}
 	for _, fd := range fields {
-		d[jen.Id(fd.GoName)] = typedNull(fd.Kind)
+		d[jen.Id(fd.GoName)] = typedNull(fd, t.Name())
 	}
 
 	f.Commentf("New%s returns a model with every attribute set to its typed null.", modelName)
@@ -467,7 +661,7 @@ func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
 		jen.Id("out").Op(":=").Op("&").Add(entityQual()).Values(),
 	)
 	for _, fd := range fields {
-		to = append(to, toProtoStatement(fd))
+		to = append(to, toProtoStatement(fd, convToProto, t.Name()))
 	}
 	to = append(to, jen.Return(jen.Id("out"), jen.Id("diags")))
 

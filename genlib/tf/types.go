@@ -99,6 +99,19 @@ type Resource struct {
 	Computed []string
 	// Sensitive lists proto fields masked in CLI output and state listings.
 	Sensitive []string
+	// InputOnly lists proto fields the API consumes but never echoes back
+	// on a read — creation parameters that describe how to make something
+	// rather than what was made, and secrets accepted once and stored
+	// hashed.
+	//
+	// They are Optional but never Computed, and reads leave them untouched:
+	// the default Optional+Computed shape would null them on every refresh
+	// (the server returns a zero value), which shows up as a permanent diff
+	// — or, for an Immutable field, as replacement on every plan.
+	//
+	// The tradeoff is that an imported resource has no value for them, and
+	// a data source always reads them as null.
+	InputOnly []string
 	// WriteOnly lists proto fields surfaced as write-only arguments
 	// (Terraform >= 1.11). PENDING: not yet implemented; declaring one
 	// panics at generation time.

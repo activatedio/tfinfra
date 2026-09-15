@@ -43,6 +43,8 @@ func shapeFor(kind FieldKind) attrShape {
 		return attrShape{"MapAttribute", "Map", base + "mapplanmodifier", true, false}
 	case FieldAny, FieldStruct, FieldJSONMessage:
 		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, true}
+	case FieldNestedMessage:
+		return attrShape{"SingleNestedAttribute", "Object", base + "objectplanmodifier", false, false}
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
@@ -131,6 +133,25 @@ func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fi
 	)
 }
 
+// applyTypeKeys adds the schema keys that come from a field's type rather
+// than its behavior: a collection's element type, a JSON attribute's custom
+// type, and a nested message's own attributes. pkg is the schema package the
+// nested attributes are built in, and nested builds each child.
+func applyTypeKeys(d jen.Dict, pkg string, fd Field, nested func(Field) jen.Code) {
+
+	shape := shapeFor(fd.Kind)
+
+	if shape.elementType {
+		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
+	}
+	if shape.jsonCustomType {
+		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
+	}
+	if fd.Kind == FieldNestedMessage {
+		d[jen.Id("Attributes")] = nestedAttributes(pkg, fd, nested)
+	}
+}
+
 func dataSourceAttributeFor(fd Field) jen.Code {
 
 	shape := shapeFor(fd.Kind)
@@ -146,12 +167,57 @@ func dataSourceAttributeFor(fd Field) jen.Code {
 	if fd.Sensitive {
 		d[jen.Id("Sensitive")] = jen.True()
 	}
-	if shape.elementType {
-		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
+	applyTypeKeys(d, pkgDatasourceSchema, fd, dataSourceNestedAttributeFor)
+	if fd.InputOnly {
+		d[jen.Id("MarkdownDescription")] = jen.Lit(fmt.Sprintf("`%s` is input only: the API consumes it and never returns it, so this data source always reads it as null.", fd.TfName()))
 	}
-	if shape.jsonCustomType {
-		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
+
+	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
+}
+
+// nestedAttributes builds the Attributes map of a SingleNestedAttribute
+// over the nested message's own fields.
+func nestedAttributes(pkg string, fd Field, attr func(Field) jen.Code) jen.Code {
+
+	d := jen.Dict{}
+	for _, nf := range fd.Nested {
+		d[jen.Lit(nf.TfName())] = attr(nf)
 	}
+
+	return jen.Map(jen.String()).Qual(pkg, "Attribute").Values(d)
+}
+
+// nestedAttributeFor builds one child of a SingleNestedAttribute in a
+// resource schema. Children are Optional+Computed like any other optional
+// attribute — proto3 cannot tell zero from unset inside a nested message
+// either — but carry no plan modifiers: UseStateForUnknown on a child reads
+// prior state at its own path, which is null whenever the parent object was
+// null, and would pin the child to null against whatever the server
+// actually returns.
+func nestedAttributeFor(fd Field) jen.Code {
+
+	shape := shapeFor(fd.Kind)
+	d := jen.Dict{
+		jen.Id("Optional"): jen.True(),
+		jen.Id("Computed"): jen.True(),
+	}
+
+	applyTypeKeys(d, pkgResourceSchema, fd, nestedAttributeFor)
+	if fd.Kind == FieldEnum {
+		d[jen.Id("Validators")] = enumValidators(fd)
+	}
+
+	return jen.Qual(pkgResourceSchema, shape.attribute).Values(d)
+}
+
+// dataSourceNestedAttributeFor builds one child of a SingleNestedAttribute
+// in a data source schema: everything a data source reads is computed.
+func dataSourceNestedAttributeFor(fd Field) jen.Code {
+
+	shape := shapeFor(fd.Kind)
+	d := jen.Dict{jen.Id("Computed"): jen.True()}
+
+	applyTypeKeys(d, pkgDatasourceSchema, fd, dataSourceNestedAttributeFor)
 
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
 }
@@ -166,6 +232,13 @@ func attributeFor(fd Field) jen.Code {
 		d[jen.Id("Computed")] = jen.True()
 	case fd.Required:
 		d[jen.Id("Required")] = jen.True()
+	case fd.InputOnly:
+		// Input-only attributes are Optional alone. Computed would leave
+		// them unknown after an apply that never reads them back, and the
+		// usual reason for Computed — the server echoing a value into an
+		// unset attribute — cannot arise for a field the server never
+		// returns.
+		d[jen.Id("Optional")] = jen.True()
 	default:
 		// Optional attributes are also Computed: proto3 cannot distinguish
 		// zero from unset, so reads echo server values into unset
@@ -179,12 +252,7 @@ func attributeFor(fd Field) jen.Code {
 		d[jen.Id("Sensitive")] = jen.True()
 	}
 
-	if shape.elementType {
-		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
-	}
-	if shape.jsonCustomType {
-		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
-	}
+	applyTypeKeys(d, pkgResourceSchema, fd, nestedAttributeFor)
 
 	if desc := attributeDescription(fd); desc != "" {
 		d[jen.Id("MarkdownDescription")] = jen.Lit(desc)
@@ -217,6 +285,9 @@ func attributeDescription(fd Field) string {
 	if fd.Kind == FieldJSONMessage {
 		return fmt.Sprintf("`%s` as the protojson encoding of %s.", fd.TfName(), fd.GoType.Elem().Name())
 	}
+	if fd.InputOnly {
+		return fmt.Sprintf("`%s` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.", fd.TfName())
+	}
 	return ""
 }
 
@@ -227,9 +298,10 @@ func planModifiers(fd Field, shape attrShape) jen.Code {
 	if fd.Immutable {
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "RequiresReplace").Call())
 	}
-	if !fd.Required {
+	if !fd.Required && !fd.InputOnly {
 		// Computed and optional-computed alike keep their prior value in
-		// plans instead of churning to unknown.
+		// plans instead of churning to unknown. An input-only attribute is
+		// never computed, so it is never unknown and has nothing to keep.
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "UseStateForUnknown").Call())
 	}
 	if len(mods) == 0 {
@@ -294,12 +366,7 @@ func configInputAttributeFor(fd Field) jen.Code {
 	if fd.Sensitive {
 		d[jen.Id("Sensitive")] = jen.True()
 	}
-	if shape.elementType {
-		d[jen.Id("ElementType")] = jen.Qual(pkgTypes, "StringType")
-	}
-	if shape.jsonCustomType {
-		d[jen.Id("CustomType")] = jen.Qual(pkgJsontypes, "NormalizedType").Values()
-	}
+	applyTypeKeys(d, pkgDatasourceSchema, fd, configInputAttributeFor)
 	if fd.Kind == FieldEnum {
 		d[jen.Id("Validators")] = enumValidators(fd)
 	}

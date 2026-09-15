@@ -48,9 +48,30 @@ func main() {
 }
 ```
 
-The behavioral layer (required / immutable / computed / sensitive) lives in
-the spec because AIP protos without `google.api.field_behavior` cannot
-express it; everything structural comes from the descriptors.
+The behavioral layer (required / immutable / computed / sensitive /
+input-only) lives in the spec because AIP protos without
+`google.api.field_behavior` cannot express it; everything structural comes
+from the descriptors.
+
+A singular message field becomes a typed nested attribute unless you list it
+in `JSON`, in which case it stays a protojson blob:
+
+```hcl
+resource "petstore_pet" "rex" {
+  display_name = "Rex"
+
+  feeding = {
+    schedule = "twice daily"
+    portions = 2
+    foods    = ["kibble", "chicken"]
+  }
+}
+```
+
+`InputOnly` marks fields the API consumes but never returns — a
+certificate's mint parameters, say. They stay Optional rather than
+Optional+Computed, and reads leave them alone, so the value you configured
+does not vanish on the next refresh.
 
 Resources whose id the caller chooses rather than the server — the API takes
 it from the entity's `name` field on create — declare `CallerNamed: true`,

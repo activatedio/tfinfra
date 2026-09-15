@@ -15,9 +15,9 @@ import (
 const NameField = "name"
 
 // FieldKind classifies a proto field into the Terraform attribute shape it
-// generates. Shapes outside this set (nested messages, repeated messages,
-// Struct, Any, bytes, real oneofs, non-string maps and lists) are not yet
-// supported and fail generation loudly.
+// generates. Shapes outside this set (repeated messages, bytes, real
+// oneofs, non-string maps and lists, and messages nested more than one
+// level deep) are not yet supported and fail generation loudly.
 type FieldKind int
 
 const (
@@ -47,6 +47,11 @@ const (
 	// list, surfaced as jsontypes.Normalized holding its protojson
 	// encoding.
 	FieldJSONMessage
+	// FieldNestedMessage is a singular message field left out of the JSON
+	// list, surfaced as a SingleNestedAttribute over the message's own
+	// fields. It nests one level: a message inside one of those fields
+	// belongs on the JSON lane.
+	FieldNestedMessage
 )
 
 // Field is the normalized view of one proto field: proto identity, Go
@@ -64,11 +69,17 @@ type Field struct {
 	GoType reflect.Type
 	// EnumValues holds the proto enum value names for FieldEnum.
 	EnumValues []string
+	// Nested holds the nested message's own normalized fields for
+	// FieldNestedMessage, in proto field-number order.
+	Nested []Field
 
 	Required  bool
 	Computed  bool
 	Immutable bool
 	Sensitive bool
+	// InputOnly marks a field the API consumes but never echoes back: it
+	// is Optional but never Computed, and reads leave it untouched.
+	InputOnly bool
 }
 
 // TfName returns the Terraform attribute name for the field.
@@ -121,7 +132,7 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	fields := make([]Field, 0, fds.Len())
 
 	for i := 0; i < fds.Len(); i++ {
-		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet))
+		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet, true))
 		byName[fields[i].ProtoName] = &fields[i]
 	}
 
@@ -163,7 +174,7 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 	fields := make([]Field, 0, fds.Len())
 
 	for i := 0; i < fds.Len(); i++ {
-		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet))
+		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet, true))
 		valid[fields[i].ProtoName] = &fields[i]
 	}
 
@@ -183,8 +194,10 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 }
 
 // normalizeField maps one field descriptor to its normalized form, binding
-// the Go struct field along the way.
-func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map[string]bool) Field {
+// the Go struct field along the way. allowNested admits a singular
+// message-typed field as a typed nested attribute; it is false inside a
+// nested message, which is what holds nesting to one level.
+func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map[string]bool, allowNested bool) Field {
 
 	name := string(fd.Name())
 
@@ -198,29 +211,71 @@ func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map
 		panic(fmt.Sprintf("%s.%s: oneof fields are not yet supported", t.Name(), name))
 	}
 
-	switch {
-	case fd.IsMap():
-		if fd.MapKey().Kind() != protoreflect.StringKind || fd.MapValue().Kind() != protoreflect.StringKind {
-			panic(fmt.Sprintf("%s.%s: only map<string, string> fields are supported", t.Name(), name))
-		}
-		f.Kind = FieldStringMap
-	case fd.IsList():
-		if fd.Kind() != protoreflect.StringKind {
-			panic(fmt.Sprintf("%s.%s: only repeated string fields are supported", t.Name(), name))
-		}
-		f.Kind = FieldStringList
-	default:
-		f.Kind = scalarKind(t.Name(), fd, jsonSet[name])
-	}
+	f.Kind = fieldKind(t, fd, jsonSet[name], allowNested)
 
 	if f.Kind == FieldEnum {
-		values := fd.Enum().Values()
-		for j := 0; j < values.Len(); j++ {
-			f.EnumValues = append(f.EnumValues, string(values.Get(j).Name()))
-		}
+		f.EnumValues = enumValueNames(fd)
+	}
+	if f.Kind == FieldNestedMessage {
+		f.Nested = normalizeNested(t, f, fd)
 	}
 
 	return f
+}
+
+// fieldKind classifies a field by cardinality first, then by type.
+func fieldKind(t reflect.Type, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
+
+	switch {
+	case fd.IsMap():
+		if fd.MapKey().Kind() != protoreflect.StringKind || fd.MapValue().Kind() != protoreflect.StringKind {
+			panic(fmt.Sprintf("%s.%s: only map<string, string> fields are supported", t.Name(), fd.Name()))
+		}
+		return FieldStringMap
+	case fd.IsList():
+		if fd.Kind() != protoreflect.StringKind {
+			panic(fmt.Sprintf("%s.%s: only repeated string fields are supported", t.Name(), fd.Name()))
+		}
+		return FieldStringList
+	default:
+		return scalarKind(t.Name(), fd, jsonMarked, allowNested)
+	}
+}
+
+// enumValueNames returns the proto enum value names in declaration order.
+func enumValueNames(fd protoreflect.FieldDescriptor) []string {
+
+	values := fd.Enum().Values()
+
+	names := make([]string, 0, values.Len())
+	for i := 0; i < values.Len(); i++ {
+		names = append(names, string(values.Get(i).Name()))
+	}
+
+	return names
+}
+
+// normalizeNested normalizes the fields of a nested message attribute. The
+// nested message takes no JSON markers and no further nesting: one level is
+// the whole of the feature, and anything deeper stays on the protojson lane.
+func normalizeNested(owner reflect.Type, f Field, fd protoreflect.FieldDescriptor) []Field {
+
+	t := f.GoType
+	if t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	fds := fd.Message().Fields()
+	if fds.Len() == 0 {
+		panic(fmt.Sprintf("%s.%s: nested message %s has no fields", owner.Name(), f.ProtoName, fd.Message().FullName()))
+	}
+
+	nested := make([]Field, 0, fds.Len())
+	for i := 0; i < fds.Len(); i++ {
+		nested = append(nested, normalizeField(t, fds.Get(i), nil, false))
+	}
+
+	return nested
 }
 
 // applyBehavior resolves the Resource marker's behavior lists onto the
@@ -242,9 +297,15 @@ func applyBehavior(entity string, res Resource, byName map[string]*Field) {
 	for _, n := range res.Sensitive {
 		byName[n].Sensitive = true
 	}
+	for _, n := range res.InputOnly {
+		if byName[n].Computed {
+			panic(fmt.Sprintf("%s.%s: field cannot be both input-only and computed; the server never returns an input-only field", entity, n))
+		}
+		byName[n].InputOnly = true
+	}
 }
 
-func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool) FieldKind {
+func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
 	switch fd.Kind() {
 	case protoreflect.StringKind:
 		return FieldString
@@ -260,14 +321,16 @@ func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool)
 	case protoreflect.EnumKind:
 		return FieldEnum
 	case protoreflect.MessageKind:
-		return messageKind(entity, fd, jsonMarked)
+		return messageKind(entity, fd, jsonMarked, allowNested)
 	default:
 		panic(fmt.Sprintf("%s.%s: field kind %s is not yet supported", entity, fd.Name(), fd.Kind()))
 	}
 }
 
-// messageKind classifies the supported well-known message types.
-func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool) FieldKind {
+// messageKind classifies a message-typed field: the well-known types, the
+// protojson lane for anything in the JSON list, and a typed nested
+// attribute for the rest.
+func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
 	switch fd.Message().FullName() {
 	case "google.protobuf.Timestamp":
 		return FieldTimestamp
@@ -285,7 +348,10 @@ func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked bool
 	if jsonMarked {
 		return FieldJSONMessage
 	}
-	panic(fmt.Sprintf("%s.%s: message-typed field %s must be declared in the JSON list (typed nested attributes are not yet supported)", entity, fd.Name(), fd.Message().FullName()))
+	if allowNested {
+		return FieldNestedMessage
+	}
+	panic(fmt.Sprintf("%s.%s: message-typed field %s sits more than one level deep; typed nested attributes nest one level, so declare the outer field in the JSON list instead", entity, fd.Name(), fd.Message().FullName()))
 }
 
 // validateFieldNames panics when a behavior list references a proto field
@@ -313,6 +379,7 @@ func (r Resource) validateFieldNames(entity string, fds protoreflect.FieldDescri
 	check(r.Immutable, "Immutable")
 	check(r.Computed, "Computed")
 	check(r.Sensitive, "Sensitive")
+	check(r.InputOnly, "InputOnly")
 	check(r.WriteOnly, "WriteOnly")
 	check(r.JSON, "JSON")
 }

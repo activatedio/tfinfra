@@ -34,6 +34,20 @@ type fakePetStoreClient struct {
 	// lastCreateToyID is the id the create request carried in the entity's
 	// name field — what a caller-named API keys the row on.
 	lastCreateToyID string
+	// lastIntake records the input-only fields as they arrived, since the
+	// stored row deliberately does not keep them.
+	lastIntakeCode    string
+	lastIntakeAgeDays int32
+}
+
+// consumeIntake mirrors a server that takes the input-only intake fields,
+// acts on them, and never stores or returns them. Keeping them would make
+// the generated read look correct for the wrong reason.
+func (f *fakePetStoreClient) consumeIntake(p *petstorev1.Pet) {
+	f.lastIntakeCode = p.GetIntakeCode()
+	f.lastIntakeAgeDays = p.GetIntakeAgeDays()
+	p.IntakeCode = ""
+	p.IntakeAgeDays = 0
 }
 
 func newFakePetStoreClient() *fakePetStoreClient {
@@ -66,6 +80,7 @@ func (f *fakePetStoreClient) CreatePet(_ context.Context, in *petstorev1.CreateP
 	p := proto.Clone(in.GetPet()).(*petstorev1.Pet)
 	p.Name = fmt.Sprintf("%s/pets/p%d", in.GetParent(), f.seq)
 	p.CreateTime = timestamppb.New(createTimeFixture)
+	f.consumeIntake(p)
 	f.pets[p.GetName()] = p
 	return proto.Clone(p).(*petstorev1.Pet), nil
 }
@@ -78,6 +93,7 @@ func (f *fakePetStoreClient) UpdatePet(_ context.Context, in *petstorev1.UpdateP
 	p := proto.Clone(in.GetPet()).(*petstorev1.Pet)
 	p.Name = in.GetName()
 	p.CreateTime = existing.GetCreateTime()
+	f.consumeIntake(p)
 	f.pets[in.GetName()] = p
 	return proto.Clone(p).(*petstorev1.Pet), nil
 }
@@ -108,6 +124,12 @@ func (f *fakePetStoreClient) PatchPet(_ context.Context, in *petstorev1.PatchPet
 			existing.Config = in.GetPet().GetConfig()
 		case "metadata":
 			existing.Metadata = in.GetPet().GetMetadata()
+		case "feeding":
+			existing.Feeding = in.GetPet().GetFeeding()
+		case "intake_code", "intake_age_days":
+			// Consumed, never stored: the row keeps no trace of them.
+			f.lastIntakeCode = in.GetPet().GetIntakeCode()
+			f.lastIntakeAgeDays = in.GetPet().GetIntakeAgeDays()
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "unsupported update_mask path %q", path)
 		}

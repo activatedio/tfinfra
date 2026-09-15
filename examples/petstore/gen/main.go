@@ -30,9 +30,13 @@ func main() {
 						ClientType: reflect.TypeFor[petstorev1.PetStoreServiceClient](),
 						Client:     "petstore",
 						Required:   []string{"display_name"},
-						Immutable:  []string{"type"},
-						Computed:   []string{"create_time"},
-						JSON:       []string{"config", "metadata"},
+						// intake_code covers input-only plus immutable (a
+						// create-only parameter), intake_age_days covers
+						// input-only on its own.
+						Immutable: []string{"type", "intake_code"},
+						Computed:  []string{"create_time"},
+						InputOnly: []string{"intake_code", "intake_age_days"},
+						JSON:      []string{"config", "metadata"},
 					},
 					gentf.DataSource{},
 					gentf.Associate{Target: reflect.TypeFor[petstorev1.Toy]()},

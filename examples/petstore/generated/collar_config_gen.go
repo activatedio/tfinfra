@@ -6,11 +6,13 @@ import (
 	"context"
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
 	jsontypes "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	attr "github.com/hashicorp/terraform-plugin-framework/attr"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
 	path "github.com/hashicorp/terraform-plugin-framework/path"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
+	basetypes "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
@@ -29,27 +31,56 @@ func CollarConfigDataSourceSchema() schema.Schema {
 				Optional:   true,
 			},
 			"color": schema.StringAttribute{Required: true},
-			"size":  schema.Int64Attribute{Optional: true},
+			"engraving": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"font": schema.StringAttribute{Optional: true},
+					"lines": schema.ListAttribute{
+						ElementType: types.StringType,
+						Optional:    true,
+					},
+					"text": schema.StringAttribute{Optional: true},
+				},
+				Optional: true,
+			},
+			"size": schema.Int64Attribute{Optional: true},
 		},
 		MarkdownDescription: "Builds a CollarConfig config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.",
 	}
 }
 
+// CollarConfigEngravingModel is the Terraform model for CollarConfig's "engraving" nested attribute.
+type CollarConfigEngravingModel struct {
+	Text  types.String `tfsdk:"text"`
+	Font  types.String `tfsdk:"font"`
+	Lines types.List   `tfsdk:"lines"`
+}
+
+// CollarConfigEngravingAttrTypes returns the attribute types of the "engraving" nested attribute.
+func CollarConfigEngravingAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"font":  types.StringType,
+		"lines": types.ListType{ElemType: types.StringType},
+		"text":  types.StringType,
+	}
+}
+
 // CollarConfigModel is the Terraform model for the CollarConfig config data source.
 type CollarConfigModel struct {
-	Color  types.String         `tfsdk:"color"`
-	Size   types.Int64          `tfsdk:"size"`
-	Buckle jsontypes.Normalized `tfsdk:"buckle"`
-	Any    jsontypes.Normalized `tfsdk:"any"`
+	Color     types.String         `tfsdk:"color"`
+	Size      types.Int64          `tfsdk:"size"`
+	Buckle    jsontypes.Normalized `tfsdk:"buckle"`
+	Engraving types.Object         `tfsdk:"engraving"`
+	Any       jsontypes.Normalized `tfsdk:"any"`
 }
 
 // NewCollarConfigModel returns a model with every attribute set to its typed null.
 func NewCollarConfigModel() *CollarConfigModel {
 	return &CollarConfigModel{
-		Any:    jsontypes.NewNormalizedNull(),
-		Buckle: jsontypes.NewNormalizedNull(),
-		Color:  types.StringNull(),
-		Size:   types.Int64Null(),
+		Any:       jsontypes.NewNormalizedNull(),
+		Buckle:    jsontypes.NewNormalizedNull(),
+		Color:     types.StringNull(),
+		Engraving: types.ObjectNull(CollarConfigEngravingAttrTypes()),
+		Size:      types.Int64Null(),
 	}
 }
 
@@ -66,6 +97,17 @@ func (m *CollarConfigModel) ToProto(ctx context.Context) (*v1.CollarConfig, diag
 		} else {
 			out.Buckle = v
 		}
+	}
+	if !m.Engraving.IsNull() && !m.Engraving.IsUnknown() {
+		var n CollarConfigEngravingModel
+		diags.Append(m.Engraving.As(ctx, &n, basetypes.ObjectAsOptions{})...)
+		v := &v1.Engraving{}
+		v.Text = n.Text.ValueString()
+		v.Font = n.Font.ValueString()
+		if !n.Lines.IsNull() && !n.Lines.IsUnknown() {
+			diags.Append(n.Lines.ElementsAs(ctx, &v.Lines, false)...)
+		}
+		out.Engraving = v
 	}
 	return out, diags
 }

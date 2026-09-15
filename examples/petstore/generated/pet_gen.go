@@ -9,6 +9,7 @@ import (
 	tf "github.com/activatedio/tfinfra/pkg/tf"
 	jsontypes "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	stringvalidator "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
+	attr "github.com/hashicorp/terraform-plugin-framework/attr"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema1 "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
@@ -20,10 +21,12 @@ import (
 	int64planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	listplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	mapplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
+	objectplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
+	basetypes "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	protojson "google.golang.org/protobuf/encoding/protojson"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -54,6 +57,40 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"display_name": schema.StringAttribute{Required: true},
+			"feeding": schema.SingleNestedAttribute{
+				Attributes: map[string]schema.Attribute{
+					"foods": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Optional:    true,
+					},
+					"notes": schema.MapAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Optional:    true,
+					},
+					"portions": schema.Int64Attribute{
+						Computed: true,
+						Optional: true,
+					},
+					"schedule": schema.StringAttribute{
+						Computed: true,
+						Optional: true,
+					},
+				},
+				Computed:      true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+			},
+			"intake_age_days": schema.Int64Attribute{
+				MarkdownDescription: "`intake_age_days` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.",
+				Optional:            true,
+			},
+			"intake_code": schema.StringAttribute{
+				MarkdownDescription: "`intake_code` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.",
+				Optional:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+			},
 			"labels": schema.MapAttribute{
 				Computed:      true,
 				ElementType:   types.StringType,
@@ -104,37 +141,61 @@ func PetResourceSchema() schema.Schema {
 	}
 }
 
+// PetFeedingModel is the Terraform model for Pet's "feeding" nested attribute.
+type PetFeedingModel struct {
+	Schedule types.String `tfsdk:"schedule"`
+	Portions types.Int64  `tfsdk:"portions"`
+	Foods    types.List   `tfsdk:"foods"`
+	Notes    types.Map    `tfsdk:"notes"`
+}
+
+// PetFeedingAttrTypes returns the attribute types of the "feeding" nested attribute.
+func PetFeedingAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"foods":    types.ListType{ElemType: types.StringType},
+		"notes":    types.MapType{ElemType: types.StringType},
+		"portions": types.Int64Type,
+		"schedule": types.StringType,
+	}
+}
+
 // PetModel is the Terraform plan/state model for Pet.
 type PetModel struct {
-	Name        types.String         `tfsdk:"name"`
-	StoreId     types.String         `tfsdk:"store_id"`
-	DisplayName types.String         `tfsdk:"display_name"`
-	Type        types.String         `tfsdk:"type"`
-	Age         types.Int64          `tfsdk:"age"`
-	Vaccinated  types.Bool           `tfsdk:"vaccinated"`
-	Weight      types.Float64        `tfsdk:"weight"`
-	Tags        types.List           `tfsdk:"tags"`
-	Labels      types.Map            `tfsdk:"labels"`
-	CreateTime  types.String         `tfsdk:"create_time"`
-	Config      jsontypes.Normalized `tfsdk:"config"`
-	Metadata    jsontypes.Normalized `tfsdk:"metadata"`
+	Name          types.String         `tfsdk:"name"`
+	StoreId       types.String         `tfsdk:"store_id"`
+	DisplayName   types.String         `tfsdk:"display_name"`
+	Type          types.String         `tfsdk:"type"`
+	Age           types.Int64          `tfsdk:"age"`
+	Vaccinated    types.Bool           `tfsdk:"vaccinated"`
+	Weight        types.Float64        `tfsdk:"weight"`
+	Tags          types.List           `tfsdk:"tags"`
+	Labels        types.Map            `tfsdk:"labels"`
+	CreateTime    types.String         `tfsdk:"create_time"`
+	Config        jsontypes.Normalized `tfsdk:"config"`
+	Metadata      jsontypes.Normalized `tfsdk:"metadata"`
+	Feeding       types.Object         `tfsdk:"feeding"`
+	IntakeCode    types.String         `tfsdk:"intake_code"`
+	IntakeAgeDays types.Int64          `tfsdk:"intake_age_days"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
 func NewPetModel() *PetModel {
 	return &PetModel{
-		Age:         types.Int64Null(),
-		Config:      jsontypes.NewNormalizedNull(),
-		CreateTime:  types.StringNull(),
-		DisplayName: types.StringNull(),
-		Labels:      types.MapNull(types.StringType),
-		Metadata:    jsontypes.NewNormalizedNull(),
-		Name:        types.StringNull(),
-		StoreId:     types.StringNull(),
-		Tags:        types.ListNull(types.StringType),
-		Type:        types.StringNull(),
-		Vaccinated:  types.BoolNull(),
-		Weight:      types.Float64Null(),
+		Age:           types.Int64Null(),
+		Config:        jsontypes.NewNormalizedNull(),
+		CreateTime:    types.StringNull(),
+		DisplayName:   types.StringNull(),
+		Feeding:       types.ObjectNull(PetFeedingAttrTypes()),
+		IntakeAgeDays: types.Int64Null(),
+		IntakeCode:    types.StringNull(),
+		Labels:        types.MapNull(types.StringType),
+		Metadata:      jsontypes.NewNormalizedNull(),
+		Name:          types.StringNull(),
+		StoreId:       types.StringNull(),
+		Tags:          types.ListNull(types.StringType),
+		Type:          types.StringNull(),
+		Vaccinated:    types.BoolNull(),
+		Weight:        types.Float64Null(),
 	}
 }
 
@@ -180,10 +241,26 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 			out.Metadata = v
 		}
 	}
+	if !m.Feeding.IsNull() && !m.Feeding.IsUnknown() {
+		var n PetFeedingModel
+		diags.Append(m.Feeding.As(ctx, &n, basetypes.ObjectAsOptions{})...)
+		v := &v1.Feeding{}
+		v.Schedule = n.Schedule.ValueString()
+		v.Portions = int32(n.Portions.ValueInt64())
+		if !n.Foods.IsNull() && !n.Foods.IsUnknown() {
+			diags.Append(n.Foods.ElementsAs(ctx, &v.Foods, false)...)
+		}
+		if !n.Notes.IsNull() && !n.Notes.IsUnknown() {
+			diags.Append(n.Notes.ElementsAs(ctx, &v.Notes, false)...)
+		}
+		out.Feeding = v
+	}
+	out.IntakeCode = m.IntakeCode.ValueString()
+	out.IntakeAgeDays = int32(m.IntakeAgeDays.ValueInt64())
 	return out, diags
 }
 
-// FromProto populates the model from its proto message. Scope identifier attributes are left untouched.
+// FromProto populates the model from its proto message. Scope identifier attributes and input-only attributes are left untouched.
 func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	var diags diag.Diagnostics
 	m.Name = types.StringValue(e.Name)
@@ -235,6 +312,34 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 			m.Metadata = jsontypes.NewNormalizedValue(string(b))
 		}
 	}
+	if e.Feeding == nil {
+		m.Feeding = types.ObjectNull(PetFeedingAttrTypes())
+	} else {
+		var n PetFeedingModel
+		if e.Feeding.Schedule == "" {
+			n.Schedule = types.StringNull()
+		} else {
+			n.Schedule = types.StringValue(e.Feeding.Schedule)
+		}
+		n.Portions = types.Int64Value(int64(e.Feeding.Portions))
+		if len(e.Feeding.Foods) == 0 {
+			n.Foods = types.ListNull(types.StringType)
+		} else {
+			v, d := types.ListValueFrom(ctx, types.StringType, e.Feeding.Foods)
+			diags.Append(d...)
+			n.Foods = v
+		}
+		if len(e.Feeding.Notes) == 0 {
+			n.Notes = types.MapNull(types.StringType)
+		} else {
+			v, d := types.MapValueFrom(ctx, types.StringType, e.Feeding.Notes)
+			diags.Append(d...)
+			n.Notes = v
+		}
+		obj, d := types.ObjectValueFrom(ctx, PetFeedingAttrTypes(), n)
+		diags.Append(d...)
+		m.Feeding = obj
+	}
 	return diags
 }
 
@@ -281,6 +386,15 @@ func (m *PetModel) UpdateMask(ctx context.Context, prior *PetModel) []string {
 		if eq, _ := m.Metadata.StringSemanticEquals(ctx, prior.Metadata); !eq {
 			paths = append(paths, "metadata")
 		}
+	}
+	if !m.Feeding.Equal(prior.Feeding) {
+		paths = append(paths, "feeding")
+	}
+	if !m.IntakeCode.Equal(prior.IntakeCode) {
+		paths = append(paths, "intake_code")
+	}
+	if !m.IntakeAgeDays.Equal(prior.IntakeAgeDays) {
+		paths = append(paths, "intake_age_days")
 	}
 	return paths
 }
@@ -415,6 +529,29 @@ func PetDataSourceSchema() schema1.Schema {
 			},
 			"create_time":  schema1.StringAttribute{Computed: true},
 			"display_name": schema1.StringAttribute{Computed: true},
+			"feeding": schema1.SingleNestedAttribute{
+				Attributes: map[string]schema1.Attribute{
+					"foods": schema1.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"notes": schema1.MapAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"portions": schema1.Int64Attribute{Computed: true},
+					"schedule": schema1.StringAttribute{Computed: true},
+				},
+				Computed: true,
+			},
+			"intake_age_days": schema1.Int64Attribute{
+				Computed:            true,
+				MarkdownDescription: "`intake_age_days` is input only: the API consumes it and never returns it, so this data source always reads it as null.",
+			},
+			"intake_code": schema1.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "`intake_code` is input only: the API consumes it and never returns it, so this data source always reads it as null.",
+			},
 			"labels": schema1.MapAttribute{
 				Computed:    true,
 				ElementType: types.StringType,

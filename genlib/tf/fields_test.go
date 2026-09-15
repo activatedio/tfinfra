@@ -39,7 +39,7 @@ func TestNormalizeFields(t *testing.T) {
 				for _, f := range got {
 					byName[f.ProtoName] = f
 				}
-				require.Len(t, got, 11)
+				require.Len(t, got, 14)
 
 				assert.Equal(t, gentf.FieldString, byName["name"].Kind)
 				assert.True(t, byName["name"].Computed)
@@ -63,6 +63,62 @@ func TestNormalizeFields(t *testing.T) {
 				assert.True(t, byName["create_time"].Computed)
 				assert.Equal(t, gentf.FieldAny, byName["config"].Kind)
 				assert.Equal(t, gentf.FieldStruct, byName["metadata"].Kind)
+			},
+		},
+		"a singular message left out of the JSON list becomes a nested attribute": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"}}
+			},
+			assert: func(t *testing.T, got []gentf.Field) {
+
+				byName := map[string]gentf.Field{}
+				for _, f := range got {
+					byName[f.ProtoName] = f
+				}
+
+				feeding := byName["feeding"]
+				assert.Equal(t, gentf.FieldNestedMessage, feeding.Kind)
+				require.Len(t, feeding.Nested, 4)
+
+				// Nested fields keep proto field-number order and carry the
+				// same kinds they would at the top level.
+				assert.Equal(t, []string{"schedule", "portions", "foods", "notes"},
+					[]string{feeding.Nested[0].ProtoName, feeding.Nested[1].ProtoName, feeding.Nested[2].ProtoName, feeding.Nested[3].ProtoName})
+				assert.Equal(t, gentf.FieldString, feeding.Nested[0].Kind)
+				assert.Equal(t, gentf.FieldInt64, feeding.Nested[1].Kind)
+				assert.Equal(t, gentf.FieldStringList, feeding.Nested[2].Kind)
+				assert.Equal(t, gentf.FieldStringMap, feeding.Nested[3].Kind)
+				assert.Equal(t, "Schedule", feeding.Nested[0].GoName)
+
+				// A JSON-marked message on the same entry stays on the
+				// protojson lane; the two coexist.
+				assert.Equal(t, gentf.FieldAny, byName["config"].Kind)
+			},
+		},
+		"InputOnly resolves alongside Immutable": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{
+					Immutable: []string{"intake_code"},
+					InputOnly: []string{"intake_code", "intake_age_days"},
+					JSON:      []string{"config", "metadata"},
+				}
+			},
+			assert: func(t *testing.T, got []gentf.Field) {
+
+				byName := map[string]gentf.Field{}
+				for _, f := range got {
+					byName[f.ProtoName] = f
+				}
+
+				assert.True(t, byName["intake_code"].InputOnly)
+				assert.True(t, byName["intake_code"].Immutable)
+				// Never computed: that is the whole point of the marker.
+				assert.False(t, byName["intake_code"].Computed)
+
+				assert.True(t, byName["intake_age_days"].InputOnly)
+				assert.False(t, byName["intake_age_days"].Immutable)
+
+				assert.False(t, byName["display_name"].InputOnly)
 			},
 		},
 	}
@@ -90,7 +146,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t,
-					`Pet: Required references unknown field "nope" (fields: age, config, create_time, display_name, labels, metadata, name, tags, type, vaccinated, weight)`,
+					`Pet: Required references unknown field "nope" (fields: age, config, create_time, display_name, feeding, intake_age_days, intake_code, labels, metadata, name, tags, type, vaccinated, weight)`,
 					f)
 			},
 		},
@@ -124,6 +180,32 @@ func TestNormalizeFields_Panics(t *testing.T) {
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t, "Pet.config: google.protobuf.Any fields must be declared in Resource.JSON", f)
+			},
+		},
+		"input-only and computed conflict": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{
+					InputOnly: []string{"create_time"},
+					Computed:  []string{"create_time"},
+					JSON:      []string{"config", "metadata"},
+				}
+			},
+			assert: func(t *testing.T, f func()) {
+				assert.PanicsWithValue(t,
+					"Pet.create_time: field cannot be both input-only and computed; the server never returns an input-only field",
+					f)
+			},
+		},
+		"message nested more than one level": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				// Kennel.collar is a nested attribute; CollarConfig.buckle
+				// inside it is one level too deep.
+				return gentf.Entry{Type: reflect.TypeFor[petstorev1.Kennel]()}, gentf.Resource{}
+			},
+			assert: func(t *testing.T, f func()) {
+				assert.PanicsWithValue(t,
+					"CollarConfig.buckle: message-typed field petstore.v1.Buckle sits more than one level deep; typed nested attributes nest one level, so declare the outer field in the JSON list instead",
+					f)
 			},
 		},
 		"non-message type": {
