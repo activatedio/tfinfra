@@ -16,6 +16,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -478,8 +479,12 @@ type Pet struct {
 	// actually recorded.
 	IntakeCode    string `protobuf:"bytes,13,opt,name=intake_code,json=intakeCode,proto3" json:"intake_code,omitempty"`
 	IntakeAgeDays int32  `protobuf:"varint,14,opt,name=intake_age_days,json=intakeAgeDays,proto3" json:"intake_age_days,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// A google.protobuf.Duration: a string attribute in Go duration syntax,
+	// read back in protojson form unless the written spelling already means
+	// the same length.
+	GroomingInterval *durationpb.Duration `protobuf:"bytes,15,opt,name=grooming_interval,json=groomingInterval,proto3" json:"grooming_interval,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Pet) Reset() {
@@ -608,6 +613,13 @@ func (x *Pet) GetIntakeAgeDays() int32 {
 		return x.IntakeAgeDays
 	}
 	return 0
+}
+
+func (x *Pet) GetGroomingInterval() *durationpb.Duration {
+	if x != nil {
+		return x.GroomingInterval
+	}
+	return nil
 }
 
 // Feeding is a singular nested message surfaced as a typed nested
@@ -1561,7 +1573,7 @@ var File_petstore_v1_petstore_proto protoreflect.FileDescriptor
 
 const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\n" +
-	"\x1apetstore/v1/petstore.proto\x12\vpetstore.v1\x1a\x19google/protobuf/any.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"#\n" +
+	"\x1apetstore/v1/petstore.proto\x12\vpetstore.v1\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"#\n" +
 	"\rGetPetRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"}\n" +
 	"\x0fListPetsRequest\x12\x16\n" +
@@ -1585,7 +1597,7 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"&\n" +
 	"\x10DeletePetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\xce\x04\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x96\x05\n" +
 	"\x03Pet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12(\n" +
@@ -1605,7 +1617,8 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\afeeding\x18\f \x01(\v2\x14.petstore.v1.FeedingR\afeeding\x12\x1f\n" +
 	"\vintake_code\x18\r \x01(\tR\n" +
 	"intakeCode\x12&\n" +
-	"\x0fintake_age_days\x18\x0e \x01(\x05R\rintakeAgeDays\x1a9\n" +
+	"\x0fintake_age_days\x18\x0e \x01(\x05R\rintakeAgeDays\x12F\n" +
+	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc8\x01\n" +
@@ -1740,7 +1753,8 @@ var file_petstore_v1_petstore_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),     // 29: google.protobuf.Timestamp
 	(*anypb.Any)(nil),                 // 30: google.protobuf.Any
 	(*structpb.Struct)(nil),           // 31: google.protobuf.Struct
-	(*emptypb.Empty)(nil),             // 32: google.protobuf.Empty
+	(*durationpb.Duration)(nil),       // 32: google.protobuf.Duration
+	(*emptypb.Empty)(nil),             // 33: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	8,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
@@ -1754,50 +1768,51 @@ var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	30, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
 	31, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
 	9,  // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
-	27, // 11: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
-	12, // 12: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
-	11, // 13: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
-	13, // 14: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
-	25, // 15: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
-	25, // 16: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
-	25, // 17: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
-	25, // 18: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
-	25, // 19: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
-	28, // 20: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	10, // 21: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
-	1,  // 22: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	2,  // 23: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	4,  // 24: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	5,  // 25: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	6,  // 26: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	7,  // 27: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	17, // 28: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
-	18, // 29: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
-	20, // 30: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
-	21, // 31: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
-	22, // 32: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
-	23, // 33: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
-	14, // 34: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
-	15, // 35: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
-	8,  // 36: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	3,  // 37: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	8,  // 38: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	8,  // 39: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	8,  // 40: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	32, // 41: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	25, // 42: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
-	19, // 43: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
-	25, // 44: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
-	25, // 45: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
-	25, // 46: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
-	32, // 47: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
-	32, // 48: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
-	16, // 49: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
-	36, // [36:50] is the sub-list for method output_type
-	22, // [22:36] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	32, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
+	27, // 12: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
+	12, // 13: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
+	11, // 14: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
+	13, // 15: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
+	25, // 16: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
+	25, // 17: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
+	25, // 18: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
+	25, // 19: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
+	25, // 20: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
+	28, // 21: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	10, // 22: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
+	1,  // 23: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	2,  // 24: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	4,  // 25: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	5,  // 26: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	6,  // 27: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	7,  // 28: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	17, // 29: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
+	18, // 30: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
+	20, // 31: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
+	21, // 32: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
+	22, // 33: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
+	23, // 34: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
+	14, // 35: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	15, // 36: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	8,  // 37: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	3,  // 38: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	8,  // 39: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	8,  // 40: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	8,  // 41: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	33, // 42: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	25, // 43: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
+	19, // 44: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
+	25, // 45: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
+	25, // 46: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
+	25, // 47: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
+	33, // 48: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
+	33, // 49: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	16, // 50: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	37, // [37:51] is the sub-list for method output_type
+	23, // [23:37] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }

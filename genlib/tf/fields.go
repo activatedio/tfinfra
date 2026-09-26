@@ -33,6 +33,10 @@ const (
 	FieldEnum
 	// FieldTimestamp is a google.protobuf.Timestamp, surfaced as RFC 3339.
 	FieldTimestamp
+	// FieldDuration is a google.protobuf.Duration, surfaced as a string in
+	// Go duration syntax ("5s", "1.5s", "500ms") and read back in protojson
+	// form unless the written spelling already denotes the same length.
+	FieldDuration
 	// FieldStringList is a repeated string.
 	FieldStringList
 	// FieldStringMap is a map<string, string>.
@@ -334,6 +338,8 @@ func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, all
 	switch fd.Message().FullName() {
 	case "google.protobuf.Timestamp":
 		return FieldTimestamp
+	case "google.protobuf.Duration":
+		return FieldDuration
 	case "google.protobuf.Any":
 		if !jsonMarked {
 			panic(fmt.Sprintf("%s.%s: google.protobuf.Any fields must be declared in Resource.JSON", entity, fd.Name()))

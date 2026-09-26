@@ -57,7 +57,7 @@ const tfsdkTag = "tfsdk"
 // modelFieldType returns the model struct field type for a kind.
 func modelFieldType(kind FieldKind) *jen.Statement {
 	switch kind {
-	case FieldString, FieldEnum, FieldTimestamp:
+	case FieldString, FieldEnum, FieldTimestamp, FieldDuration:
 		return jen.Qual(pkgTypes, "String")
 	case FieldBool:
 		return jen.Qual(pkgTypes, "Bool")
@@ -82,7 +82,7 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 // a types.Object needs to carry.
 func attrTypeFor(fd Field) *jen.Statement {
 	switch fd.Kind {
-	case FieldString, FieldEnum, FieldTimestamp:
+	case FieldString, FieldEnum, FieldTimestamp, FieldDuration:
 		return jen.Qual(pkgTypes, "StringType")
 	case FieldBool:
 		return jen.Qual(pkgTypes, "BoolType")
@@ -230,7 +230,7 @@ func typedNull(fd Field, owner string) *jen.Statement {
 // constructed with typed nulls.
 func typedNullKind(kind FieldKind) *jen.Statement {
 	switch kind {
-	case FieldString, FieldEnum, FieldTimestamp:
+	case FieldString, FieldEnum, FieldTimestamp, FieldDuration:
 		return jen.Qual(pkgTypes, "StringNull").Call()
 	case FieldBool:
 		return jen.Qual(pkgTypes, "BoolNull").Call()
@@ -371,8 +371,8 @@ func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 		return toProtoJSON(fd, c, jsonSummary(fd))
 	case FieldNestedMessage:
 		return toProtoNested(fd, c, owner)
-	case FieldTimestamp:
-		return toProtoTimestamp(fd, c, out)
+	case FieldTimestamp, FieldDuration:
+		return toProtoParsed(fd, c, out)
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
@@ -417,19 +417,41 @@ func toProtoNumeric(fd Field, c conv, valueMethod string, wideKind reflect.Kind)
 	return expr
 }
 
-func toProtoTimestamp(fd Field, c conv, out *jen.Statement) jen.Code {
+// toProtoParsed emits the string-to-well-known-type conversions: parse the
+// attribute, anchor a failure to it, and assign the result otherwise.
+func toProtoParsed(fd Field, c conv, out *jen.Statement) jen.Code {
+
+	// The parsed value takes a name of its own rather than v, which inside
+	// a nested block is the nested message being filled.
+	var parse, assign *jen.Statement
+	var parsed, summary string
+	value := c.m(fd.GoName).Dot("ValueString").Call()
+
+	switch fd.Kind {
+	case FieldTimestamp:
+		parse = jen.Qual("time", "Parse").Call(jen.Qual("time", "RFC3339"), value)
+		parsed = "t"
+		assign = jen.Qual(pkgTimestamppb, "New").Call(jen.Id(parsed))
+		summary = "invalid RFC 3339 timestamp"
+	case FieldDuration:
+		parse = jen.Qual(pkgRuntimeTf, "ParseDuration").Call(value)
+		parsed = "d"
+		assign = jen.Id(parsed)
+		summary = "invalid duration"
+	default:
+		panic(fmt.Sprintf("field kind %d is not parsed from a string", fd.Kind))
+	}
+
 	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
-		jen.List(jen.Id("t"), jen.Id("err")).Op(":=").Qual("time", "Parse").Call(
-			jen.Qual("time", "RFC3339"), c.m(fd.GoName).Dot("ValueString").Call(),
-		),
+		jen.List(jen.Id(parsed), jen.Id("err")).Op(":=").Add(parse),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("diags").Dot("AddAttributeError").Call(
 				jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
-				jen.Lit("invalid RFC 3339 timestamp"),
+				jen.Lit(summary),
 				jen.Id("err").Dot("Error").Call(),
 			),
 		).Else().Block(
-			out.Op("=").Qual(pkgTimestamppb, "New").Call(jen.Id("t")),
+			out.Op("=").Add(assign),
 		),
 	)
 }
@@ -451,6 +473,8 @@ func fromProtoStatement(fd Field, c conv, owner string) jen.Code {
 		return fromProtoNested(fd, c, owner)
 	case FieldTimestamp:
 		return fromProtoTimestamp(fd, c)
+	case FieldDuration:
+		return c.m(fd.GoName).Op("=").Qual(pkgRuntimeTf, "DurationValue").Call(c.m(fd.GoName), c.p(fd.GoName))
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}

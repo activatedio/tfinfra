@@ -29,7 +29,7 @@ type attrShape struct {
 func shapeFor(kind FieldKind) attrShape {
 	base := "github.com/hashicorp/terraform-plugin-framework/resource/schema/"
 	switch kind {
-	case FieldString, FieldEnum, FieldTimestamp:
+	case FieldString, FieldEnum, FieldTimestamp, FieldDuration:
 		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, false}
 	case FieldBool:
 		return attrShape{"BoolAttribute", "Bool", base + "boolplanmodifier", false, false}
@@ -275,6 +275,9 @@ func attributeDescription(fd Field) string {
 	}
 	if fd.Kind == FieldTimestamp {
 		return fmt.Sprintf("`%s` as an RFC 3339 timestamp.", fd.TfName())
+	}
+	if fd.Kind == FieldDuration {
+		return fmt.Sprintf("`%s` as a duration: `\"5s\"`, `\"1.5s\"`, `\"500ms\"`, `\"1m30s\"`.", fd.TfName())
 	}
 	if fd.Kind == FieldAny {
 		return fmt.Sprintf("`%s` as protojson-encoded google.protobuf.Any (JSON object with `@type`); reference a generated config data source's `any` output for the type-safe form.", fd.TfName())

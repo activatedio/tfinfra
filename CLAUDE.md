@@ -134,6 +134,7 @@ strings on every resource schema.
 | repeated string             | ListAttribute[String]        | types.List       |
 | map<string, string>         | MapAttribute[String]         | types.Map        |
 | google.protobuf.Timestamp   | StringAttribute (RFC 3339)   | types.String     |
+| google.protobuf.Duration    | StringAttribute (duration)   | types.String     |
 | google.protobuf.Any (JSON)  | jsontypes.Normalized (protojson, `@type`) | jsontypes.Normalized |
 | google.protobuf.Struct (JSON) | jsontypes.Normalized (JSON object) | jsontypes.Normalized |
 | any other message (JSON)    | jsontypes.Normalized (protojson)   | jsontypes.Normalized |
@@ -151,6 +152,16 @@ message field takes one of two lanes:
   `<Entity><Field>AttrTypes()`. The two lanes coexist on one message —
   `CollarConfig` in the example takes `buckle` as JSON and `engraving` as
   a nested attribute.
+
+A **Duration** attribute takes Go's duration syntax — a superset of the
+protojson form, so `"5s"` and `"1.5s"` work alongside `"500ms"` and
+`"1m30s"` — through `pkg/tf.ParseDuration`. It reads back through
+`pkg/tf.DurationValue`: when the value already in the model (plan or prior
+state) denotes the same length it is kept as written, so `"1m30s"` does not
+come back as `"90s"`, which Terraform would reject as an inconsistent
+result after apply. With nothing to compare against — an import, a data
+source, a field inside a nested attribute — it reads in protojson form with
+trailing zeros trimmed (`"90s"`, `"0.5s"`).
 
 Nested attributes nest **one level**: a message inside a nested message
 panics, and belongs on the JSON lane. Nested children are Optional+Computed
@@ -195,7 +206,7 @@ unsetting requires an explicit zero value.
 
 **Read-side null convention** (to be refined with proto3 `optional`
 presence in the CRUD runtime task): strings, enums, lists, maps, and
-timestamps read a proto zero value as Terraform null — except `name` and
+timestamps and durations read a proto zero value as Terraform null — except `name` and
 `Required` fields, which always carry a value. Bools and numbers always
 carry a value, because proto3 cannot distinguish zero from unset.
 

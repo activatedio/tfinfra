@@ -8,6 +8,7 @@ syntax = "proto3";
 package petstore.v1;
 
 import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
@@ -107,6 +108,11 @@ message Pet {
   // actually recorded.
   string intake_code = 13;
   int32 intake_age_days = 14;
+
+  // A google.protobuf.Duration: a string attribute in Go duration syntax,
+  // read back in protojson form unless the written spelling already means
+  // the same length.
+  google.protobuf.Duration grooming_interval = 15;
 }
 
 // Feeding is a singular nested message surfaced as a typed nested

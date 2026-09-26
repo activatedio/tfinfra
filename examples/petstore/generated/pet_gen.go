@@ -82,6 +82,12 @@ func PetResourceSchema() schema.Schema {
 				Optional:      true,
 				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
 			},
+			"grooming_interval": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "`grooming_interval` as a duration: `\"5s\"`, `\"1.5s\"`, `\"500ms\"`, `\"1m30s\"`.",
+				Optional:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"intake_age_days": schema.Int64Attribute{
 				MarkdownDescription: "`intake_age_days` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.",
 				Optional:            true,
@@ -161,41 +167,43 @@ func PetFeedingAttrTypes() map[string]attr.Type {
 
 // PetModel is the Terraform plan/state model for Pet.
 type PetModel struct {
-	Name          types.String         `tfsdk:"name"`
-	StoreId       types.String         `tfsdk:"store_id"`
-	DisplayName   types.String         `tfsdk:"display_name"`
-	Type          types.String         `tfsdk:"type"`
-	Age           types.Int64          `tfsdk:"age"`
-	Vaccinated    types.Bool           `tfsdk:"vaccinated"`
-	Weight        types.Float64        `tfsdk:"weight"`
-	Tags          types.List           `tfsdk:"tags"`
-	Labels        types.Map            `tfsdk:"labels"`
-	CreateTime    types.String         `tfsdk:"create_time"`
-	Config        jsontypes.Normalized `tfsdk:"config"`
-	Metadata      jsontypes.Normalized `tfsdk:"metadata"`
-	Feeding       types.Object         `tfsdk:"feeding"`
-	IntakeCode    types.String         `tfsdk:"intake_code"`
-	IntakeAgeDays types.Int64          `tfsdk:"intake_age_days"`
+	Name             types.String         `tfsdk:"name"`
+	StoreId          types.String         `tfsdk:"store_id"`
+	DisplayName      types.String         `tfsdk:"display_name"`
+	Type             types.String         `tfsdk:"type"`
+	Age              types.Int64          `tfsdk:"age"`
+	Vaccinated       types.Bool           `tfsdk:"vaccinated"`
+	Weight           types.Float64        `tfsdk:"weight"`
+	Tags             types.List           `tfsdk:"tags"`
+	Labels           types.Map            `tfsdk:"labels"`
+	CreateTime       types.String         `tfsdk:"create_time"`
+	Config           jsontypes.Normalized `tfsdk:"config"`
+	Metadata         jsontypes.Normalized `tfsdk:"metadata"`
+	Feeding          types.Object         `tfsdk:"feeding"`
+	IntakeCode       types.String         `tfsdk:"intake_code"`
+	IntakeAgeDays    types.Int64          `tfsdk:"intake_age_days"`
+	GroomingInterval types.String         `tfsdk:"grooming_interval"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
 func NewPetModel() *PetModel {
 	return &PetModel{
-		Age:           types.Int64Null(),
-		Config:        jsontypes.NewNormalizedNull(),
-		CreateTime:    types.StringNull(),
-		DisplayName:   types.StringNull(),
-		Feeding:       types.ObjectNull(PetFeedingAttrTypes()),
-		IntakeAgeDays: types.Int64Null(),
-		IntakeCode:    types.StringNull(),
-		Labels:        types.MapNull(types.StringType),
-		Metadata:      jsontypes.NewNormalizedNull(),
-		Name:          types.StringNull(),
-		StoreId:       types.StringNull(),
-		Tags:          types.ListNull(types.StringType),
-		Type:          types.StringNull(),
-		Vaccinated:    types.BoolNull(),
-		Weight:        types.Float64Null(),
+		Age:              types.Int64Null(),
+		Config:           jsontypes.NewNormalizedNull(),
+		CreateTime:       types.StringNull(),
+		DisplayName:      types.StringNull(),
+		Feeding:          types.ObjectNull(PetFeedingAttrTypes()),
+		GroomingInterval: types.StringNull(),
+		IntakeAgeDays:    types.Int64Null(),
+		IntakeCode:       types.StringNull(),
+		Labels:           types.MapNull(types.StringType),
+		Metadata:         jsontypes.NewNormalizedNull(),
+		Name:             types.StringNull(),
+		StoreId:          types.StringNull(),
+		Tags:             types.ListNull(types.StringType),
+		Type:             types.StringNull(),
+		Vaccinated:       types.BoolNull(),
+		Weight:           types.Float64Null(),
 	}
 }
 
@@ -257,6 +265,14 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 	}
 	out.IntakeCode = m.IntakeCode.ValueString()
 	out.IntakeAgeDays = int32(m.IntakeAgeDays.ValueInt64())
+	if !m.GroomingInterval.IsNull() && !m.GroomingInterval.IsUnknown() {
+		d, err := tf.ParseDuration(m.GroomingInterval.ValueString())
+		if err != nil {
+			diags.AddAttributeError(path.Root("grooming_interval"), "invalid duration", err.Error())
+		} else {
+			out.GroomingInterval = d
+		}
+	}
 	return out, diags
 }
 
@@ -340,6 +356,7 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		diags.Append(d...)
 		m.Feeding = obj
 	}
+	m.GroomingInterval = tf.DurationValue(m.GroomingInterval, e.GroomingInterval)
 	return diags
 }
 
@@ -395,6 +412,9 @@ func (m *PetModel) UpdateMask(ctx context.Context, prior *PetModel) []string {
 	}
 	if !m.IntakeAgeDays.Equal(prior.IntakeAgeDays) {
 		paths = append(paths, "intake_age_days")
+	}
+	if !m.GroomingInterval.Equal(prior.GroomingInterval) {
+		paths = append(paths, "grooming_interval")
 	}
 	return paths
 }
@@ -544,6 +564,7 @@ func PetDataSourceSchema() schema1.Schema {
 				},
 				Computed: true,
 			},
+			"grooming_interval": schema1.StringAttribute{Computed: true},
 			"intake_age_days": schema1.Int64Attribute{
 				Computed:            true,
 				MarkdownDescription: "`intake_age_days` is input only: the API consumes it and never returns it, so this data source always reads it as null.",
