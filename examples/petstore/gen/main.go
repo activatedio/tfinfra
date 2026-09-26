@@ -60,7 +60,11 @@ func main() {
 			{
 				Type: reflect.TypeFor[petstorev1.CollarConfig](),
 				Implementations: []any{
-					gentf.ConfigDataSource{Required: []string{"color"}, JSON: []string{"buckle"}},
+					gentf.ConfigDataSource{
+						Required:    []string{"color"},
+						JSON:        []string{"buckle"},
+						Description: "A collar is only worn by a pet with a feeding schedule.",
+					},
 				},
 			},
 		},

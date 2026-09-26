@@ -273,6 +273,19 @@ func attributeDescription(fd Field) string {
 	if fd.ProtoName == NameField {
 		return "Full resource name; serves as the Terraform ID."
 	}
+	if desc := shapeDescription(fd); desc != "" {
+		return desc
+	}
+	if fd.InputOnly {
+		return fmt.Sprintf("`%s` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.", fd.TfName())
+	}
+	return ""
+}
+
+// shapeDescription says how to write a value whose attribute type does not:
+// a timestamp, a duration, or a JSON document. Resource attributes and
+// config data source inputs share it.
+func shapeDescription(fd Field) string {
 	if fd.Kind == FieldTimestamp {
 		return fmt.Sprintf("`%s` as an RFC 3339 timestamp.", fd.TfName())
 	}
@@ -287,9 +300,6 @@ func attributeDescription(fd Field) string {
 	}
 	if fd.Kind == FieldJSONMessage {
 		return fmt.Sprintf("`%s` as the protojson encoding of %s.", fd.TfName(), fd.GoType.Elem().Name())
-	}
-	if fd.InputOnly {
-		return fmt.Sprintf("`%s` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.", fd.TfName())
 	}
 	return ""
 }
@@ -329,7 +339,7 @@ func enumValidators(fd Field) jen.Code {
 // writeConfigDataSourceSchema emits the schema for a ConfigDataSource
 // entry: the config message's fields as inputs plus the computed "any"
 // output.
-func writeConfigDataSourceSchema(f *jen.File, e Entry, fields []Field) {
+func writeConfigDataSourceSchema(f *jen.File, e Entry, cds ConfigDataSource, fields []Field) {
 
 	t := entityType(e)
 
@@ -348,12 +358,22 @@ func writeConfigDataSourceSchema(f *jen.File, e Entry, fields []Field) {
 	f.Commentf("%sDataSourceSchema returns the Terraform schema for the %s config data source.", t.Name(), t.Name())
 	f.Func().Id(t.Name()+"DataSourceSchema").Params().Qual(pkgDatasourceSchema, "Schema").Block(
 		jen.Return(jen.Qual(pkgDatasourceSchema, "Schema").Values(jen.Dict{
-			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Builds a %s config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.", t.Name())),
+			jen.Id("MarkdownDescription"): jen.Lit(configDataSourceDescription(t.Name(), cds)),
 			jen.Id("Attributes"): jen.Map(jen.String()).Qual(pkgDatasourceSchema, "Attribute").Values(
 				attrs,
 			),
 		})),
 	)
+}
+
+// configDataSourceDescription is the generated sentence, led by the entry's
+// own Description when it has one.
+func configDataSourceDescription(typeName string, cds ConfigDataSource) string {
+	desc := fmt.Sprintf("Builds a %s config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.", typeName)
+	if cds.Description != "" {
+		desc = cds.Description + " " + desc
+	}
+	return desc
 }
 
 func configInputAttributeFor(fd Field) jen.Code {
@@ -370,6 +390,9 @@ func configInputAttributeFor(fd Field) jen.Code {
 		d[jen.Id("Sensitive")] = jen.True()
 	}
 	applyTypeKeys(d, pkgDatasourceSchema, fd, configInputAttributeFor)
+	if desc := shapeDescription(fd); desc != "" {
+		d[jen.Id("MarkdownDescription")] = jen.Lit(desc)
+	}
 	if fd.Kind == FieldEnum {
 		d[jen.Id("Validators")] = enumValidators(fd)
 	}

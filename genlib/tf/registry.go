@@ -83,7 +83,7 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	if cds, ok := GetImplementation[ConfigDataSource](fm.Entry); ok {
 		fields := NormalizeConfigFields(fm.Entry, cds)
 		n := namesFor(fm.Entry, Resource{})
-		writeConfigDataSourceSchema(f, fm.Entry, fields)
+		writeConfigDataSourceSchema(f, fm.Entry, cds, fields)
 		writeConfigModel(f, fm.Entry, fields, n.Model)
 		writeConfigDataSource(f, fm.Entry, n)
 		return

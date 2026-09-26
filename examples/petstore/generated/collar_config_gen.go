@@ -27,8 +27,9 @@ func CollarConfigDataSourceSchema() schema.Schema {
 				MarkdownDescription: "protojson-encoded google.protobuf.Any (includes `@type`); reference this from Any-typed resource attributes.",
 			},
 			"buckle": schema.StringAttribute{
-				CustomType: jsontypes.NormalizedType{},
-				Optional:   true,
+				CustomType:          jsontypes.NormalizedType{},
+				MarkdownDescription: "`buckle` as the protojson encoding of Buckle.",
+				Optional:            true,
 			},
 			"color": schema.StringAttribute{Required: true},
 			"engraving": schema.SingleNestedAttribute{
@@ -44,7 +45,7 @@ func CollarConfigDataSourceSchema() schema.Schema {
 			},
 			"size": schema.Int64Attribute{Optional: true},
 		},
-		MarkdownDescription: "Builds a CollarConfig config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.",
+		MarkdownDescription: "A collar is only worn by a pet with a feeding schedule. Builds a CollarConfig config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.",
 	}
 }
 

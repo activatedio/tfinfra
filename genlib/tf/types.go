@@ -144,6 +144,10 @@ type ConfigDataSource struct {
 	// JSON lists message-typed config fields surfaced as
 	// jsontypes.Normalized protojson blobs.
 	JSON []string
+	// Description leads the data source's generated description — what a
+	// practitioner must know before using the config (a prerequisite, a
+	// caveat) that the message's fields cannot say.
+	Description string
 }
 
 // DataSourceList declares a plural data source (List under a parent) for

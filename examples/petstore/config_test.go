@@ -3,6 +3,7 @@ package petstore_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
@@ -121,4 +122,18 @@ func TestPetResource_InvalidAnyJSON(t *testing.T) {
 	require.True(t, resp.Diagnostics.HasError())
 	assert.Contains(t, resp.Diagnostics.Errors()[0].Summary(), "invalid google.protobuf.Any JSON")
 
+}
+
+// A config data source's description leads with the entry's own
+// Description, and an input whose type does not say how to write it — a
+// JSON document here — carries the same description a resource attribute
+// would.
+func TestCollarConfigDataSource_Descriptions(t *testing.T) {
+
+	s := generated.CollarConfigDataSourceSchema()
+
+	assert.True(t, strings.HasPrefix(s.MarkdownDescription, "A collar is only worn by a pet with a feeding schedule. Builds a CollarConfig config"),
+		s.MarkdownDescription)
+	assert.Equal(t, "`buckle` as the protojson encoding of Buckle.", s.Attributes["buckle"].GetMarkdownDescription())
+	assert.Empty(t, s.Attributes["color"].GetMarkdownDescription(), "a plain string needs no description")
 }

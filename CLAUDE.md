@@ -181,10 +181,13 @@ Resources whose API field is `google.protobuf.Any` get two lanes:
    `@type`) into the JSON-marked attribute; bad type URLs or unknown fields
    fail with an attribute-anchored diagnostic at apply time.
 2. **Type-safe**: declare the concrete config message as its own entry with
-   `tf.ConfigDataSource{}`. The generated data source exposes the message's
-   fields as typed attributes (enum validators included) and computes an
-   `any` output — the packed protojson Any — to reference from the
-   resource:
+   `tf.ConfigDataSource{}`. The generated data source exposes the
+   message's fields as typed attributes (enum validators included) and
+   computes an `any` output — the packed protojson Any — to reference from
+   the resource. `ConfigDataSource.Description` leads the generated
+   description with what the fields cannot say (a prerequisite, a caveat),
+   and inputs that are timestamps, durations or JSON carry the same
+   how-to-write-it description a resource attribute does:
 
 ```hcl
 data "petstore_collar_config" "c" {
