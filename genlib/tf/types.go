@@ -117,6 +117,10 @@ type Resource struct {
 	// before the attribute list. The singular data source reuses it. Empty
 	// falls back to "<Entity> resource."
 	Description string
+	// Mint creates the resource through a mint verb instead of
+	// Create<Entity>: an API that hands over a credential exactly once,
+	// beside the row it wrote. Nil means the AIP Create. See Mint.
+	Mint *Mint
 	// WriteOnly lists proto fields surfaced as write-only arguments
 	// (Terraform >= 1.11). PENDING: not yet implemented; declaring one
 	// panics at generation time.
@@ -125,6 +129,40 @@ type Resource struct {
 	// jsontypes.Normalized: Any as its protojson encoding (with "@type"),
 	// Struct as a JSON object. Any/Struct fields MUST be listed here.
 	JSON []string
+}
+
+// Mint declares a resource the API mints rather than creates: the client
+// method Method, func(ctx, *Request, ...) (*Response, error), stands in for
+// Create<Entity>, and its response carries the entity beside values
+// returned exactly once — a secret, a token.
+//
+// The request takes the parent in its "parent" field and the entity either
+// whole, in a field of the entity's type, or flat: each other request field
+// matched to the entity field of the same proto name and Go type. Every
+// field the practitioner can set must reach the request by one of those
+// routes, so a mint never silently drops one; mark the rest Computed.
+//
+// Each Once field names a string field of the response. It becomes a
+// Sensitive, Computed attribute set from the mint and carried across every
+// read, since no read returns it. `terraform import` cannot recover it: an
+// imported resource holds it as null.
+//
+// The resource also gains "keepers", a map whose change replaces the
+// resource. It is how a practitioner rotates a credential the API offers no
+// rotate verb for: bump a value, and with create_before_destroy the
+// successor is minted before the old one is deleted.
+//
+// Ops need not exclude OpCreate: a minted resource never looks up
+// Create<Entity>. A singular DataSource on the same entry is refused, since
+// its model would carry the once-only attributes no read has; the plural
+// DataSourceList is fine.
+type Mint struct {
+	// Method is the client method that mints, e.g. "MintClientSecret".
+	// Required.
+	Method string
+	// Once lists the response's string fields returned only by the mint,
+	// by proto name; each names its attribute too. Required.
+	Once []string
 }
 
 // DataSource declares a singular data source (Get by full resource name)

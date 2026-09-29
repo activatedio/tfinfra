@@ -84,6 +84,23 @@ resource "petstore_toy" "bone" {
 }
 ```
 
+A credential the API mints rather than creates — the secret comes back once,
+in the mint response, and no read returns it — declares
+`Mint: &tf.Mint{Method: "MintAccessKey", Once: []string{"key"}}`. The key
+is a sensitive attribute kept in state across refreshes, and `keepers`
+replaces the resource when any value in it changes:
+
+```hcl
+resource "petstore_access_key" "ci" {
+  display_name = "ci"
+  keepers      = { rotation = "2026-09" }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+```
+
 See `examples/petstore/` for the end-to-end example (its `generated/`
 directory is the golden output contract) and `CLAUDE.md` for architecture,
 supported field shapes, and status.

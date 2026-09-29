@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/dave/jennifer/jen"
+
+	runtimetf "github.com/activatedio/tfinfra/pkg/tf"
 )
 
 const (
@@ -82,6 +84,10 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 
 	for _, fd := range fields {
 		attrs[jen.Lit(fd.TfName())] = attributeFor(fd)
+	}
+
+	if res.Mint != nil {
+		writeMintAttributes(attrs, res.Mint)
 	}
 
 	f.Commentf("%sResourceSchema returns the Terraform schema for the %s resource.", t.Name(), t.Name())
@@ -417,4 +423,34 @@ func configInputAttributeFor(fd Field) jen.Code {
 	}
 
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
+}
+
+// writeMintAttributes adds a minted resource's attributes beyond its proto
+// fields: one per once-only value, and the keepers replacement trigger.
+func writeMintAttributes(attrs jen.Dict, mint *Mint) {
+
+	for _, name := range mint.Once {
+		attrs[jen.Lit(name)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Computed"):  jen.True(),
+			jen.Id("Sensitive"): jen.True(),
+			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Returned once, by `%s`, and kept in state: no read returns it, "+
+				"so a resource brought in with `terraform import` has none. Replace the resource (see `%s`) to get a new one.",
+				mint.Method, runtimetf.KeepersAttribute)),
+			// Every plan after the create has only state to offer: the
+			// value never changes in place.
+			jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
+				jen.Qual(shapeFor(FieldString).planModifierPkg, "UseStateForUnknown").Call(),
+			),
+		})
+	}
+
+	attrs[jen.Lit(runtimetf.KeepersAttribute)] = jen.Qual(pkgResourceSchema, "MapAttribute").Values(jen.Dict{
+		jen.Id("Optional"):    jen.True(),
+		jen.Id("ElementType"): jen.Qual(pkgTypes, "StringType"),
+		jen.Id("MarkdownDescription"): jen.Lit("Arbitrary values that replace the resource when any of them changes, never sent to the API. " +
+			"Change one to rotate: with `create_before_destroy`, the successor is minted before this one is deleted."),
+		jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "Map").Values(
+			jen.Qual(shapeFor(FieldStringMap).planModifierPkg, "RequiresReplace").Call(),
+		),
+	})
 }

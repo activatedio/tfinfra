@@ -15,7 +15,7 @@ Sibling of `datainfra` / `apiinfra` and built on the same
 ```
 genlib/           # build-time code generation (panics on error)
   tf/
-    types.go      # Spec, Entry, markers (Resource, DataSource, ConfigDataSource, Associate, DataSourceList), Get/HasImplementation
+    types.go      # Spec, Entry, markers (Resource, Mint, DataSource, ConfigDataSource, Associate, DataSourceList), Get/HasImplementation
     ops.go        # Ops bitmask (OpGet|OpList|OpCreate|OpUpdate|OpPatch|OpDelete; zero = all)
     fields.go     # protoreflect normalization: message descriptor + markers -> []Field
     client.go     # reflect analysis of the client interface: methods, request shapes
@@ -116,6 +116,29 @@ it back — which Terraform rejects. The tradeoff is that an imported resource
 has no value for them and a data source always reads them as null, both of
 which the generated attribute descriptions say. `InputOnly` with `Computed`
 on the same field panics.
+
+`Resource.Mint` covers APIs that mint a credential instead of creating it —
+kit's `MintClientSecret`, whose response carries the row beside a secret
+returned exactly once. `Mint{Method, Once}` names the client method that
+stands in for `Create<Entity>` (never looked up, so `Ops` need not drop
+`OpCreate`) and the response's once-only string fields. `AnalyzeMint` binds
+the request: `parent`, then the entity either whole (a field of its type) or
+flat (each other request field matched to the entity field of the same proto
+name and Go type). A settable field the flat request cannot carry panics —
+mark it `Computed` — so a mint never drops a value silently.
+
+Each once-only field becomes a Sensitive, Computed attribute with
+`UseStateForUnknown`, set in state by `Crud.Create` from the mint's
+`map[string]string` after `State.Set`. It lives in the model struct but in
+neither proto conversion, so a Read (state in, `FromProto`, state out)
+carries it forward untouched, and an import leaves it null. The resource
+also gains `keepers` (`tf.KeepersAttribute`), an optional string map with
+`RequiresReplace` that never reaches the API: the rotation trigger for a
+credential with no rotate verb, used with `create_before_destroy`. A
+singular `DataSource` on a minted entry panics — it shares the model, once-
+only attributes and all — while `DataSourceList` has its own item model and
+is fine. `AccessKey` in the petstore example is the golden case (`MintAccessKey`
+takes the entity flat, as kit's mint verbs do).
 
 `Resource` behavior lists reference proto field names (snake_case); unknown
 names, conflicting behavior, and unsupported shapes all **panic at
@@ -247,6 +270,8 @@ registration.
   error), `Create*(parent, entity)`, state from the response. For a
   `CallerNamed` resource the `<type_name>_id` attribute is written into the
   entity's name field first; an empty id is an attribute-anchored error.
+  A `Mint` resource calls its mint method instead and writes the once-only
+  values into state after the entity's attributes.
 - Read: `Get*(name)`; gRPC NotFound removes the resource from state.
 - Update: `Patch*` with `update_mask` from the generated plan/state
   `UpdateMask` diff (empty mask → read back instead of an empty patch);
@@ -275,7 +300,8 @@ full-lifecycle tests against a fake client, determinism (regeneration is
 byte-identical), association resources (`tf.Associate` + the Association
 runtime), caller-assigned resource ids (`Resource.CallerNamed`), typed
 nested attributes (one level, resources and config data sources alike),
-input-only fields (`Resource.InputOnly`).
+input-only fields (`Resource.InputOnly`), minted resources with once-only
+values and `keepers` (`Resource.Mint`).
 
 Plural data sources (`DataSourceList`): the scope identifiers are optional
 attributes over the provider defaults, and the entities arrive as a list of
@@ -286,9 +312,10 @@ and stops with an error on a repeated one. There is no server-side filter
 yet: filter syntax varies by API, and a `for` expression filters in HCL.
 
 Pending (tracked in the terraform-provider-authwise plan): write-only
-arguments (the ephemeral Terraform
-≥1.11 kind — `InputOnly` covers the never-echoed case, not the
-never-stored one), proto3 `optional` presence in the null convention,
+arguments (the ephemeral Terraform ≥1.11 kind — `InputOnly` covers the
+never-echoed case, `Mint` the server-minted secret kept in state, neither
+the caller-supplied secret never stored; no generated resource needs one
+yet), proto3 `optional` presence in the null convention,
 Wiring/DI index variant, a server-side filter on list data sources, nested
 attributes more than one level deep. Auth ships separately in
 `api-client-go/credentials/bearer`.

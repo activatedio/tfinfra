@@ -57,19 +57,32 @@ func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 	}, gen.WithGeneratedBy(GeneratedBy))
 }
 
+// validateEntry panics on a marker combination the generator cannot
+// honour: each rule is a condition that must not hold, and what to say.
 func validateEntry(e Entry) {
 
-	if HasImplementation[DataSourceList](e) && !HasImplementation[Resource](e) {
-		panic(fmt.Sprintf("%s: DataSourceList requires a Resource marker on the same entry", entityType(e).Name()))
+	res, hasResource := GetImplementation[Resource](e)
+
+	rules := []struct {
+		broken bool
+		msg    string
+	}{
+		{HasImplementation[DataSourceList](e) && !hasResource,
+			"DataSourceList requires a Resource marker on the same entry"},
+		{HasImplementation[DataSource](e) && !hasResource,
+			"DataSource currently requires a Resource marker on the same entry"},
+		{res.Mint != nil && HasImplementation[DataSource](e),
+			"a minted resource takes no singular DataSource; its model carries once-only attributes no read has (DataSourceList is fine)"},
+		{HasImplementation[ConfigDataSource](e) && hasResource,
+			"ConfigDataSource and Resource are mutually exclusive on one entry"},
+		{len(Associations(e)) > 0 && !hasResource,
+			"Associate requires a Resource marker on the same entry"},
 	}
-	if HasImplementation[DataSource](e) && !HasImplementation[Resource](e) {
-		panic(fmt.Sprintf("%s: DataSource currently requires a Resource marker on the same entry", entityType(e).Name()))
-	}
-	if HasImplementation[ConfigDataSource](e) && HasImplementation[Resource](e) {
-		panic(fmt.Sprintf("%s: ConfigDataSource and Resource are mutually exclusive on one entry", entityType(e).Name()))
-	}
-	if len(Associations(e)) > 0 && !HasImplementation[Resource](e) {
-		panic(fmt.Sprintf("%s: Associate requires a Resource marker on the same entry", entityType(e).Name()))
+
+	for _, r := range rules {
+		if r.broken {
+			panic(fmt.Sprintf("%s: %s", entityType(e).Name(), r.msg))
+		}
 	}
 }
 
@@ -92,6 +105,7 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	res, _ := GetImplementation[Resource](fm.Entry)
 	fields := NormalizeFields(fm.Entry, res)
 	cm := AnalyzeClient(fm.Entry, res)
+	cm.Mint = AnalyzeMint(fm.Entry, res, fields)
 	n := namesFor(fm.Entry, res)
 
 	writeResourceSchema(f, fm.Entry, res, n, fields)

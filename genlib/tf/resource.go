@@ -174,6 +174,10 @@ func clientAdapters(e Entry, cm ClientModel) jen.Code {
 			Block(jen.Return(reqValues(op, fields)))
 	}
 
+	if op := cm.Mint; op != nil {
+		d[jen.Id("Mint")] = mintAdapter(e, op)
+	}
+
 	if op := cm.Update; op != nil {
 		d[jen.Id("Update")] = jen.Func().
 			Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("name").String(), jen.Id("entity").Add(ePtr())).
@@ -425,4 +429,37 @@ func writeConfigDataSource(f *jen.File, _ Entry, n entityNames) {
 		jen.Id("m").Dot("Any").Op("=").Qual(pkgJsontypes, "NewNormalizedValue").Call(jen.Id("string").Call(jen.Id("b"))),
 		jen.Id("resp").Dot("Diagnostics").Dot("Append").Call(jen.Id("resp").Dot("State").Dot("Set").Call(jen.Id("ctx"), jen.Id("m")).Op("...")),
 	)
+}
+
+// mintAdapter builds the CrudClient.Mint func: fill the mint request from
+// the parent and the entity, then hand back the entity and the once-only
+// values keyed by attribute.
+func mintAdapter(e Entry, op *MintOp) jen.Code {
+
+	fields := jen.Dict{jen.Id(op.ParentField): jen.Id("parent")}
+	if op.EntityField != "" {
+		fields[jen.Id(op.EntityField)] = jen.Id("entity")
+	}
+	for _, ff := range op.Flat {
+		fields[jen.Id(ff.Request)] = jen.Id("entity").Dot(ff.Entity)
+	}
+
+	once := jen.Dict{}
+	for _, o := range op.Once {
+		once[jen.Lit(o.Attribute)] = jen.Id("out").Dot(o.GoName)
+	}
+
+	return jen.Func().
+		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("parent").String(), jen.Id("entity").Add(entityPtr(e))).
+		Params(entityPtr(e), jen.Map(jen.String()).String(), jen.Error()).
+		Block(
+			jen.List(jen.Id("out"), jen.Id("err")).Op(":=").Id("client").Dot(op.Method).Call(
+				jen.Id("ctx"),
+				jen.Op("&").Qual(op.RequestType.PkgPath(), op.RequestType.Name()).Values(fields),
+			),
+			jen.If(jen.Id("err").Op("!=").Nil()).Block(
+				jen.Return(jen.Nil(), jen.Nil(), jen.Id("err")),
+			),
+			jen.Return(jen.Id("out").Dot(op.ResponseEntityField), jen.Map(jen.String()).String().Values(once), jen.Nil()),
+		)
 }

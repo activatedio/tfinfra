@@ -39,6 +39,15 @@ service PetStoreService {
   // edge plus its paginated read-back.
   rpc AssociateToysToPet(AssociateToysToPetRequest) returns (google.protobuf.Empty);
   rpc ListToysByPet(ListToysByPetRequest) returns (ListToysByPetResponse);
+
+  // AccessKey is minted rather than created: there is no CreateAccessKey. The
+  // mint returns the key exactly once beside the row, and no read returns
+  // it again.
+  rpc GetAccessKey(GetAccessKeyRequest) returns (AccessKey);
+  rpc ListAccessKeys(ListAccessKeysRequest) returns (ListAccessKeysResponse);
+  rpc MintAccessKey(MintAccessKeyRequest) returns (MintAccessKeyResponse);
+  rpc PatchAccessKey(PatchAccessKeyRequest) returns (AccessKey);
+  rpc DeleteAccessKey(DeleteAccessKeyRequest) returns (google.protobuf.Empty);
 }
 
 message GetPetRequest {
@@ -229,4 +238,52 @@ message Kennel {
 message Toy {
   string name = 1;
   string display_name = 2;
+}
+
+// AccessKey is a store's key for calling the API. The row carries no
+// key material: the key exists on the wire only in the mint response.
+message AccessKey {
+  string name = 1;
+  string display_name = 2;
+  google.protobuf.Timestamp expires_at = 3;
+  google.protobuf.Timestamp create_time = 4;
+}
+
+message GetAccessKeyRequest {
+  string name = 1;
+}
+
+message ListAccessKeysRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListAccessKeysResponse {
+  repeated AccessKey access_keys = 1;
+  string next_page_token = 2;
+}
+
+// MintAccessKeyRequest takes the entity's inputs flat, as kit's mint verbs
+// do, rather than an AccessKey message.
+message MintAccessKeyRequest {
+  string parent = 1;
+  string display_name = 2;
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+message MintAccessKeyResponse {
+  AccessKey access_key = 1;
+  // Returned exactly once.
+  string key = 2;
+}
+
+message PatchAccessKeyRequest {
+  string name = 1;
+  AccessKey access_key = 2;
+  google.protobuf.FieldMask update_mask = 3;
+}
+
+message DeleteAccessKeyRequest {
+  string name = 1;
 }

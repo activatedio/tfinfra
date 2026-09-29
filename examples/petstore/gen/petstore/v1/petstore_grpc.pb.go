@@ -40,6 +40,11 @@ const (
 	PetStoreService_DeleteToy_FullMethodName          = "/petstore.v1.PetStoreService/DeleteToy"
 	PetStoreService_AssociateToysToPet_FullMethodName = "/petstore.v1.PetStoreService/AssociateToysToPet"
 	PetStoreService_ListToysByPet_FullMethodName      = "/petstore.v1.PetStoreService/ListToysByPet"
+	PetStoreService_GetAccessKey_FullMethodName       = "/petstore.v1.PetStoreService/GetAccessKey"
+	PetStoreService_ListAccessKeys_FullMethodName     = "/petstore.v1.PetStoreService/ListAccessKeys"
+	PetStoreService_MintAccessKey_FullMethodName      = "/petstore.v1.PetStoreService/MintAccessKey"
+	PetStoreService_PatchAccessKey_FullMethodName     = "/petstore.v1.PetStoreService/PatchAccessKey"
+	PetStoreService_DeleteAccessKey_FullMethodName    = "/petstore.v1.PetStoreService/DeleteAccessKey"
 )
 
 // PetStoreServiceClient is the client API for PetStoreService service.
@@ -67,6 +72,14 @@ type PetStoreServiceClient interface {
 	// edge plus its paginated read-back.
 	AssociateToysToPet(ctx context.Context, in *AssociateToysToPetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListToysByPet(ctx context.Context, in *ListToysByPetRequest, opts ...grpc.CallOption) (*ListToysByPetResponse, error)
+	// AccessKey is minted rather than created: there is no CreateAccessKey. The
+	// mint returns the key exactly once beside the row, and no read returns
+	// it again.
+	GetAccessKey(ctx context.Context, in *GetAccessKeyRequest, opts ...grpc.CallOption) (*AccessKey, error)
+	ListAccessKeys(ctx context.Context, in *ListAccessKeysRequest, opts ...grpc.CallOption) (*ListAccessKeysResponse, error)
+	MintAccessKey(ctx context.Context, in *MintAccessKeyRequest, opts ...grpc.CallOption) (*MintAccessKeyResponse, error)
+	PatchAccessKey(ctx context.Context, in *PatchAccessKeyRequest, opts ...grpc.CallOption) (*AccessKey, error)
+	DeleteAccessKey(ctx context.Context, in *DeleteAccessKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type petStoreServiceClient struct {
@@ -217,6 +230,56 @@ func (c *petStoreServiceClient) ListToysByPet(ctx context.Context, in *ListToysB
 	return out, nil
 }
 
+func (c *petStoreServiceClient) GetAccessKey(ctx context.Context, in *GetAccessKeyRequest, opts ...grpc.CallOption) (*AccessKey, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AccessKey)
+	err := c.cc.Invoke(ctx, PetStoreService_GetAccessKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListAccessKeys(ctx context.Context, in *ListAccessKeysRequest, opts ...grpc.CallOption) (*ListAccessKeysResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAccessKeysResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListAccessKeys_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) MintAccessKey(ctx context.Context, in *MintAccessKeyRequest, opts ...grpc.CallOption) (*MintAccessKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MintAccessKeyResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_MintAccessKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) PatchAccessKey(ctx context.Context, in *PatchAccessKeyRequest, opts ...grpc.CallOption) (*AccessKey, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AccessKey)
+	err := c.cc.Invoke(ctx, PetStoreService_PatchAccessKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) DeleteAccessKey(ctx context.Context, in *DeleteAccessKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, PetStoreService_DeleteAccessKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PetStoreServiceServer is the server API for PetStoreService service.
 // All implementations must embed UnimplementedPetStoreServiceServer
 // for forward compatibility.
@@ -242,6 +305,14 @@ type PetStoreServiceServer interface {
 	// edge plus its paginated read-back.
 	AssociateToysToPet(context.Context, *AssociateToysToPetRequest) (*emptypb.Empty, error)
 	ListToysByPet(context.Context, *ListToysByPetRequest) (*ListToysByPetResponse, error)
+	// AccessKey is minted rather than created: there is no CreateAccessKey. The
+	// mint returns the key exactly once beside the row, and no read returns
+	// it again.
+	GetAccessKey(context.Context, *GetAccessKeyRequest) (*AccessKey, error)
+	ListAccessKeys(context.Context, *ListAccessKeysRequest) (*ListAccessKeysResponse, error)
+	MintAccessKey(context.Context, *MintAccessKeyRequest) (*MintAccessKeyResponse, error)
+	PatchAccessKey(context.Context, *PatchAccessKeyRequest) (*AccessKey, error)
+	DeleteAccessKey(context.Context, *DeleteAccessKeyRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedPetStoreServiceServer()
 }
 
@@ -293,6 +364,21 @@ func (UnimplementedPetStoreServiceServer) AssociateToysToPet(context.Context, *A
 }
 func (UnimplementedPetStoreServiceServer) ListToysByPet(context.Context, *ListToysByPetRequest) (*ListToysByPetResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListToysByPet not implemented")
+}
+func (UnimplementedPetStoreServiceServer) GetAccessKey(context.Context, *GetAccessKeyRequest) (*AccessKey, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAccessKey not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListAccessKeys(context.Context, *ListAccessKeysRequest) (*ListAccessKeysResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAccessKeys not implemented")
+}
+func (UnimplementedPetStoreServiceServer) MintAccessKey(context.Context, *MintAccessKeyRequest) (*MintAccessKeyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method MintAccessKey not implemented")
+}
+func (UnimplementedPetStoreServiceServer) PatchAccessKey(context.Context, *PatchAccessKeyRequest) (*AccessKey, error) {
+	return nil, status.Error(codes.Unimplemented, "method PatchAccessKey not implemented")
+}
+func (UnimplementedPetStoreServiceServer) DeleteAccessKey(context.Context, *DeleteAccessKeyRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteAccessKey not implemented")
 }
 func (UnimplementedPetStoreServiceServer) mustEmbedUnimplementedPetStoreServiceServer() {}
 func (UnimplementedPetStoreServiceServer) testEmbeddedByValue()                         {}
@@ -567,6 +653,96 @@ func _PetStoreService_ListToysByPet_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PetStoreService_GetAccessKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAccessKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).GetAccessKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_GetAccessKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).GetAccessKey(ctx, req.(*GetAccessKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListAccessKeys_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAccessKeysRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListAccessKeys(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListAccessKeys_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListAccessKeys(ctx, req.(*ListAccessKeysRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_MintAccessKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MintAccessKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).MintAccessKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_MintAccessKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).MintAccessKey(ctx, req.(*MintAccessKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_PatchAccessKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PatchAccessKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).PatchAccessKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_PatchAccessKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).PatchAccessKey(ctx, req.(*PatchAccessKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_DeleteAccessKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAccessKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).DeleteAccessKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_DeleteAccessKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).DeleteAccessKey(ctx, req.(*DeleteAccessKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PetStoreService_ServiceDesc is the grpc.ServiceDesc for PetStoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -629,6 +805,26 @@ var PetStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListToysByPet",
 			Handler:    _PetStoreService_ListToysByPet_Handler,
+		},
+		{
+			MethodName: "GetAccessKey",
+			Handler:    _PetStoreService_GetAccessKey_Handler,
+		},
+		{
+			MethodName: "ListAccessKeys",
+			Handler:    _PetStoreService_ListAccessKeys_Handler,
+		},
+		{
+			MethodName: "MintAccessKey",
+			Handler:    _PetStoreService_MintAccessKey_Handler,
+		},
+		{
+			MethodName: "PatchAccessKey",
+			Handler:    _PetStoreService_PatchAccessKey_Handler,
+		},
+		{
+			MethodName: "DeleteAccessKey",
+			Handler:    _PetStoreService_DeleteAccessKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

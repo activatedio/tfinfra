@@ -43,6 +43,10 @@ type fakePetStoreClient struct {
 	// stored row deliberately does not keep them.
 	lastIntakeCode    string
 	lastIntakeAgeDays int32
+	// accessKeys are the minted rows, keyed by full name. Like a real mint
+	// API they hold no key: it exists only in the mint response.
+	accessKeys map[string]*petstorev1.AccessKey
+	lastMint   *petstorev1.MintAccessKeyRequest
 }
 
 // consumeIntake mirrors a server that takes the input-only intake fields,
@@ -59,6 +63,7 @@ func newFakePetStoreClient() *fakePetStoreClient {
 	return &fakePetStoreClient{
 		pets:        map[string]*petstorev1.Pet{},
 		toyEntities: map[string]*petstorev1.Toy{},
+		accessKeys:  map[string]*petstorev1.AccessKey{},
 	}
 }
 
@@ -297,4 +302,71 @@ func (f *fakePetStoreClient) petToys(pet string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (f *fakePetStoreClient) GetAccessKey(_ context.Context, in *petstorev1.GetAccessKeyRequest, _ ...grpc.CallOption) (*petstorev1.AccessKey, error) {
+	k, ok := f.accessKeys[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "access key %q not found", in.GetName())
+	}
+	return proto.Clone(k).(*petstorev1.AccessKey), nil
+}
+
+func (f *fakePetStoreClient) ListAccessKeys(_ context.Context, in *petstorev1.ListAccessKeysRequest, _ ...grpc.CallOption) (*petstorev1.ListAccessKeysResponse, error) {
+	names := make([]string, 0, len(f.accessKeys))
+	for name := range f.accessKeys {
+		if strings.HasPrefix(name, in.GetParent()+"/accessKeys/") {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	out := &petstorev1.ListAccessKeysResponse{}
+	for _, name := range names {
+		out.AccessKeys = append(out.AccessKeys, proto.Clone(f.accessKeys[name]).(*petstorev1.AccessKey))
+	}
+	return out, nil
+}
+
+func (f *fakePetStoreClient) MintAccessKey(_ context.Context, in *petstorev1.MintAccessKeyRequest, _ ...grpc.CallOption) (*petstorev1.MintAccessKeyResponse, error) {
+	f.lastMint = proto.Clone(in).(*petstorev1.MintAccessKeyRequest)
+	f.seq++
+	id := fmt.Sprintf("k%d", f.seq)
+	k := &petstorev1.AccessKey{
+		Name:        in.GetParent() + "/accessKeys/" + id,
+		DisplayName: in.GetDisplayName(),
+		ExpiresAt:   in.GetExpiresAt(),
+		CreateTime:  timestamppb.New(createTimeFixture),
+	}
+	f.accessKeys[k.GetName()] = k
+	return &petstorev1.MintAccessKeyResponse{
+		AccessKey: proto.Clone(k).(*petstorev1.AccessKey),
+		Key:       id + "_plaintext" + strconv.Itoa(f.seq),
+	}, nil
+}
+
+func (f *fakePetStoreClient) PatchAccessKey(_ context.Context, in *petstorev1.PatchAccessKeyRequest, _ ...grpc.CallOption) (*petstorev1.AccessKey, error) {
+	existing, ok := f.accessKeys[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "access key %q not found", in.GetName())
+	}
+	f.lastPatchPaths = in.GetUpdateMask().GetPaths()
+	for _, path := range in.GetUpdateMask().GetPaths() {
+		switch path {
+		case "display_name":
+			existing.DisplayName = in.GetAccessKey().GetDisplayName()
+		case "expires_at":
+			existing.ExpiresAt = in.GetAccessKey().GetExpiresAt()
+		default:
+			return nil, status.Errorf(codes.InvalidArgument, "unsupported update_mask path %q", path)
+		}
+	}
+	return proto.Clone(existing).(*petstorev1.AccessKey), nil
+}
+
+func (f *fakePetStoreClient) DeleteAccessKey(_ context.Context, in *petstorev1.DeleteAccessKeyRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if _, ok := f.accessKeys[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "access key %q not found", in.GetName())
+	}
+	delete(f.accessKeys, in.GetName())
+	return &emptypb.Empty{}, nil
 }

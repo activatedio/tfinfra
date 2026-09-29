@@ -5,6 +5,8 @@ import (
 	"reflect"
 
 	"github.com/dave/jennifer/jen"
+
+	runtimetf "github.com/activatedio/tfinfra/pkg/tf"
 )
 
 const (
@@ -163,7 +165,7 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 
 	// Struct: name first, then the caller-assigned id, then scope
 	// identifiers, then remaining proto fields in declaration order.
-	var structFields []jen.Code
+	structFields := make([]jen.Code, 0, len(fields)+len(res.Scope.IdentifierAttributes())+len(mintAttributes(res))+1)
 
 	structFields = append(structFields,
 		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: NameField}))
@@ -184,6 +186,13 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 		}
 		structFields = append(structFields,
 			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{tfsdkTag: fd.TfName()}))
+	}
+
+	// A minted resource's once-only values and keepers: state only, so the
+	// proto conversions below never touch them.
+	for _, a := range mintAttributes(res) {
+		structFields = append(structFields,
+			jen.Id(snakeToCamel(a.name)).Add(modelFieldType(a.kind)).Tag(map[string]string{tfsdkTag: a.name}))
 	}
 
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
@@ -285,6 +294,10 @@ func writeModelConstructor(f *jen.File, res Resource, n entityNames, fields []Fi
 		d[jen.Id(fd.GoName)] = typedNull(fd, owner)
 	}
 
+	for _, a := range mintAttributes(res) {
+		d[jen.Id(snakeToCamel(a.name))] = typedNullKind(a.kind)
+	}
+
 	f.Commentf("New%s returns a model with every attribute set to its typed null; collection types cannot be zero-valued.", modelName)
 	f.Func().Id("New" + modelName).Params().Op("*").Id(modelName).Block(
 		jen.Return(jen.Op("&").Id(modelName).Values(d)),
@@ -310,7 +323,7 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 		jen.Return(jen.Map(jen.String()).String().Values(scope)),
 	)
 
-	var mask []jen.Code
+	mask := make([]jen.Code, 0, len(fields)+2)
 	mask = append(mask, jen.Var().Id("paths").Index().String())
 	for _, fd := range fields {
 		if fd.ProtoName == NameField || fd.Computed {
@@ -717,4 +730,26 @@ func writeConfigModel(f *jen.File, e Entry, fields []Field, modelName string) {
 		Params(jen.Id("ctx").Qual("context", "Context")).
 		Params(jen.Op("*").Add(entityQual()), jen.Qual(pkgDiag, "Diagnostics")).
 		Block(to...)
+}
+
+// mintAttribute is one model attribute a Mint marker adds.
+type mintAttribute struct {
+	name string
+	kind FieldKind
+}
+
+// mintAttributes lists the attributes a minted resource carries beyond its
+// proto fields, in schema order: the once-only values, then keepers.
+func mintAttributes(res Resource) []mintAttribute {
+
+	if res.Mint == nil {
+		return nil
+	}
+
+	out := make([]mintAttribute, 0, len(res.Mint.Once)+1)
+	for _, name := range res.Mint.Once {
+		out = append(out, mintAttribute{name, FieldString})
+	}
+
+	return append(out, mintAttribute{runtimetf.KeepersAttribute, FieldStringMap})
 }

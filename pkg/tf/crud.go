@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -53,6 +54,10 @@ type CrudClient[E proto.Message] struct {
 	Update func(ctx context.Context, name string, entity E) (E, error)
 	Patch  func(ctx context.Context, name string, entity E, mask []string) (E, error)
 	Delete func(ctx context.Context, name string) error
+	// Mint stands in for Create on a resource the API mints: it returns the
+	// entity plus the values the API hands over exactly once, keyed by the
+	// attribute that holds each. Create uses it whenever it is set.
+	Mint func(ctx context.Context, parent string, entity E) (E, map[string]string, error)
 }
 
 // CrudParams configures a Crud runtime instance.
@@ -157,7 +162,7 @@ func (c *Crud[E, M]) IDFromName(name string) (string, error) {
 // Create implements resource.Resource Create.
 func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 
-	if c.params.Client.Create == nil {
+	if c.params.Client.Create == nil && c.params.Client.Mint == nil {
 		resp.Diagnostics.AddError("operation not supported", fmt.Sprintf("%s does not support create", c.params.TypeName))
 		return
 	}
@@ -183,22 +188,12 @@ func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
-	// Caller-named resources carry their id in the entity's name field;
-	// the server composes the full resource name from parent and id.
-	if c.params.IDAttribute != "" {
-		var id types.String
-		resp.Diagnostics.Append(req.Plan.GetAttribute(ctx, path.Root(c.params.IDAttribute), &id)...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		if err := setResourceID(e, id.ValueString()); err != nil {
-			resp.Diagnostics.AddAttributeError(path.Root(c.params.IDAttribute),
-				fmt.Sprintf("cannot set the %s id", c.params.TypeName), err.Error())
-			return
-		}
+	resp.Diagnostics.Append(c.applyCallerID(ctx, req.Plan, e)...)
+	if resp.Diagnostics.HasError() {
+		return
 	}
 
-	out, err := c.params.Client.Create(ctx, parent, e)
+	out, once, err := c.doCreate(ctx, parent, e)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("create %s failed", c.params.TypeName), err.Error())
 		return
@@ -210,6 +205,59 @@ func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, res
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(storeOnce(ctx, &resp.State, once)...)
+}
+
+// applyCallerID copies a caller-named resource's id from the plan into the
+// entity's name field, where the server takes it from and composes the
+// full resource name with the parent. It does nothing for a server-named
+// resource.
+func (c *Crud[E, M]) applyCallerID(ctx context.Context, plan tfsdk.Plan, e E) diag.Diagnostics {
+
+	if c.params.IDAttribute == "" {
+		return nil
+	}
+
+	var id types.String
+	diags := plan.GetAttribute(ctx, path.Root(c.params.IDAttribute), &id)
+	if diags.HasError() {
+		return diags
+	}
+	if err := setResourceID(e, id.ValueString()); err != nil {
+		diags.AddAttributeError(path.Root(c.params.IDAttribute),
+			fmt.Sprintf("cannot set the %s id", c.params.TypeName), err.Error())
+	}
+
+	return diags
+}
+
+// storeOnce writes a mint's once-only values into state. No read returns
+// them, so state is the only place they will ever be: FromProto cannot
+// fill them and nothing after this touches them, so every refresh carries
+// them forward.
+func storeOnce(ctx context.Context, state *tfsdk.State, once map[string]string) diag.Diagnostics {
+
+	var diags diag.Diagnostics
+	for attr, v := range once {
+		diags.Append(state.SetAttribute(ctx, path.Root(attr), types.StringValue(v))...)
+	}
+
+	return diags
+}
+
+// doCreate creates through Mint when the resource has one, else Create.
+func (c *Crud[E, M]) doCreate(ctx context.Context, parent string, e E) (E, map[string]string, error) {
+
+	if c.params.Client.Mint != nil {
+		return c.params.Client.Mint(ctx, parent, e)
+	}
+
+	out, err := c.params.Client.Create(ctx, parent, e)
+	return out, nil, err
 }
 
 // Read implements resource.Resource Read. A gRPC NotFound removes the
@@ -370,6 +418,10 @@ func (c *Crud[E, M]) ReadDataSource(ctx context.Context, req datasource.ReadRequ
 
 // NameAttribute is the Terraform attribute holding the AIP resource name.
 const NameAttribute = "name"
+
+// KeepersAttribute is the map a minted resource carries whose change
+// replaces it: the rotation trigger for a credential with no rotate verb.
+const KeepersAttribute = "keepers"
 
 // setResourceID writes the caller-assigned id into the entity's AIP name
 // field, which is where the API takes it from on create.

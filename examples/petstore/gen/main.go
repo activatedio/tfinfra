@@ -61,6 +61,24 @@ func main() {
 				},
 			},
 			{
+				// AccessKey is minted: MintAccessKey stands in for the Create the
+				// API does not have, and returns the key exactly once.
+				Type: reflect.TypeFor[petstorev1.AccessKey](),
+				Implementations: []any{
+					gentf.Resource{
+						Scope:       scopeStore,
+						Ops:         gentf.OpGet | gentf.OpList | gentf.OpPatch | gentf.OpDelete,
+						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:      "petstore",
+						Required:    []string{"display_name"},
+						Computed:    []string{"create_time"},
+						Description: "A store's key for calling the API.",
+						Mint:        &gentf.Mint{Method: "MintAccessKey", Once: []string{"key"}},
+					},
+					gentf.DataSourceList{},
+				},
+			},
+			{
 				Type: reflect.TypeFor[petstorev1.CollarConfig](),
 				Implementations: []any{
 					gentf.ConfigDataSource{
