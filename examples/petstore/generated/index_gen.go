@@ -14,5 +14,5 @@ func Resources() []func() resource.Resource {
 
 // DataSources returns the generated data source constructors for provider registration.
 func DataSources() []func() datasource.DataSource {
-	return []func() datasource.DataSource{NewPetDataSource, NewToyDataSource, NewCollarConfigDataSource}
+	return []func() datasource.DataSource{NewPetDataSource, NewPetsDataSource, NewToyDataSource, NewToysDataSource, NewCollarConfigDataSource}
 }

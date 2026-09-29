@@ -155,9 +155,21 @@ type ConfigDataSource struct {
 	Description string
 }
 
-// DataSourceList declares a plural data source (List under a parent) for
-// the entry. PENDING: declaring it panics at generation time.
-type DataSourceList struct{}
+// DataSourceList declares a plural data source: every entity under one
+// parent, read through the List RPC with its page tokens followed. The
+// parent's scope identifiers are optional attributes that fall back to the
+// provider defaults, and the entities arrive as a list of objects carrying
+// the singular data source's attributes (input-only fields excepted: the
+// API never returns them).
+//
+// Requires a Resource marker on the same entry, whose client must expose
+// List.
+type DataSourceList struct {
+	// TypeName overrides the derived Terraform type suffix, the snake plural
+	// of the entity ("pets", "access_permissions"). It also names the
+	// attribute holding the list.
+	TypeName string
+}
 
 // Associate declares an authoritative association resource for the entry —
 // the Terraform surface of the kit Associate{Targets}To{Entity} /

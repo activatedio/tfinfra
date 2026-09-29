@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,9 +28,12 @@ type fakePetStoreClient struct {
 	toyEntities map[string]*petstorev1.Toy
 	seq         int
 
-	lastCreateParent    string
-	lastPatchPaths      []string
-	lastListParent      string
+	lastCreateParent string
+	lastPatchPaths   []string
+	lastListParent   string
+	// repeatPageToken makes ListPets hand back the same page token forever,
+	// the misbehaving API the list runtime must not loop on.
+	repeatPageToken     bool
 	lastAssociateSet    []string
 	lastAssociateRemove []string
 	// lastCreateToyID is the id the create request carried in the entity's
@@ -67,9 +72,29 @@ func (f *fakePetStoreClient) GetPet(_ context.Context, in *petstorev1.GetPetRequ
 
 func (f *fakePetStoreClient) ListPets(_ context.Context, in *petstorev1.ListPetsRequest, _ ...grpc.CallOption) (*petstorev1.ListPetsResponse, error) {
 	f.lastListParent = in.GetParent()
+
+	// One pet per page, in name order, so a list has to follow its tokens.
+	names := make([]string, 0, len(f.pets))
+	for name := range f.pets {
+		if strings.HasPrefix(name, in.GetParent()+"/pets/") {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+
+	start := 0
+	if in.GetPageToken() != "" {
+		start, _ = strconv.Atoi(in.GetPageToken())
+	}
 	res := &petstorev1.ListPetsResponse{}
-	for _, p := range f.pets {
-		res.Pets = append(res.Pets, proto.Clone(p).(*petstorev1.Pet))
+	if start < len(names) {
+		res.Pets = []*petstorev1.Pet{proto.Clone(f.pets[names[start]]).(*petstorev1.Pet)}
+		if start+1 < len(names) {
+			res.NextPageToken = strconv.Itoa(start + 1)
+		}
+	}
+	if f.repeatPageToken {
+		res.NextPageToken = "again"
 	}
 	return res, nil
 }

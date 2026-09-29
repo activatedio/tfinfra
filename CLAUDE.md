@@ -78,7 +78,7 @@ github.com/activatedio/tfinfra. DO NOT EDIT.` header (`golangci-lint`'s
 | `tf.Resource`         | schema, model + conversions, crud factory, full resource glue    |
 | `tf.DataSource`       | singular data source (Get by full name); requires `tf.Resource`  |
 | `tf.ConfigDataSource` | typed builder for Any-packed configs (no API calls); exclusive with `tf.Resource` |
-| `tf.DataSourceList`   | PENDING: plural data source (declaring it panics)                |
+| `tf.DataSourceList`   | plural data source: every entity under a parent via List, page tokens followed; requires `tf.Resource` |
 
 `Resource.Description` is the resource's schema description, and so the
 first thing its tfplugindocs page says; the singular data source's
@@ -277,12 +277,20 @@ runtime), caller-assigned resource ids (`Resource.CallerNamed`), typed
 nested attributes (one level, resources and config data sources alike),
 input-only fields (`Resource.InputOnly`).
 
-Pending (tracked in the terraform-provider-authwise plan): plural list data
-sources (DataSourceList), write-only arguments (the ephemeral Terraform
+Plural data sources (`DataSourceList`): the scope identifiers are optional
+attributes over the provider defaults, and the entities arrive as a list of
+objects carrying the singular data source's attributes, minus the
+input-only ones. Each item reads through the same FromProto statements as
+the resource, into a fresh item model. `Crud.ListAll` follows page tokens
+and stops with an error on a repeated one. There is no server-side filter
+yet: filter syntax varies by API, and a `for` expression filters in HCL.
+
+Pending (tracked in the terraform-provider-authwise plan): write-only
+arguments (the ephemeral Terraform
 ≥1.11 kind — `InputOnly` covers the never-echoed case, not the
 never-stored one), proto3 `optional` presence in the null convention,
-Wiring/DI index variant, pagination surfacing for list data sources,
-nested attributes more than one level deep. Auth ships separately in
+Wiring/DI index variant, a server-side filter on list data sources, nested
+attributes more than one level deep. Auth ships separately in
 `api-client-go/credentials/bearer`.
 
 ## Working in this repo

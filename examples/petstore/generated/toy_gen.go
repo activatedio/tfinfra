@@ -7,6 +7,7 @@ import (
 	"fmt"
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
 	tf "github.com/activatedio/tfinfra/pkg/tf"
+	attr "github.com/hashicorp/terraform-plugin-framework/attr"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema1 "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
@@ -262,4 +263,120 @@ func (d *toyDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 		return
 	}
 	d.crud.ReadDataSource(ctx, req, resp)
+}
+
+// ToyItemModel is one element of the toys data source's "toys" list.
+type ToyItemModel struct {
+	ToyId       types.String `tfsdk:"toy_id"`
+	Name        types.String `tfsdk:"name"`
+	DisplayName types.String `tfsdk:"display_name"`
+}
+
+// ToyItemAttrTypes returns the attribute types of one toys list element.
+func ToyItemAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"display_name": types.StringType,
+		"name":         types.StringType,
+		"toy_id":       types.StringType,
+	}
+}
+
+// ToysModel is the Terraform model of the toys data source.
+type ToysModel struct {
+	StoreId types.String `tfsdk:"store_id"`
+	Items   types.List   `tfsdk:"toys"`
+}
+
+// ToyListDataSourceSchema returns the Terraform schema for the toys data source.
+func ToyListDataSourceSchema() schema1.Schema {
+	return schema1.Schema{
+		Attributes: map[string]schema1.Attribute{
+			"store_id": schema1.StringAttribute{
+				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default.",
+				Optional:            true,
+			},
+			"toys": schema1.ListNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Every toy under the parent, in the order the API lists them.",
+				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
+					"display_name": schema1.StringAttribute{Computed: true},
+					"name": schema1.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Full resource name.",
+					},
+					"toy_id": schema1.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Caller-assigned resource id — the last segment of `name`.",
+					},
+				}},
+			},
+		},
+		MarkdownDescription: "Lists every Toy under one parent.",
+	}
+}
+
+// toyItemFromProto converts one listed Toy into a toys list element.
+func toyItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Toy, *ToyModel], e *v1.Toy) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var item ToyItemModel
+	item.Name = types.StringValue(e.Name)
+	item.DisplayName = types.StringValue(e.DisplayName)
+	id, err := crud.IDFromName(e.Name)
+	if err != nil {
+		diags.AddError("unexpected toy name", err.Error())
+	}
+	item.ToyId = types.StringValue(id)
+	obj, d := types.ObjectValueFrom(ctx, ToyItemAttrTypes(), item)
+	diags.Append(d...)
+	return obj, diags
+}
+
+// toysDataSource is the generated plural data source for Toy (List under a parent).
+type toysDataSource struct {
+	crud *tf.Crud[*v1.Toy, *ToyModel]
+}
+
+// NewToysDataSource returns the generated toys data source.
+func NewToysDataSource() datasource.DataSource {
+	return &toysDataSource{}
+}
+func (d *toysDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_toys"
+}
+func (d *toysDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = ToyListDataSourceSchema()
+}
+func (d *toysDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	crud, diags := newToyCrud(req.ProviderData)
+	resp.Diagnostics.Append(diags...)
+	d.crud = crud
+}
+func (d *toysDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	if d.crud == nil {
+		resp.Diagnostics.AddError("toys data source not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	var m ToysModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	entities, err := d.crud.ListAll(ctx, map[string]string{"store_id": m.StoreId.ValueString()})
+	if err != nil {
+		resp.Diagnostics.AddError("list toys failed", err.Error())
+		return
+	}
+	elems := make([]attr.Value, 0, len(entities))
+	for _, e := range entities {
+		obj, diags := toyItemFromProto(ctx, d.crud, e)
+		resp.Diagnostics.Append(diags...)
+		elems = append(elems, obj)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	list, diags := types.ListValue(types.ObjectType{AttrTypes: ToyItemAttrTypes()}, elems)
+	resp.Diagnostics.Append(diags...)
+	m.Items = list
+	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
 }

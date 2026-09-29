@@ -40,6 +40,7 @@ func main() {
 						JSON:      []string{"config", "metadata"},
 					},
 					gentf.DataSource{},
+					gentf.DataSourceList{},
 					gentf.Associate{Target: reflect.TypeFor[petstorev1.Toy]()},
 				},
 			},
@@ -56,6 +57,7 @@ func main() {
 						Required:    []string{"display_name"},
 					},
 					gentf.DataSource{},
+					gentf.DataSourceList{},
 				},
 			},
 			{

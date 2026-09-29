@@ -653,6 +653,249 @@ func (d *petDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 	d.crud.ReadDataSource(ctx, req, resp)
 }
 
+// PetItemModel is one element of the pets data source's "pets" list.
+type PetItemModel struct {
+	Name             types.String         `tfsdk:"name"`
+	DisplayName      types.String         `tfsdk:"display_name"`
+	Type             types.String         `tfsdk:"type"`
+	Age              types.Int64          `tfsdk:"age"`
+	Vaccinated       types.Bool           `tfsdk:"vaccinated"`
+	Weight           types.Float64        `tfsdk:"weight"`
+	Tags             types.List           `tfsdk:"tags"`
+	Labels           types.Map            `tfsdk:"labels"`
+	CreateTime       types.String         `tfsdk:"create_time"`
+	Config           jsontypes.Normalized `tfsdk:"config"`
+	Metadata         jsontypes.Normalized `tfsdk:"metadata"`
+	Feeding          types.Object         `tfsdk:"feeding"`
+	GroomingInterval types.String         `tfsdk:"grooming_interval"`
+}
+
+// PetItemAttrTypes returns the attribute types of one pets list element.
+func PetItemAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"age":               types.Int64Type,
+		"config":            jsontypes.NormalizedType{},
+		"create_time":       types.StringType,
+		"display_name":      types.StringType,
+		"feeding":           types.ObjectType{AttrTypes: PetFeedingAttrTypes()},
+		"grooming_interval": types.StringType,
+		"labels":            types.MapType{ElemType: types.StringType},
+		"metadata":          jsontypes.NormalizedType{},
+		"name":              types.StringType,
+		"tags":              types.ListType{ElemType: types.StringType},
+		"type":              types.StringType,
+		"vaccinated":        types.BoolType,
+		"weight":            types.Float64Type,
+	}
+}
+
+// PetsModel is the Terraform model of the pets data source.
+type PetsModel struct {
+	StoreId types.String `tfsdk:"store_id"`
+	Items   types.List   `tfsdk:"pets"`
+}
+
+// PetListDataSourceSchema returns the Terraform schema for the pets data source.
+func PetListDataSourceSchema() schema1.Schema {
+	return schema1.Schema{
+		Attributes: map[string]schema1.Attribute{
+			"pets": schema1.ListNestedAttribute{
+				Computed:            true,
+				MarkdownDescription: "Every pet under the parent, in the order the API lists them.",
+				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
+					"age": schema1.Int64Attribute{Computed: true},
+					"config": schema1.StringAttribute{
+						Computed:   true,
+						CustomType: jsontypes.NormalizedType{},
+					},
+					"create_time":  schema1.StringAttribute{Computed: true},
+					"display_name": schema1.StringAttribute{Computed: true},
+					"feeding": schema1.SingleNestedAttribute{
+						Attributes: map[string]schema1.Attribute{
+							"bowl": schema1.StringAttribute{Computed: true},
+							"foods": schema1.ListAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+							},
+							"interval": schema1.StringAttribute{Computed: true},
+							"notes": schema1.MapAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+							},
+							"portions": schema1.Int64Attribute{Computed: true},
+							"schedule": schema1.StringAttribute{Computed: true},
+						},
+						Computed: true,
+					},
+					"grooming_interval": schema1.StringAttribute{Computed: true},
+					"labels": schema1.MapAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"metadata": schema1.StringAttribute{
+						Computed:   true,
+						CustomType: jsontypes.NormalizedType{},
+					},
+					"name": schema1.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Full resource name.",
+					},
+					"tags": schema1.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"type":       schema1.StringAttribute{Computed: true},
+					"vaccinated": schema1.BoolAttribute{Computed: true},
+					"weight":     schema1.Float64Attribute{Computed: true},
+				}},
+			},
+			"store_id": schema1.StringAttribute{
+				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default.",
+				Optional:            true,
+			},
+		},
+		MarkdownDescription: "An animal in a store's care, from intake to adoption. This data source lists every one under a parent.",
+	}
+}
+
+// petItemFromProto converts one listed Pet into a pets list element.
+func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e *v1.Pet) (types.Object, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	var item PetItemModel
+	item.Name = types.StringValue(e.Name)
+	item.DisplayName = types.StringValue(e.DisplayName)
+	item.Type = tf.EnumValue(item.Type, int32(e.Type), e.Type.String())
+	item.Age = types.Int64Value(int64(e.Age))
+	item.Vaccinated = types.BoolValue(e.Vaccinated)
+	item.Weight = types.Float64Value(e.Weight)
+	if len(e.Tags) == 0 {
+		item.Tags = types.ListNull(types.StringType)
+	} else {
+		v, d := types.ListValueFrom(ctx, types.StringType, e.Tags)
+		diags.Append(d...)
+		item.Tags = v
+	}
+	if len(e.Labels) == 0 {
+		item.Labels = types.MapNull(types.StringType)
+	} else {
+		v, d := types.MapValueFrom(ctx, types.StringType, e.Labels)
+		diags.Append(d...)
+		item.Labels = v
+	}
+	if e.CreateTime == nil {
+		item.CreateTime = types.StringNull()
+	} else {
+		item.CreateTime = types.StringValue(e.CreateTime.AsTime().Format(time.RFC3339))
+	}
+	if e.Config == nil {
+		item.Config = jsontypes.NewNormalizedNull()
+	} else {
+		b, err := protojson.Marshal(e.Config)
+		if err != nil {
+			diags.AddError("cannot encode config", err.Error())
+		} else {
+			item.Config = jsontypes.NewNormalizedValue(string(b))
+		}
+	}
+	if e.Metadata == nil {
+		item.Metadata = jsontypes.NewNormalizedNull()
+	} else {
+		b, err := protojson.Marshal(e.Metadata)
+		if err != nil {
+			diags.AddError("cannot encode metadata", err.Error())
+		} else {
+			item.Metadata = jsontypes.NewNormalizedValue(string(b))
+		}
+	}
+	if e.Feeding == nil {
+		item.Feeding = types.ObjectNull(PetFeedingAttrTypes())
+	} else {
+		var n PetFeedingModel
+		if !item.Feeding.IsNull() && !item.Feeding.IsUnknown() {
+			diags.Append(item.Feeding.As(ctx, &n, basetypes.ObjectAsOptions{})...)
+		}
+		if e.Feeding.Schedule == "" {
+			n.Schedule = types.StringNull()
+		} else {
+			n.Schedule = types.StringValue(e.Feeding.Schedule)
+		}
+		n.Portions = types.Int64Value(int64(e.Feeding.Portions))
+		if len(e.Feeding.Foods) == 0 {
+			n.Foods = types.ListNull(types.StringType)
+		} else {
+			v, d := types.ListValueFrom(ctx, types.StringType, e.Feeding.Foods)
+			diags.Append(d...)
+			n.Foods = v
+		}
+		if len(e.Feeding.Notes) == 0 {
+			n.Notes = types.MapNull(types.StringType)
+		} else {
+			v, d := types.MapValueFrom(ctx, types.StringType, e.Feeding.Notes)
+			diags.Append(d...)
+			n.Notes = v
+		}
+		n.Bowl = tf.EnumValue(n.Bowl, int32(e.Feeding.Bowl), e.Feeding.Bowl.String())
+		n.Interval = tf.DurationValue(n.Interval, e.Feeding.Interval)
+		obj, d := types.ObjectValueFrom(ctx, PetFeedingAttrTypes(), n)
+		diags.Append(d...)
+		item.Feeding = obj
+	}
+	item.GroomingInterval = tf.DurationValue(item.GroomingInterval, e.GroomingInterval)
+	obj, d := types.ObjectValueFrom(ctx, PetItemAttrTypes(), item)
+	diags.Append(d...)
+	return obj, diags
+}
+
+// petsDataSource is the generated plural data source for Pet (List under a parent).
+type petsDataSource struct {
+	crud *tf.Crud[*v1.Pet, *PetModel]
+}
+
+// NewPetsDataSource returns the generated pets data source.
+func NewPetsDataSource() datasource.DataSource {
+	return &petsDataSource{}
+}
+func (d *petsDataSource) Metadata(_ context.Context, req datasource.MetadataRequest, resp *datasource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_pets"
+}
+func (d *petsDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, resp *datasource.SchemaResponse) {
+	resp.Schema = PetListDataSourceSchema()
+}
+func (d *petsDataSource) Configure(_ context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	crud, diags := newPetCrud(req.ProviderData)
+	resp.Diagnostics.Append(diags...)
+	d.crud = crud
+}
+func (d *petsDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
+	if d.crud == nil {
+		resp.Diagnostics.AddError("pets data source not configured", "Configure was not called with tf.ProviderData")
+		return
+	}
+	var m PetsModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	entities, err := d.crud.ListAll(ctx, map[string]string{"store_id": m.StoreId.ValueString()})
+	if err != nil {
+		resp.Diagnostics.AddError("list pets failed", err.Error())
+		return
+	}
+	elems := make([]attr.Value, 0, len(entities))
+	for _, e := range entities {
+		obj, diags := petItemFromProto(ctx, d.crud, e)
+		resp.Diagnostics.Append(diags...)
+		elems = append(elems, obj)
+	}
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	list, diags := types.ListValue(types.ObjectType{AttrTypes: PetItemAttrTypes()}, elems)
+	resp.Diagnostics.Append(diags...)
+	m.Items = list
+	resp.Diagnostics.Append(resp.State.Set(ctx, &m)...)
+}
+
 // newPetToysAssociation builds the pet_toys runtime from provider data; it returns nil (no error) before the provider is configured.
 func newPetToysAssociation(providerData any) (*tf.Association, diag.Diagnostics) {
 	var diags diag.Diagnostics

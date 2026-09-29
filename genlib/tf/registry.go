@@ -59,8 +59,8 @@ func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 
 func validateEntry(e Entry) {
 
-	if HasImplementation[DataSourceList](e) {
-		panic(fmt.Sprintf("%s: DataSourceList is not yet supported", entityType(e).Name()))
+	if HasImplementation[DataSourceList](e) && !HasImplementation[Resource](e) {
+		panic(fmt.Sprintf("%s: DataSourceList requires a Resource marker on the same entry", entityType(e).Name()))
 	}
 	if HasImplementation[DataSource](e) && !HasImplementation[Resource](e) {
 		panic(fmt.Sprintf("%s: DataSource currently requires a Resource marker on the same entry", entityType(e).Name()))
@@ -104,6 +104,13 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 		writeDataSource(f, fm.Entry, n)
 	}
 
+	if dsl, ok := GetImplementation[DataSourceList](fm.Entry); ok {
+		if cm.List == nil {
+			panic(fmt.Sprintf("%s: DataSourceList needs the client's List%s RPC", n.Entity, pluralizeClient.Plural(n.Entity)))
+		}
+		writeListDataSource(f, fm.Entry, res, n, listNamesFor(n, dsl), fields)
+	}
+
 	for _, a := range Associations(fm.Entry) {
 		am := AnalyzeAssociation(fm.Entry, res, a)
 		writeAssociationFactory(f, res, n, am)
@@ -123,6 +130,9 @@ func writeIndex(f *jen.File, spec *Spec) {
 			resources = append(resources, jen.Id("New"+n.Entity+"Resource"))
 			if HasImplementation[DataSource](e) {
 				dataSources = append(dataSources, jen.Id("New"+n.Entity+"DataSource"))
+			}
+			if dsl, ok := GetImplementation[DataSourceList](e); ok {
+				dataSources = append(dataSources, jen.Id("New"+listNamesFor(n, dsl).Plural+"DataSource"))
 			}
 			for _, a := range Associations(e) {
 				am := AnalyzeAssociation(e, res, a)

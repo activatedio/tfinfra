@@ -91,19 +91,67 @@ func NewCrud[E proto.Message, M Model[E, M]](params CrudParams[E, M]) *Crud[E, M
 // resolveParent merges the model's scope identifiers over the provider
 // defaults and composes the AIP parent.
 func (c *Crud[E, M]) resolveParent(m M) (string, error) {
+	return c.composeParent(m.ScopeIdentifiers())
+}
+
+// composeParent composes the AIP parent from scope identifier values,
+// falling back to the provider defaults for any left empty.
+func (c *Crud[E, M]) composeParent(ids map[string]string) (string, error) {
 
 	merged := map[string]string{}
 
 	for _, attr := range c.params.Scope.IdentifierAttributes() {
 		merged[attr] = c.params.Defaults[attr]
 	}
-	for attr, v := range m.ScopeIdentifiers() {
+	for attr, v := range ids {
 		if v != "" {
 			merged[attr] = v
 		}
 	}
 
 	return c.params.Scope.ComposeParent(merged)
+}
+
+// ListAll returns every entity under the parent that ids compose (over the
+// provider defaults), following page tokens until the API returns none. A
+// page token the API has already returned ends the walk with an error
+// rather than looping.
+func (c *Crud[E, M]) ListAll(ctx context.Context, ids map[string]string) ([]E, error) {
+
+	if c.params.Client.List == nil {
+		return nil, fmt.Errorf("%s does not support list", c.params.TypeName)
+	}
+
+	parent, err := c.composeParent(ids)
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve parent for %s: %w; set it on the data source or as a provider default", c.params.TypeName, err)
+	}
+
+	var all []E
+	seen := map[string]bool{}
+	token := ""
+	for {
+		page, next, err := c.params.Client.List(ctx, parent, token)
+		if err != nil {
+			return nil, fmt.Errorf("list %s under %s: %w", c.params.TypeName, parent, err)
+		}
+		all = append(all, page...)
+		if next == "" {
+			return all, nil
+		}
+		if seen[next] {
+			return nil, fmt.Errorf("list %s under %s: the API returned page token %q twice", c.params.TypeName, parent, next)
+		}
+		seen[next] = true
+		token = next
+	}
+}
+
+// IDFromName returns the last segment of a full resource name — a
+// caller-named entity's id.
+func (c *Crud[E, M]) IDFromName(name string) (string, error) {
+	_, id, err := c.params.Scope.ParseName(c.params.Collection, name)
+	return id, err
 }
 
 // Create implements resource.Resource Create.
