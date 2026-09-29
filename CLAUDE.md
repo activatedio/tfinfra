@@ -15,20 +15,24 @@ Sibling of `datainfra` / `apiinfra` and built on the same
 ```
 genlib/           # build-time code generation (panics on error)
   tf/
-    types.go      # Spec, Entry, markers (Resource, DataSource, DataSourceList), Get/HasImplementation
+    types.go      # Spec, Entry, markers (Resource, DataSource, ConfigDataSource, Associate, DataSourceList), Get/HasImplementation
     ops.go        # Ops bitmask (OpGet|OpList|OpCreate|OpUpdate|OpPatch|OpDelete; zero = all)
     fields.go     # protoreflect normalization: message descriptor + markers -> []Field
     client.go     # reflect analysis of the client interface: methods, request shapes
     registry.go   # NewRegistry(), Spec directory handler, FileMain file handler, index_gen.go
-    schema.go     # <Entity>ResourceSchema() + <Entity>DataSourceSchema() emitters
+    schema.go     # <Entity>ResourceSchema() + <Entity>DataSourceSchema() + config data source schema emitters
     model.go      # <Entity>Model struct, New<Entity>Model, ToProto/FromProto, GetName/ScopeIdentifiers/UpdateMask
     resource.go   # crud factory, resource glue, data source glue, client adapters
+    association.go # Associate marker: the authoritative association resource
     names.go      # snake/camel helpers
 pkg/              # runtime imported by generated code (returns errors)
+  aip/            # framework-free: Scope compose/parse, IsNotFound
   tf/
     scope.go      # Scope: AIP parent/name compose + parse, identifier attributes
     crud.go       # Crud[E, M] runtime: CRUD/import/data-source read; ProviderData contract
-    errors.go     # gRPC status translation (IsNotFound)
+    assoc.go      # Association runtime: authoritative member sets
+    duration.go   # ParseDuration / FormatDuration / DurationValue (keep the written spelling)
+    enum.go       # EnumValue (an explicit zero reads back as written)
 examples/petstore # end-to-end example; generated/ is the golden output contract
   proto/          # toy proto + AIP service (buf; regeneration is manual, output committed)
   gen/main.go     # generator entry point (//go:generate go run .)
@@ -75,6 +79,10 @@ github.com/activatedio/tfinfra. DO NOT EDIT.` header (`golangci-lint`'s
 | `tf.DataSource`       | singular data source (Get by full name); requires `tf.Resource`  |
 | `tf.ConfigDataSource` | typed builder for Any-packed configs (no API calls); exclusive with `tf.Resource` |
 | `tf.DataSourceList`   | PENDING: plural data source (declaring it panics)                |
+
+`Resource.Description` is the resource's schema description, and so the
+first thing its tfplugindocs page says; the singular data source's
+description leads with it. Empty falls back to `<Entity> resource.`
 
 `Resource` also carries the client binding: `ClientType` (the gRPC client
 interface, analyzed via reflect — method presence per `Ops`, request/response

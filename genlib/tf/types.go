@@ -112,6 +112,11 @@ type Resource struct {
 	// The tradeoff is that an imported resource has no value for them, and
 	// a data source always reads them as null.
 	InputOnly []string
+	// Description is what the resource is, for its schema description and
+	// so for its documentation page: a sentence or two a practitioner reads
+	// before the attribute list. The singular data source reuses it. Empty
+	// falls back to "<Entity> resource."
+	Description string
 	// WriteOnly lists proto fields surfaced as write-only arguments
 	// (Terraform >= 1.11). PENDING: not yet implemented; declaring one
 	// panics at generation time.

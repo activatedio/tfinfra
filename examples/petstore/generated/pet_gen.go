@@ -152,7 +152,7 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers: []planmodifier.Float64{float64planmodifier.UseStateForUnknown()},
 			},
 		},
-		MarkdownDescription: "Pet resource.",
+		MarkdownDescription: "An animal in a store's care, from intake to adoption.",
 	}
 }
 
@@ -621,7 +621,7 @@ func PetDataSourceSchema() schema1.Schema {
 			"vaccinated": schema1.BoolAttribute{Computed: true},
 			"weight":     schema1.Float64Attribute{Computed: true},
 		},
-		MarkdownDescription: "Pet data source: reads one Pet by its full resource name.",
+		MarkdownDescription: "An animal in a store's care, from intake to adoption. This data source reads one by its full resource name.",
 	}
 }
 

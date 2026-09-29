@@ -260,3 +260,14 @@ func TestPetDataSource_Read(t *testing.T) {
 	require.False(t, resp.State.Get(ctx, out).HasError())
 	assert.Equal(t, "Rex", out.DisplayName.ValueString())
 }
+
+// A Resource.Description becomes the resource's schema description, and
+// leads the singular data source's; an entry without one keeps the
+// generated placeholder.
+func TestResourceDescriptions(t *testing.T) {
+
+	assert.Equal(t, "An animal in a store's care, from intake to adoption.", generated.PetResourceSchema().MarkdownDescription)
+	assert.Equal(t, "An animal in a store's care, from intake to adoption. This data source reads one by its full resource name.",
+		generated.PetDataSourceSchema().MarkdownDescription)
+	assert.Equal(t, "Toy resource.", generated.ToyResourceSchema().MarkdownDescription)
+}

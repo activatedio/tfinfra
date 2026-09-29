@@ -87,7 +87,7 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 	f.Commentf("%sResourceSchema returns the Terraform schema for the %s resource.", t.Name(), t.Name())
 	f.Func().Id(t.Name()+"ResourceSchema").Params().Qual(pkgResourceSchema, "Schema").Block(
 		jen.Return(jen.Qual(pkgResourceSchema, "Schema").Values(jen.Dict{
-			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("%s resource.", t.Name())),
+			jen.Id("MarkdownDescription"): jen.Lit(resourceDescription(t.Name(), res)),
 			jen.Id("Attributes"): jen.Map(jen.String()).Qual(pkgResourceSchema, "Attribute").Values(
 				attrs,
 			),
@@ -99,6 +99,25 @@ const pkgDatasourceSchema = "github.com/hashicorp/terraform-plugin-framework/dat
 
 // writeDataSourceSchema emits func <Entity>DataSourceSchema() for the
 // singular data source: name required, everything else computed.
+// resourceDescription is the entry's Description, or the generated
+// placeholder when it has none.
+func resourceDescription(typeName string, res Resource) string {
+	if res.Description != "" {
+		return res.Description
+	}
+	return fmt.Sprintf("%s resource.", typeName)
+}
+
+// dataSourceDescription says what the singular data source reads, led by
+// the entry's Description when it has one.
+func dataSourceDescription(typeName string, res Resource) string {
+	desc := fmt.Sprintf("%s data source: reads one %s by its full resource name.", typeName, typeName)
+	if res.Description != "" {
+		desc = res.Description + " This data source reads one by its full resource name."
+	}
+	return desc
+}
+
 func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fields []Field) {
 
 	t := entityType(e)
@@ -125,7 +144,7 @@ func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fi
 	f.Commentf("%sDataSourceSchema returns the Terraform schema for the singular %s data source.", t.Name(), t.Name())
 	f.Func().Id(t.Name()+"DataSourceSchema").Params().Qual(pkgDatasourceSchema, "Schema").Block(
 		jen.Return(jen.Qual(pkgDatasourceSchema, "Schema").Values(jen.Dict{
-			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("%s data source: reads one %s by its full resource name.", t.Name(), t.Name())),
+			jen.Id("MarkdownDescription"): jen.Lit(dataSourceDescription(t.Name(), res)),
 			jen.Id("Attributes"): jen.Map(jen.String()).Qual(pkgDatasourceSchema, "Attribute").Values(
 				attrs,
 			),

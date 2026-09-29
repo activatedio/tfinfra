@@ -26,10 +26,11 @@ func main() {
 				Type: reflect.TypeFor[petstorev1.Pet](),
 				Implementations: []any{
 					gentf.Resource{
-						Scope:      scopeStore,
-						ClientType: reflect.TypeFor[petstorev1.PetStoreServiceClient](),
-						Client:     "petstore",
-						Required:   []string{"display_name"},
+						Scope:       scopeStore,
+						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:      "petstore",
+						Required:    []string{"display_name"},
+						Description: "An animal in a store's care, from intake to adoption.",
 						// intake_code covers input-only plus immutable (a
 						// create-only parameter), intake_age_days covers
 						// input-only on its own.
