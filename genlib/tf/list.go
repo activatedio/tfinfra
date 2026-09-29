@@ -100,7 +100,7 @@ func writeListDataSourceSchema(f *jen.File, entity string, res Resource, n entit
 	if n.IDAttribute != "" {
 		itemAttrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Computed"):            jen.True(),
-			jen.Id("MarkdownDescription"): jen.Lit("Caller-assigned resource id — the last segment of `name`."),
+			jen.Id("MarkdownDescription"): jen.Lit(dataSourceIDDescription(n)),
 		})
 	}
 	for _, fd := range items {
@@ -124,10 +124,14 @@ func writeListDataSourceSchema(f *jen.File, entity string, res Resource, n entit
 		}),
 	}
 	for _, attr := range scopeAttrs {
-		attrs[jen.Lit(attr)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
+		d := jen.Dict{
 			jen.Id("Optional"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default.", attr)),
-		})
+		}
+		if ref, ok := n.ScopeRefs[attr]; ok {
+			d[jen.Id("Validators")] = referenceValidators(ref, n.Examples)
+		}
+		attrs[jen.Lit(attr)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(d)
 	}
 
 	desc := fmt.Sprintf("Lists every %s under one parent.", entity)

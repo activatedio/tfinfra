@@ -20,7 +20,12 @@ var scopeStore = tf.NewScope("stores")
 func main() {
 
 	gentf.NewRegistry().RunDirectoryPathHandler("../generated", &gentf.Spec{
-		Package: "generated",
+		Package:          "generated",
+		ProviderTypeName: "petstore",
+		// Every store id starts "s-", so a store_id is validated as one.
+		ScopeReferences: map[string]gentf.Reference{
+			"store_id": {Target: "store", Prefix: "s"},
+		},
 		Entries: []gentf.Entry{
 			{
 				Type: reflect.TypeFor[petstorev1.Pet](),
@@ -38,6 +43,10 @@ func main() {
 						Computed:  []string{"create_time"},
 						InputOnly: []string{"intake_code", "intake_age_days"},
 						JSON:      []string{"config", "metadata"},
+						// buddy_id takes another pet's pet_id.
+						References: map[string]gentf.Reference{
+							"buddy_id": {Target: "pet", Prefix: "p"},
+						},
 					},
 					gentf.DataSource{},
 					gentf.DataSourceList{},
@@ -82,8 +91,11 @@ func main() {
 				Type: reflect.TypeFor[petstorev1.CollarConfig](),
 				Implementations: []any{
 					gentf.ConfigDataSource{
-						Required:    []string{"color"},
-						JSON:        []string{"buckle"},
+						Required: []string{"color"},
+						JSON:     []string{"buckle"},
+						References: map[string]gentf.Reference{
+							"tag_key_id": {Target: "access_key", Prefix: "k"},
+						},
 						Description: "A collar is only worn by a pet with a feeding schedule.",
 					},
 				},

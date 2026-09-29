@@ -44,6 +44,12 @@ func PetResourceSchema() schema.Schema {
 				Optional:      true,
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
+			"buddy_id": schema.StringAttribute{
+				Computed:      true,
+				Optional:      true,
+				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				Validators:    []validator.String{tf.ReferenceID("p", "pet", "petstore_pet.<name>.pet_id")},
+			},
 			"config": schema.StringAttribute{
 				Computed:            true,
 				CustomType:          jsontypes.NormalizedType{},
@@ -124,10 +130,16 @@ func PetResourceSchema() schema.Schema {
 				MarkdownDescription: "Full resource name; serves as the Terraform ID.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"pet_id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"store_id": schema.StringAttribute{
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
 				Optional:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 			"tags": schema.ListAttribute{
 				Computed:      true,
@@ -181,6 +193,7 @@ func PetFeedingAttrTypes() map[string]attr.Type {
 // PetModel is the Terraform plan/state model for Pet.
 type PetModel struct {
 	Name             types.String         `tfsdk:"name"`
+	PetId            types.String         `tfsdk:"pet_id"`
 	StoreId          types.String         `tfsdk:"store_id"`
 	DisplayName      types.String         `tfsdk:"display_name"`
 	Type             types.String         `tfsdk:"type"`
@@ -196,12 +209,14 @@ type PetModel struct {
 	IntakeCode       types.String         `tfsdk:"intake_code"`
 	IntakeAgeDays    types.Int64          `tfsdk:"intake_age_days"`
 	GroomingInterval types.String         `tfsdk:"grooming_interval"`
+	BuddyId          types.String         `tfsdk:"buddy_id"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
 func NewPetModel() *PetModel {
 	return &PetModel{
 		Age:              types.Int64Null(),
+		BuddyId:          types.StringNull(),
 		Config:           jsontypes.NewNormalizedNull(),
 		CreateTime:       types.StringNull(),
 		DisplayName:      types.StringNull(),
@@ -212,6 +227,7 @@ func NewPetModel() *PetModel {
 		Labels:           types.MapNull(types.StringType),
 		Metadata:         jsontypes.NewNormalizedNull(),
 		Name:             types.StringNull(),
+		PetId:            types.StringNull(),
 		StoreId:          types.StringNull(),
 		Tags:             types.ListNull(types.StringType),
 		Type:             types.StringNull(),
@@ -297,6 +313,7 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 			out.GroomingInterval = d
 		}
 	}
+	out.BuddyId = m.BuddyId.ValueString()
 	return out, diags
 }
 
@@ -382,6 +399,11 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		m.Feeding = obj
 	}
 	m.GroomingInterval = tf.DurationValue(m.GroomingInterval, e.GroomingInterval)
+	if e.BuddyId == "" {
+		m.BuddyId = types.StringNull()
+	} else {
+		m.BuddyId = types.StringValue(e.BuddyId)
+	}
 	return diags
 }
 
@@ -441,6 +463,9 @@ func (m *PetModel) UpdateMask(ctx context.Context, prior *PetModel) []string {
 	if !m.GroomingInterval.Equal(prior.GroomingInterval) {
 		paths = append(paths, "grooming_interval")
 	}
+	if !m.BuddyId.Equal(prior.BuddyId) {
+		paths = append(paths, "buddy_id")
+	}
 	return paths
 }
 
@@ -499,11 +524,12 @@ func newPetCrud(providerData any) (*tf.Crud[*v1.Pet, *PetModel], diag.Diagnostic
 				})
 			},
 		},
-		Collection: "pets",
-		Defaults:   pd.Defaults,
-		NewModel:   NewPetModel,
-		Scope:      tf.NewScope("stores"),
-		TypeName:   "pet",
+		Collection:  "pets",
+		Defaults:    pd.Defaults,
+		IDAttribute: "pet_id",
+		NewModel:    NewPetModel,
+		Scope:       tf.NewScope("stores"),
+		TypeName:    "pet",
 	}), diags
 }
 
@@ -567,7 +593,8 @@ func (r *petResource) ImportState(ctx context.Context, req resource.ImportStateR
 func PetDataSourceSchema() schema1.Schema {
 	return schema1.Schema{
 		Attributes: map[string]schema1.Attribute{
-			"age": schema1.Int64Attribute{Computed: true},
+			"age":      schema1.Int64Attribute{Computed: true},
+			"buddy_id": schema1.StringAttribute{Computed: true},
 			"config": schema1.StringAttribute{
 				Computed:   true,
 				CustomType: jsontypes.NormalizedType{},
@@ -612,6 +639,10 @@ func PetDataSourceSchema() schema1.Schema {
 				MarkdownDescription: "Full resource name of the object to read.",
 				Required:            true,
 			},
+			"pet_id": schema1.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
+			},
 			"store_id": schema1.StringAttribute{Computed: true},
 			"tags": schema1.ListAttribute{
 				Computed:    true,
@@ -655,6 +686,7 @@ func (d *petDataSource) Read(ctx context.Context, req datasource.ReadRequest, re
 
 // PetItemModel is one element of the pets data source's "pets" list.
 type PetItemModel struct {
+	PetId            types.String         `tfsdk:"pet_id"`
 	Name             types.String         `tfsdk:"name"`
 	DisplayName      types.String         `tfsdk:"display_name"`
 	Type             types.String         `tfsdk:"type"`
@@ -668,12 +700,14 @@ type PetItemModel struct {
 	Metadata         jsontypes.Normalized `tfsdk:"metadata"`
 	Feeding          types.Object         `tfsdk:"feeding"`
 	GroomingInterval types.String         `tfsdk:"grooming_interval"`
+	BuddyId          types.String         `tfsdk:"buddy_id"`
 }
 
 // PetItemAttrTypes returns the attribute types of one pets list element.
 func PetItemAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
 		"age":               types.Int64Type,
+		"buddy_id":          types.StringType,
 		"config":            jsontypes.NormalizedType{},
 		"create_time":       types.StringType,
 		"display_name":      types.StringType,
@@ -682,6 +716,7 @@ func PetItemAttrTypes() map[string]attr.Type {
 		"labels":            types.MapType{ElemType: types.StringType},
 		"metadata":          jsontypes.NormalizedType{},
 		"name":              types.StringType,
+		"pet_id":            types.StringType,
 		"tags":              types.ListType{ElemType: types.StringType},
 		"type":              types.StringType,
 		"vaccinated":        types.BoolType,
@@ -703,7 +738,8 @@ func PetListDataSourceSchema() schema1.Schema {
 				Computed:            true,
 				MarkdownDescription: "Every pet under the parent, in the order the API lists them.",
 				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
-					"age": schema1.Int64Attribute{Computed: true},
+					"age":      schema1.Int64Attribute{Computed: true},
+					"buddy_id": schema1.StringAttribute{Computed: true},
 					"config": schema1.StringAttribute{
 						Computed:   true,
 						CustomType: jsontypes.NormalizedType{},
@@ -740,6 +776,10 @@ func PetListDataSourceSchema() schema1.Schema {
 						Computed:            true,
 						MarkdownDescription: "Full resource name.",
 					},
+					"pet_id": schema1.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
+					},
 					"tags": schema1.ListAttribute{
 						Computed:    true,
 						ElementType: types.StringType,
@@ -752,6 +792,7 @@ func PetListDataSourceSchema() schema1.Schema {
 			"store_id": schema1.StringAttribute{
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default.",
 				Optional:            true,
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 		},
 		MarkdownDescription: "An animal in a store's care, from intake to adoption. This data source lists every one under a parent.",
@@ -841,6 +882,16 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 		item.Feeding = obj
 	}
 	item.GroomingInterval = tf.DurationValue(item.GroomingInterval, e.GroomingInterval)
+	if e.BuddyId == "" {
+		item.BuddyId = types.StringNull()
+	} else {
+		item.BuddyId = types.StringValue(e.BuddyId)
+	}
+	id, err := crud.IDFromName(e.Name)
+	if err != nil {
+		diags.AddError("unexpected pet name", err.Error())
+	}
+	item.PetId = types.StringValue(id)
 	obj, d := types.ObjectValueFrom(ctx, PetItemAttrTypes(), item)
 	diags.Append(d...)
 	return obj, diags

@@ -5,12 +5,14 @@ package generated
 import (
 	"context"
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
+	tf "github.com/activatedio/tfinfra/pkg/tf"
 	jsontypes "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	attr "github.com/hashicorp/terraform-plugin-framework/attr"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	diag "github.com/hashicorp/terraform-plugin-framework/diag"
 	path "github.com/hashicorp/terraform-plugin-framework/path"
+	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
 	basetypes "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	protojson "google.golang.org/protobuf/encoding/protojson"
@@ -44,6 +46,10 @@ func CollarConfigDataSourceSchema() schema.Schema {
 				Optional: true,
 			},
 			"size": schema.Int64Attribute{Optional: true},
+			"tag_key_id": schema.StringAttribute{
+				Optional:   true,
+				Validators: []validator.String{tf.ReferenceID("k", "access_key", "petstore_access_key.<name>.access_key_id")},
+			},
 		},
 		MarkdownDescription: "A collar is only worn by a pet with a feeding schedule. Builds a CollarConfig config and exposes its google.protobuf.Any encoding as `any`. Makes no API calls.",
 	}
@@ -71,6 +77,7 @@ type CollarConfigModel struct {
 	Size      types.Int64          `tfsdk:"size"`
 	Buckle    jsontypes.Normalized `tfsdk:"buckle"`
 	Engraving types.Object         `tfsdk:"engraving"`
+	TagKeyId  types.String         `tfsdk:"tag_key_id"`
 	Any       jsontypes.Normalized `tfsdk:"any"`
 }
 
@@ -82,6 +89,7 @@ func NewCollarConfigModel() *CollarConfigModel {
 		Color:     types.StringNull(),
 		Engraving: types.ObjectNull(CollarConfigEngravingAttrTypes()),
 		Size:      types.Int64Null(),
+		TagKeyId:  types.StringNull(),
 	}
 }
 
@@ -110,6 +118,7 @@ func (m *CollarConfigModel) ToProto(ctx context.Context) (*v1.CollarConfig, diag
 		}
 		out.Engraving = v
 	}
+	out.TagKeyId = m.TagKeyId.ValueString()
 	return out, diags
 }
 

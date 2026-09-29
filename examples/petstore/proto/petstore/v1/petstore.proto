@@ -122,6 +122,10 @@ message Pet {
   // read back in protojson form unless the written spelling already means
   // the same length.
   google.protobuf.Duration grooming_interval = 15;
+
+  // Another pet in the store, housed with this one: its id, the last
+  // segment of its name. A reference, so it is validated by prefix.
+  string buddy_id = 16;
 }
 
 // Feeding is a singular nested message surfaced as a typed nested
@@ -154,6 +158,9 @@ message CollarConfig {
   // Left out of the JSON list: the typed nested attribute lane. Both lanes
   // coexist on one message.
   Engraving engraving = 4;
+  // The access key the collar's tag reader signs with: its id, a reference
+  // held in a config.
+  string tag_key_id = 5;
 }
 
 message Engraving {

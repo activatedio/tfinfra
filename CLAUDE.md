@@ -30,6 +30,7 @@ pkg/              # runtime imported by generated code (returns errors)
   tf/
     scope.go      # Scope: AIP parent/name compose + parse, identifier attributes
     crud.go       # Crud[E, M] runtime: CRUD/import/data-source read; ProviderData contract
+    reference.go  # ReferenceID: the prefix validator on attributes holding another resource's id
     assoc.go      # Association runtime: authoritative member sets
     duration.go   # ParseDuration / FormatDuration / DurationValue (keep the written spelling)
     enum.go       # EnumValue (an explicit zero reads back as written)
@@ -90,11 +91,37 @@ shapes read from protoc-gen-go struct tags), `Client` (the
 `ProviderData.Clients` key, default `"default"`), plus optional `Plural`,
 `Collection`, and `UseUpdate` (full-replace instead of Patch) overrides.
 
+Every resource carries `<type_name>_id` (`entityNames.IDAttribute`), its own
+id: the last segment of `name`, from `Scope.ParseName`. On a server-named
+resource it is Computed with `UseStateForUnknown`, and `Crud.storeID` writes
+it after every `State.Set` — create, read, update, the singular data source
+read — and import sets it from the import id; each plural item fills it
+through `Crud.IDFromName`. Read fills it into state written before it
+existed. It lives in the model struct but in neither proto conversion.
+Generation panics when it collides with a parent identifier, a proto field,
+or a minted resource's own attribute (`checkIDAttribute`); set `TypeName` to
+rename.
+
+A `Reference{Target, Prefix}` marks a string attribute holding another
+resource's id: `Resource.References` and `ConfigDataSource.References` by
+proto field name, `Spec.ScopeReferences` by parent attribute name (every
+resource's parent attributes and every plural data source's). Each emits
+`tf.ReferenceID(prefix, target, example)`, a plan-time validator: the value
+must be `<prefix>-<something>` with no `/`, and a full name or another
+type's id fails. When the target is a resource of the spec and
+`Spec.ProviderTypeName` is set, the message names its `<target>_id` in an
+example expression; a target the provider does not manage (a parent such as
+a tenant) gets none. Null, unknown and empty pass. A reference on an unknown, non-string or computed field panics.
+Nothing accepts both forms: an expression that extracts a name's last
+segment still passes, because it yields the id. The references are declared
+by hand; reading `google.api.resource_reference` from the descriptor is
+pending until an annotated API needs it.
+
 `Resource.CallerNamed` covers APIs where the resource id comes from the
 caller rather than the server — kit's name-keyed entities (`AccessPermission`
 `guardcontrol.tenants.get`, `Domain` `example.com`), whose create request
-carries the id in the entity's `name` field. It emits a required,
-`RequiresReplace` `<type_name>_id` attribute; `name` stays computed and keeps
+carries the id in the entity's `name` field. It makes `<type_name>_id` a
+required, `RequiresReplace` input; `name` stays computed and keeps
 its role as the full resource name and the Terraform ID. The runtime copies
 the attribute into the entity's name field on create (protoreflect, so no
 generated conversion changes), and fills it from the last name segment on
@@ -277,8 +304,8 @@ registration.
   `UpdateMask` diff (empty mask → read back instead of an empty patch);
   `UseUpdate` switches to full-replace `Update*`.
 - Delete: NotFound counts as success.
-- Import: ID is the full AIP name, validated against the scope pattern; a
-  `CallerNamed` resource's id attribute is filled from its last segment.
+- Import: ID is the full AIP name, validated against the scope pattern; the
+  `<type_name>_id` attribute is filled from its last segment.
 - Data source (singular): Get by full name; NotFound is an error.
 - Association (`tf.Associate`): an authoritative resource over the kit
   `Associate{Targets}To{Entity}` / `List{Targets}By{Entity}` pair — two
@@ -301,7 +328,9 @@ byte-identical), association resources (`tf.Associate` + the Association
 runtime), caller-assigned resource ids (`Resource.CallerNamed`), typed
 nested attributes (one level, resources and config data sources alike),
 input-only fields (`Resource.InputOnly`), minted resources with once-only
-values and `keepers` (`Resource.Mint`).
+values and `keepers` (`Resource.Mint`), the `<type_name>_id` attribute on
+every resource and data source, and prefix-validated references
+(`Reference`).
 
 Plural data sources (`DataSourceList`): the scope identifiers are optional
 attributes over the provider defaults, and the entities arrive as a list of

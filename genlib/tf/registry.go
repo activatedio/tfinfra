@@ -40,6 +40,10 @@ func specDirectoryHandler(dirPath string, r gen.Registry, entry any) {
 
 	spec := entry.(*Spec)
 
+	for _, attr := range sortedKeys(spec.ScopeReferences) {
+		validateReference("ScopeReferences."+attr, spec.ScopeReferences[attr])
+	}
+
 	for _, e := range spec.Entries {
 		validateEntry(e)
 		if !HasImplementation[Resource](e) && !HasImplementation[ConfigDataSource](e) {
@@ -96,7 +100,7 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	if cds, ok := GetImplementation[ConfigDataSource](fm.Entry); ok {
 		fields := NormalizeConfigFields(fm.Entry, cds)
 		n := namesFor(fm.Entry, Resource{})
-		writeConfigDataSourceSchema(f, fm.Entry, cds, fields)
+		writeConfigDataSourceSchema(f, fm.Entry, cds, fields, referenceExamples(fm.Spec))
 		writeConfigModel(f, fm.Entry, fields, n.Model)
 		writeConfigDataSource(f, fm.Entry, n)
 		return
@@ -107,6 +111,9 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	cm := AnalyzeClient(fm.Entry, res)
 	cm.Mint = AnalyzeMint(fm.Entry, res, fields)
 	n := namesFor(fm.Entry, res)
+	n.Examples = referenceExamples(fm.Spec)
+	n.ScopeRefs = fm.Spec.ScopeReferences
+	checkIDAttribute(n, res, fields)
 
 	writeResourceSchema(f, fm.Entry, res, n, fields)
 	writeModel(f, fm.Entry, res, n, fields)
@@ -129,6 +136,32 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 		am := AnalyzeAssociation(fm.Entry, res, a)
 		writeAssociationFactory(f, res, n, am)
 		writeAssociationResource(f, n, am)
+	}
+}
+
+// checkIDAttribute panics when the resource's own id attribute shares a
+// name with another of its attributes: a parent identifier, a proto field,
+// or a minted resource's own. One would silently shadow the other in the
+// schema.
+func checkIDAttribute(n entityNames, res Resource, fields []Field) {
+
+	if n.IDAttribute == "" {
+		return
+	}
+
+	taken := map[string]string{}
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		taken[attr] = "a parent identifier"
+	}
+	for _, fd := range fields {
+		taken[fd.TfName()] = "a field"
+	}
+	for _, a := range mintAttributes(res) {
+		taken[a.name] = "a minted resource's attribute"
+	}
+
+	if what, ok := taken[n.IDAttribute]; ok {
+		panic(fmt.Sprintf("%s: its id attribute %q collides with %s of the same name; set TypeName to rename the resource", n.Entity, n.IDAttribute, what))
 	}
 }
 

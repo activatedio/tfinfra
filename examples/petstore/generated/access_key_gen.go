@@ -17,6 +17,7 @@ import (
 	mapplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -27,6 +28,11 @@ import (
 func AccessKeyResourceSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
+			"access_key_id": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"create_time": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "`create_time` as an RFC 3339 timestamp.",
@@ -60,6 +66,7 @@ func AccessKeyResourceSchema() schema.Schema {
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
 				Optional:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 		},
 		MarkdownDescription: "A store's key for calling the API.",
@@ -69,6 +76,7 @@ func AccessKeyResourceSchema() schema.Schema {
 // AccessKeyModel is the Terraform plan/state model for AccessKey.
 type AccessKeyModel struct {
 	Name        types.String `tfsdk:"name"`
+	AccessKeyId types.String `tfsdk:"access_key_id"`
 	StoreId     types.String `tfsdk:"store_id"`
 	DisplayName types.String `tfsdk:"display_name"`
 	ExpiresAt   types.String `tfsdk:"expires_at"`
@@ -80,6 +88,7 @@ type AccessKeyModel struct {
 // NewAccessKeyModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
 func NewAccessKeyModel() *AccessKeyModel {
 	return &AccessKeyModel{
+		AccessKeyId: types.StringNull(),
 		CreateTime:  types.StringNull(),
 		DisplayName: types.StringNull(),
 		ExpiresAt:   types.StringNull(),
@@ -209,11 +218,12 @@ func newAccessKeyCrud(providerData any) (*tf.Crud[*v1.AccessKey, *AccessKeyModel
 				})
 			},
 		},
-		Collection: "accessKeys",
-		Defaults:   pd.Defaults,
-		NewModel:   NewAccessKeyModel,
-		Scope:      tf.NewScope("stores"),
-		TypeName:   "access_key",
+		Collection:  "accessKeys",
+		Defaults:    pd.Defaults,
+		IDAttribute: "access_key_id",
+		NewModel:    NewAccessKeyModel,
+		Scope:       tf.NewScope("stores"),
+		TypeName:    "access_key",
 	}), diags
 }
 
@@ -275,6 +285,7 @@ func (r *accessKeyResource) ImportState(ctx context.Context, req resource.Import
 
 // AccessKeyItemModel is one element of the access_keys data source's "access_keys" list.
 type AccessKeyItemModel struct {
+	AccessKeyId types.String `tfsdk:"access_key_id"`
 	Name        types.String `tfsdk:"name"`
 	DisplayName types.String `tfsdk:"display_name"`
 	ExpiresAt   types.String `tfsdk:"expires_at"`
@@ -284,10 +295,11 @@ type AccessKeyItemModel struct {
 // AccessKeyItemAttrTypes returns the attribute types of one access_keys list element.
 func AccessKeyItemAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"create_time":  types.StringType,
-		"display_name": types.StringType,
-		"expires_at":   types.StringType,
-		"name":         types.StringType,
+		"access_key_id": types.StringType,
+		"create_time":   types.StringType,
+		"display_name":  types.StringType,
+		"expires_at":    types.StringType,
+		"name":          types.StringType,
 	}
 }
 
@@ -305,6 +317,10 @@ func AccessKeyListDataSourceSchema() schema1.Schema {
 				Computed:            true,
 				MarkdownDescription: "Every access_key under the parent, in the order the API lists them.",
 				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
+					"access_key_id": schema1.StringAttribute{
+						Computed:            true,
+						MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
+					},
 					"create_time":  schema1.StringAttribute{Computed: true},
 					"display_name": schema1.StringAttribute{Computed: true},
 					"expires_at":   schema1.StringAttribute{Computed: true},
@@ -317,6 +333,7 @@ func AccessKeyListDataSourceSchema() schema1.Schema {
 			"store_id": schema1.StringAttribute{
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default.",
 				Optional:            true,
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 		},
 		MarkdownDescription: "A store's key for calling the API. This data source lists every one under a parent.",
@@ -339,6 +356,11 @@ func accessKeyItemFromProto(ctx context.Context, crud *tf.Crud[*v1.AccessKey, *A
 	} else {
 		item.CreateTime = types.StringValue(e.CreateTime.AsTime().Format(time.RFC3339))
 	}
+	id, err := crud.IDFromName(e.Name)
+	if err != nil {
+		diags.AddError("unexpected access_key name", err.Error())
+	}
+	item.AccessKeyId = types.StringValue(id)
 	obj, d := types.ObjectValueFrom(ctx, AccessKeyItemAttrTypes(), item)
 	diags.Append(d...)
 	return obj, diags

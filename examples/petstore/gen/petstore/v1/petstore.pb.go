@@ -529,8 +529,11 @@ type Pet struct {
 	// read back in protojson form unless the written spelling already means
 	// the same length.
 	GroomingInterval *durationpb.Duration `protobuf:"bytes,15,opt,name=grooming_interval,json=groomingInterval,proto3" json:"grooming_interval,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Another pet in the store, housed with this one: its id, the last
+	// segment of its name. A reference, so it is validated by prefix.
+	BuddyId       string `protobuf:"bytes,16,opt,name=buddy_id,json=buddyId,proto3" json:"buddy_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Pet) Reset() {
@@ -668,6 +671,13 @@ func (x *Pet) GetGroomingInterval() *durationpb.Duration {
 	return nil
 }
 
+func (x *Pet) GetBuddyId() string {
+	if x != nil {
+		return x.BuddyId
+	}
+	return ""
+}
+
 // Feeding is a singular nested message surfaced as a typed nested
 // attribute. Its own fields cover the scalar, list and map shapes; a
 // message inside it would not be supported (nesting is one level deep).
@@ -768,7 +778,10 @@ type CollarConfig struct {
 	Buckle *Buckle `protobuf:"bytes,3,opt,name=buckle,proto3" json:"buckle,omitempty"`
 	// Left out of the JSON list: the typed nested attribute lane. Both lanes
 	// coexist on one message.
-	Engraving     *Engraving `protobuf:"bytes,4,opt,name=engraving,proto3" json:"engraving,omitempty"`
+	Engraving *Engraving `protobuf:"bytes,4,opt,name=engraving,proto3" json:"engraving,omitempty"`
+	// The access key the collar's tag reader signs with: its id, a reference
+	// held in a config.
+	TagKeyId      string `protobuf:"bytes,5,opt,name=tag_key_id,json=tagKeyId,proto3" json:"tag_key_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -829,6 +842,13 @@ func (x *CollarConfig) GetEngraving() *Engraving {
 		return x.Engraving
 	}
 	return nil
+}
+
+func (x *CollarConfig) GetTagKeyId() string {
+	if x != nil {
+		return x.TagKeyId
+	}
+	return ""
 }
 
 type Engraving struct {
@@ -2107,7 +2127,7 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"&\n" +
 	"\x10DeletePetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x96\x05\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xb1\x05\n" +
 	"\x03Pet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12(\n" +
@@ -2128,7 +2148,8 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vintake_code\x18\r \x01(\tR\n" +
 	"intakeCode\x12&\n" +
 	"\x0fintake_age_days\x18\x0e \x01(\x05R\rintakeAgeDays\x12F\n" +
-	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x1a9\n" +
+	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x12\x19\n" +
+	"\bbuddy_id\x18\x10 \x01(\tR\abuddyId\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa6\x02\n" +
@@ -2142,12 +2163,14 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\n" +
 	"NotesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x9b\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb9\x01\n" +
 	"\fCollarConfig\x12\x14\n" +
 	"\x05color\x18\x01 \x01(\tR\x05color\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x05R\x04size\x12+\n" +
 	"\x06buckle\x18\x03 \x01(\v2\x13.petstore.v1.BuckleR\x06buckle\x124\n" +
-	"\tengraving\x18\x04 \x01(\v2\x16.petstore.v1.EngravingR\tengraving\"I\n" +
+	"\tengraving\x18\x04 \x01(\v2\x16.petstore.v1.EngravingR\tengraving\x12\x1c\n" +
+	"\n" +
+	"tag_key_id\x18\x05 \x01(\tR\btagKeyId\"I\n" +
 	"\tEngraving\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12\x12\n" +
 	"\x04font\x18\x02 \x01(\tR\x04font\x12\x14\n" +

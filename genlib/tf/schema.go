@@ -59,9 +59,10 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 
 	attrs := jen.Dict{}
 
-	// The caller-assigned id: required, replacement on change — the server
-	// composes "name" from the parent and this id.
-	if n.IDAttribute != "" {
+	switch {
+	case n.CallerNamed:
+		// The caller-assigned id: required, replacement on change — the
+		// server composes "name" from the parent and this id.
 		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Required"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit("Caller-assigned resource id — the last segment of `name`, which the server composes from the parent and this id. Changing it replaces the resource."),
@@ -69,21 +70,35 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 				jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
 			),
 		})
+	case n.IDAttribute != "":
+		// The server-assigned id, read from "name". It never changes in
+		// place, so every plan after the create keeps it.
+		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(jen.Dict{
+			jen.Id("Computed"):            jen.True(),
+			jen.Id("MarkdownDescription"): jen.Lit(serverIDDescription),
+			jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
+				jen.Qual(shapeFor(FieldString).planModifierPkg, "UseStateForUnknown").Call(),
+			),
+		})
 	}
 
 	// Scope identifier attributes: optional, replacement on change.
 	for _, attr := range res.Scope.IdentifierAttributes() {
-		attrs[jen.Lit(attr)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(jen.Dict{
+		d := jen.Dict{
 			jen.Id("Optional"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default. Changing it replaces the resource.", attr)),
 			jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
 				jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
 			),
-		})
+		}
+		if ref, ok := n.ScopeRefs[attr]; ok {
+			d[jen.Id("Validators")] = referenceValidators(ref, n.Examples)
+		}
+		attrs[jen.Lit(attr)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(d)
 	}
 
 	for _, fd := range fields {
-		attrs[jen.Lit(fd.TfName())] = attributeFor(fd)
+		attrs[jen.Lit(fd.TfName())] = attributeFor(fd, n.Examples)
 	}
 
 	if res.Mint != nil {
@@ -133,7 +148,7 @@ func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fi
 	if n.IDAttribute != "" {
 		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Computed"):            jen.True(),
-			jen.Id("MarkdownDescription"): jen.Lit("Caller-assigned resource id — the last segment of `name`."),
+			jen.Id("MarkdownDescription"): jen.Lit(dataSourceIDDescription(n)),
 		})
 	}
 
@@ -247,7 +262,47 @@ func dataSourceNestedAttributeFor(fd Field) jen.Code {
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
 }
 
-func attributeFor(fd Field) jen.Code {
+// serverIDDescription documents a server-named resource's id attribute.
+const serverIDDescription = "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take."
+
+// dataSourceIDDescription documents the id attribute a data source reads.
+func dataSourceIDDescription(n entityNames) string {
+	if n.CallerNamed {
+		return "Caller-assigned resource id — the last segment of `name`."
+	}
+	return serverIDDescription
+}
+
+// referenceValidators is the Validators value of an attribute holding
+// another resource's id. examples is referenceExamples' map.
+func referenceValidators(ref Reference, examples map[string]string) jen.Code {
+	return jen.Index().Qual(pkgSchemaValidator, "String").Values(
+		jen.Qual(pkgRuntimeTf, "ReferenceID").Call(jen.Lit(ref.Prefix), jen.Lit(ref.Target), jen.Lit(examples[ref.Target])),
+	)
+}
+
+// referenceExamples maps the type name of every resource in the spec to the
+// expression that yields its id, for reference validation messages. A
+// Target with no resource here, such as a parent the provider does not
+// manage, gets no example.
+func referenceExamples(spec *Spec) map[string]string {
+
+	out := map[string]string{}
+	if spec.ProviderTypeName == "" {
+		return out
+	}
+
+	for _, e := range spec.Entries {
+		if res, ok := GetImplementation[Resource](e); ok {
+			n := namesFor(e, res)
+			out[n.TypeName] = fmt.Sprintf("%s_%s.<name>.%s", spec.ProviderTypeName, n.TypeName, n.IDAttribute)
+		}
+	}
+
+	return out
+}
+
+func attributeFor(fd Field, examples map[string]string) jen.Code {
 
 	shape := shapeFor(fd.Kind)
 	d := jen.Dict{}
@@ -289,6 +344,9 @@ func attributeFor(fd Field) jen.Code {
 
 	if fd.Kind == FieldEnum {
 		d[jen.Id("Validators")] = enumValidators(fd)
+	}
+	if fd.Reference != nil {
+		d[jen.Id("Validators")] = referenceValidators(*fd.Reference, examples)
 	}
 
 	return jen.Qual(pkgResourceSchema, shape.attribute).Values(d)
@@ -364,7 +422,7 @@ func enumValidators(fd Field) jen.Code {
 // writeConfigDataSourceSchema emits the schema for a ConfigDataSource
 // entry: the config message's fields as inputs plus the computed "any"
 // output.
-func writeConfigDataSourceSchema(f *jen.File, e Entry, cds ConfigDataSource, fields []Field) {
+func writeConfigDataSourceSchema(f *jen.File, e Entry, cds ConfigDataSource, fields []Field, examples map[string]string) {
 
 	t := entityType(e)
 
@@ -377,6 +435,10 @@ func writeConfigDataSourceSchema(f *jen.File, e Entry, cds ConfigDataSource, fie
 	}
 
 	for _, fd := range fields {
+		if fd.Reference != nil {
+			attrs[jen.Lit(fd.TfName())] = configReferenceAttributeFor(fd, examples)
+			continue
+		}
 		attrs[jen.Lit(fd.TfName())] = configInputAttributeFor(fd)
 	}
 
@@ -423,6 +485,25 @@ func configInputAttributeFor(fd Field) jen.Code {
 	}
 
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
+}
+
+// configReferenceAttributeFor builds a config input holding a resource's id:
+// a plain string input, validated by prefix.
+func configReferenceAttributeFor(fd Field, examples map[string]string) jen.Code {
+
+	d := jen.Dict{
+		jen.Id("Validators"): referenceValidators(*fd.Reference, examples),
+	}
+	if fd.Required {
+		d[jen.Id("Required")] = jen.True()
+	} else {
+		d[jen.Id("Optional")] = jen.True()
+	}
+	if fd.Sensitive {
+		d[jen.Id("Sensitive")] = jen.True()
+	}
+
+	return jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(d)
 }
 
 // writeMintAttributes adds a minted resource's attributes beyond its proto

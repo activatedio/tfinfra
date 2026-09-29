@@ -84,6 +84,9 @@ type Field struct {
 	// InputOnly marks a field the API consumes but never echoes back: it
 	// is Optional but never Computed, and reads leave it untouched.
 	InputOnly bool
+	// Reference is what the field references when it holds another
+	// resource's id, validated by prefix; nil otherwise.
+	Reference *Reference
 }
 
 // TfName returns the Terraform attribute name for the field.
@@ -152,6 +155,7 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	byName[NameField].Computed = true
 
 	applyBehavior(t.Name(), res, byName)
+	applyReferences(t.Name(), res.References, byName)
 
 	return fields
 }
@@ -193,8 +197,46 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 	}
 	mark(cds.Required, "Required", func(f *Field) { f.Required = true })
 	mark(cds.Sensitive, "Sensitive", func(f *Field) { f.Sensitive = true })
+	applyReferences(t.Name(), cds.References, valid)
 
 	return fields
+}
+
+// applyReferences resolves a References map onto the normalized fields. A
+// reference must name a plain string field, one a practitioner writes, and
+// say what it references.
+func applyReferences(entity string, refs map[string]Reference, byName map[string]*Field) {
+
+	for _, n := range sortedKeys(refs) {
+		ref := refs[n]
+		f, ok := byName[n]
+		switch {
+		case !ok:
+			panic(fmt.Sprintf("%s: References references unknown field %q", entity, n))
+		case f.Kind != FieldString:
+			panic(fmt.Sprintf("%s.%s: a reference must be a string field", entity, n))
+		case f.Computed:
+			panic(fmt.Sprintf("%s.%s: a reference is an input; it cannot be computed", entity, n))
+		}
+		validateReference(fmt.Sprintf("%s.%s", entity, n), ref)
+		f.Reference = &ref
+	}
+}
+
+// validateReference panics on a Reference missing what its validator needs.
+func validateReference(where string, ref Reference) {
+	if ref.Target == "" || ref.Prefix == "" {
+		panic(fmt.Sprintf("%s: a Reference needs both Target and Prefix", where))
+	}
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // normalizeField maps one field descriptor to its normalized form, binding

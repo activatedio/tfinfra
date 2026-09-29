@@ -12,7 +12,34 @@ import (
 type Spec struct {
 	// Package is the Go package name of the generated files.
 	Package string
-	Entries []Entry
+	// ProviderTypeName is the provider's type name ("petstore"), used only
+	// to spell a reference example in validation messages
+	// ("petstore_pet.<name>.pet_id"). A reference gets one when its Target
+	// is a resource of this spec; empty leaves every example out.
+	ProviderTypeName string
+	// ScopeReferences validates the scope identifier attributes of every
+	// resource and data source, keyed by attribute name ("store_id"). A
+	// scope identifier with no entry is not validated.
+	ScopeReferences map[string]Reference
+	Entries         []Entry
+}
+
+// Reference declares that a string attribute holds the id of another
+// resource: the last segment of its name, which the API also calls its id.
+// The attribute gains a plan-time validator, so a full resource name pasted
+// into it, or another type's id, fails in plan with a message naming the
+// attribute to reference instead. An empty value passes: it is an unset
+// optional reference.
+//
+// Nothing accepts both forms. An id is validated as an id, and an expression
+// that extracts the last segment of a name still yields one.
+type Reference struct {
+	// Target is the referenced resource's Terraform type suffix ("store"). Its
+	// "<Target>_id" attribute is the value to reference. Required.
+	Target string
+	// Prefix is what every id of Target starts with, before a hyphen: "st"
+	// for "st-01". Required.
+	Prefix string
 }
 
 // Entry describes one API resource: the published pb message type plus
@@ -52,6 +79,12 @@ func HasImplementation[I any](e Entry) bool {
 // do not: which fields are required, immutable, server-computed, or
 // sensitive. Field names are proto field names (snake_case); referencing an
 // unknown field panics at generation time.
+//
+// Every resource carries a "<type_name>_id" attribute holding its own id, the
+// last segment of "name": a required input on a CallerNamed resource, and
+// otherwise computed from "name" on create, read and import. Its singular
+// data source and each item of its plural one carry it too. It is what other
+// resources' References take.
 type Resource struct {
 	// Scope is the resource's position in the AIP hierarchy; it contributes
 	// one optional, RequiresReplace identifier attribute per parent
@@ -85,9 +118,10 @@ type Resource struct {
 	// "name" field, and the server composes the full resource name from the
 	// parent and that id.
 	//
-	// It generates a required, replace-on-change "<type_name>_id" attribute
-	// holding the id (the last segment of "name"); "name" stays computed and
-	// keeps its role as the full resource name and the Terraform ID.
+	// It makes the "<type_name>_id" attribute every resource carries a
+	// required, replace-on-change input instead of a computed one; "name"
+	// stays computed and keeps its role as the full resource name and the
+	// Terraform ID.
 	CallerNamed bool
 	// Required lists proto fields the practitioner must set.
 	Required []string
@@ -129,6 +163,9 @@ type Resource struct {
 	// jsontypes.Normalized: Any as its protojson encoding (with "@type"),
 	// Struct as a JSON object. Any/Struct fields MUST be listed here.
 	JSON []string
+	// References maps string fields holding another resource's id, by proto
+	// name, to what they reference. See Reference.
+	References map[string]Reference
 }
 
 // Mint declares a resource the API mints rather than creates: the client
@@ -191,6 +228,9 @@ type ConfigDataSource struct {
 	// practitioner must know before using the config (a prerequisite, a
 	// caveat) that the message's fields cannot say.
 	Description string
+	// References maps string config fields holding a resource's id, by
+	// proto name, to what they reference. See Reference.
+	References map[string]Reference
 }
 
 // DataSourceList declares a plural data source: every entity under one

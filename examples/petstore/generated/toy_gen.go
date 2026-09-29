@@ -15,6 +15,7 @@ import (
 	schema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	types "github.com/hashicorp/terraform-plugin-framework/types"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 )
@@ -33,6 +34,7 @@ func ToyResourceSchema() schema.Schema {
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
 				Optional:            true,
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 			"toy_id": schema.StringAttribute{
 				MarkdownDescription: "Caller-assigned resource id — the last segment of `name`, which the server composes from the parent and this id. Changing it replaces the resource.",
@@ -115,6 +117,7 @@ func newToyCrud(providerData any) (*tf.Crud[*v1.Toy, *ToyModel], diag.Diagnostic
 		return nil, diags
 	}
 	return tf.NewCrud(tf.CrudParams[*v1.Toy, *ToyModel]{
+		CallerNamed: true,
 		Client: tf.CrudClient[*v1.Toy]{
 			Create: func(ctx context.Context, parent string, entity *v1.Toy) (*v1.Toy, error) {
 				return client.CreateToy(ctx, &v1.CreateToyRequest{
@@ -294,6 +297,7 @@ func ToyListDataSourceSchema() schema1.Schema {
 			"store_id": schema1.StringAttribute{
 				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default.",
 				Optional:            true,
+				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 			"toys": schema1.ListNestedAttribute{
 				Computed:            true,

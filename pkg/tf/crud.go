@@ -75,11 +75,14 @@ type CrudParams[E proto.Message, M Model[E, M]] struct {
 	// UseUpdate selects the full-replace Update operation instead of
 	// Patch with an update mask.
 	UseUpdate bool
-	// IDAttribute is the attribute holding the caller-assigned resource id
-	// for a CallerNamed resource ("toy_id"); empty when the server assigns
-	// the id. Create copies its value into the entity's name field, and
-	// import and data source reads fill it from the resource name.
+	// IDAttribute is the attribute holding the resource's own id, the last
+	// segment of its name ("toy_id"). Every create, read, update, import and
+	// data source read fills it from the name; empty leaves it out.
 	IDAttribute string
+	// CallerNamed marks a resource whose id the caller assigns: Create copies
+	// IDAttribute's value into the entity's name field, where the server
+	// takes it from.
+	CallerNamed bool
 }
 
 // Crud is the generic runtime behind generated resources and singular data
@@ -152,8 +155,8 @@ func (c *Crud[E, M]) ListAll(ctx context.Context, ids map[string]string) ([]E, e
 	}
 }
 
-// IDFromName returns the last segment of a full resource name — a
-// caller-named entity's id.
+// IDFromName returns the last segment of a full resource name: the
+// entity's own id.
 func (c *Crud[E, M]) IDFromName(name string) (string, error) {
 	_, id, err := c.params.Scope.ParseName(c.params.Collection, name)
 	return id, err
@@ -209,6 +212,7 @@ func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, res
 		return
 	}
 
+	resp.Diagnostics.Append(c.storeID(ctx, &resp.State, m.GetName().ValueString())...)
 	resp.Diagnostics.Append(storeOnce(ctx, &resp.State, once)...)
 }
 
@@ -218,7 +222,7 @@ func (c *Crud[E, M]) Create(ctx context.Context, req resource.CreateRequest, res
 // resource.
 func (c *Crud[E, M]) applyCallerID(ctx context.Context, plan tfsdk.Plan, e E) diag.Diagnostics {
 
-	if c.params.IDAttribute == "" {
+	if !c.params.CallerNamed {
 		return nil
 	}
 
@@ -233,6 +237,24 @@ func (c *Crud[E, M]) applyCallerID(ctx context.Context, plan tfsdk.Plan, e E) di
 	}
 
 	return diags
+}
+
+// storeID writes the resource's own id, the last segment of name, into
+// state. It does nothing for a resource with no id attribute.
+func (c *Crud[E, M]) storeID(ctx context.Context, state *tfsdk.State, name string) diag.Diagnostics {
+
+	var diags diag.Diagnostics
+	if c.params.IDAttribute == "" {
+		return diags
+	}
+
+	id, err := c.IDFromName(name)
+	if err != nil {
+		diags.AddError(fmt.Sprintf("unexpected %s name", c.params.TypeName), err.Error())
+		return diags
+	}
+
+	return state.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)
 }
 
 // storeOnce writes a mint's once-only values into state. No read returns
@@ -286,6 +308,11 @@ func (c *Crud[E, M]) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(c.storeID(ctx, &resp.State, m.GetName().ValueString())...)
 }
 
 // Update implements resource.Resource Update: Patch with an update mask
@@ -320,6 +347,11 @@ func (c *Crud[E, M]) Update(ctx context.Context, req resource.UpdateRequest, res
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	resp.Diagnostics.Append(c.storeID(ctx, &resp.State, plan.GetName().ValueString())...)
 }
 
 func (c *Crud[E, M]) doUpdate(ctx context.Context, name string, e E, plan, state M) (E, error) {
@@ -375,8 +407,9 @@ func (c *Crud[E, M]) ImportState(ctx context.Context, req resource.ImportStateRe
 
 	resource.ImportStatePassthroughID(ctx, path.Root(NameAttribute), req, resp)
 
-	// A caller-named resource's id attribute is required, so it must land in
-	// state on import or the first plan after it would force replacement.
+	// The id lands in state on import: a caller-named resource's is required,
+	// so without it the first plan would force replacement, and a server-named
+	// one's is what other resources reference.
 	if c.params.IDAttribute != "" {
 		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
 	}
@@ -404,16 +437,11 @@ func (c *Crud[E, M]) ReadDataSource(ctx context.Context, req datasource.ReadRequ
 	}
 
 	resp.Diagnostics.Append(resp.State.Set(ctx, m)...)
-	if resp.Diagnostics.HasError() || c.params.IDAttribute == "" {
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	_, id, err := c.params.Scope.ParseName(c.params.Collection, m.GetName().ValueString())
-	if err != nil {
-		resp.Diagnostics.AddError(fmt.Sprintf("unexpected %s name", c.params.TypeName), err.Error())
-		return
-	}
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
+	resp.Diagnostics.Append(c.storeID(ctx, &resp.State, m.GetName().ValueString())...)
 }
 
 // NameAttribute is the Terraform attribute holding the AIP resource name.

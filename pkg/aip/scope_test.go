@@ -176,6 +176,26 @@ func TestScope_ParseName(t *testing.T) {
 				assert.Equal(t, "p1", id)
 			},
 		},
+		"one parent": {
+			arrange: func() (aip.Scope, string) {
+				return aip.NewScope("stores"), "stores/s-1/pets/p-1"
+			},
+			assert: func(t *testing.T, ids map[string]string, id string, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, map[string]string{"store_id": "s-1"}, ids)
+				assert.Equal(t, "p-1", id)
+			},
+		},
+		"three parents": {
+			arrange: func() (aip.Scope, string) {
+				return aip.NewScope("tenants", "issuers", "clients"), "tenants/t-1/issuers/i-1/clients/c-1/pets/p-1"
+			},
+			assert: func(t *testing.T, ids map[string]string, id string, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, map[string]string{"tenant_id": "t-1", "issuer_id": "i-1", "client_id": "c-1"}, ids)
+				assert.Equal(t, "p-1", id)
+			},
+		},
 		"wrong collection": {
 			arrange: func() (aip.Scope, string) {
 				return aip.ScopeNone, "cats/p1"

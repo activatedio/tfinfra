@@ -73,9 +73,34 @@ certificate's mint parameters, say. They stay Optional rather than
 Optional+Computed, and reads leave them alone, so the value you configured
 does not vanish on the next refresh.
 
+Every resource carries a `<type_name>_id` attribute, its own id: the last
+segment of `name`. The server assigns it, so it is computed, and it is what
+another resource references rather than splitting `name`. The singular data
+source and each item of the plural one carry it too.
+
+A field or parent attribute that holds another resource's id declares a
+`Reference` (on `Resource.References`, `ConfigDataSource.References`, or, for
+the parent attributes, `Spec.ScopeReferences`), naming the target and the
+prefix its ids start with. A full name or another type's id then fails in
+plan, with a message naming the attribute to reference:
+
+```go
+gentf.Resource{
+	// ...
+	References: map[string]gentf.Reference{"buddy_id": {Target: "pet", Prefix: "p"}},
+}
+```
+
+```hcl
+resource "petstore_pet" "tom" {
+  display_name = "Tom"
+  buddy_id     = petstore_pet.rex.pet_id   # not petstore_pet.rex.name
+}
+```
+
 Resources whose id the caller chooses rather than the server — the API takes
 it from the entity's `name` field on create — declare `CallerNamed: true`,
-which adds a required, replace-on-change `<type_name>_id` attribute:
+which makes `<type_name>_id` a required, replace-on-change input:
 
 ```hcl
 resource "petstore_toy" "bone" {

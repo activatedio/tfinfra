@@ -21,9 +21,18 @@ type entityNames struct {
 	Collection string // pets (AIP collection)
 	Model      string // PetModel
 	LowerCamel string // pet (Go identifier prefix for unexported types)
-	// IDAttribute is the caller-assigned id attribute ("toy_id"), empty
-	// unless the Resource is marked CallerNamed.
+	// IDAttribute is the resource's own id attribute ("toy_id"): an input
+	// when CallerNamed, else computed from "name". Empty for an entry with
+	// no Resource.
 	IDAttribute string
+	// CallerNamed mirrors Resource.CallerNamed.
+	CallerNamed bool
+	// Examples maps each Reference Target that is a resource of the spec to
+	// the expression that yields its id ("petstore_pet.<name>.pet_id").
+	Examples map[string]string
+	// ScopeRefs is Spec.ScopeReferences: the scope identifiers validated by
+	// prefix.
+	ScopeRefs map[string]Reference
 }
 
 func namesFor(e Entry, res Resource) entityNames {
@@ -46,7 +55,7 @@ func namesFor(e Entry, res Resource) entityNames {
 	}
 
 	idAttribute := ""
-	if res.CallerNamed {
+	if HasImplementation[Resource](e) {
 		idAttribute = typeName + "_id"
 	}
 
@@ -57,6 +66,7 @@ func namesFor(e Entry, res Resource) entityNames {
 		Model:       t.Name() + "Model",
 		LowerCamel:  lowerFirst(t.Name()),
 		IDAttribute: idAttribute,
+		CallerNamed: res.CallerNamed,
 	}
 }
 
@@ -107,6 +117,9 @@ func writeCrudFactory(f *jen.File, e Entry, res Resource, cm ClientModel, n enti
 	}
 	if n.IDAttribute != "" {
 		params[jen.Id("IDAttribute")] = jen.Lit(n.IDAttribute)
+	}
+	if n.CallerNamed {
+		params[jen.Id("CallerNamed")] = jen.True()
 	}
 
 	f.Commentf("new%sCrud builds the %s runtime from provider data; it returns nil (no error) before the provider is configured.", n.Entity, n.TypeName)
