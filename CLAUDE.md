@@ -160,8 +160,9 @@ protojson form, so `"5s"` and `"1.5s"` work alongside `"500ms"` and
 state) denotes the same length it is kept as written, so `"1m30s"` does not
 come back as `"90s"`, which Terraform would reject as an inconsistent
 result after apply. With nothing to compare against — an import, a data
-source, a field inside a nested attribute — it reads in protojson form with
-trailing zeros trimmed (`"90s"`, `"0.5s"`).
+source — it reads in protojson form with trailing zeros trimmed (`"90s"`,
+`"0.5s"`). Inside a nested attribute the comparison runs against the prior
+object's child, so a nested duration keeps its spelling too.
 
 Nested attributes nest **one level**: a message inside a nested message
 panics, and belongs on the JSON lane. Nested children are Optional+Computed
@@ -208,10 +209,19 @@ the standard one: removing an attribute from config keeps its last value —
 unsetting requires an explicit zero value.
 
 **Read-side null convention** (to be refined with proto3 `optional`
-presence in the CRUD runtime task): strings, enums, lists, maps, and
-timestamps and durations read a proto zero value as Terraform null — except `name` and
-`Required` fields, which always carry a value. Bools and numbers always
-carry a value, because proto3 cannot distinguish zero from unset.
+presence in the CRUD runtime task): strings, enums, lists, maps,
+timestamps and durations read a proto zero value as Terraform null — except
+`name` and `Required` fields, which always carry a value. Bools and numbers
+always carry a value, because proto3 cannot distinguish zero from unset.
+
+**An enum's zero value reads back as written.** Some enums' zero is a real
+choice rather than "unspecified" (a REST transport; `BOWL_STANDARD` in the
+example). A practitioner who writes it explicitly must not see it come back
+as null, which Terraform rejects as an inconsistent result after apply. So
+`pkg/tf.EnumValue` keeps the prior value when it already names the zero,
+and reads null otherwise. An import or a data source has nothing to keep
+and reads null. Nested children get the same treatment, because the nested
+model is seeded from the prior object before the message overwrites it.
 
 ## Provider wiring
 

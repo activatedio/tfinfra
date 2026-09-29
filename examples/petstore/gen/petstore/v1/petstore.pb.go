@@ -82,6 +82,52 @@ func (PetType) EnumDescriptor() ([]byte, []int) {
 	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{0}
 }
 
+type Bowl int32
+
+const (
+	Bowl_BOWL_STANDARD Bowl = 0
+	Bowl_BOWL_RAISED   Bowl = 1
+)
+
+// Enum value maps for Bowl.
+var (
+	Bowl_name = map[int32]string{
+		0: "BOWL_STANDARD",
+		1: "BOWL_RAISED",
+	}
+	Bowl_value = map[string]int32{
+		"BOWL_STANDARD": 0,
+		"BOWL_RAISED":   1,
+	}
+)
+
+func (x Bowl) Enum() *Bowl {
+	p := new(Bowl)
+	*p = x
+	return p
+}
+
+func (x Bowl) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Bowl) Descriptor() protoreflect.EnumDescriptor {
+	return file_petstore_v1_petstore_proto_enumTypes[1].Descriptor()
+}
+
+func (Bowl) Type() protoreflect.EnumType {
+	return &file_petstore_v1_petstore_proto_enumTypes[1]
+}
+
+func (x Bowl) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Bowl.Descriptor instead.
+func (Bowl) EnumDescriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{1}
+}
+
 type GetPetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -626,11 +672,16 @@ func (x *Pet) GetGroomingInterval() *durationpb.Duration {
 // attribute. Its own fields cover the scalar, list and map shapes; a
 // message inside it would not be supported (nesting is one level deep).
 type Feeding struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Schedule      string                 `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
-	Portions      int32                  `protobuf:"varint,2,opt,name=portions,proto3" json:"portions,omitempty"`
-	Foods         []string               `protobuf:"bytes,3,rep,name=foods,proto3" json:"foods,omitempty"`
-	Notes         map[string]string      `protobuf:"bytes,4,rep,name=notes,proto3" json:"notes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Schedule string                 `protobuf:"bytes,1,opt,name=schedule,proto3" json:"schedule,omitempty"`
+	Portions int32                  `protobuf:"varint,2,opt,name=portions,proto3" json:"portions,omitempty"`
+	Foods    []string               `protobuf:"bytes,3,rep,name=foods,proto3" json:"foods,omitempty"`
+	Notes    map[string]string      `protobuf:"bytes,4,rep,name=notes,proto3" json:"notes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// An enum whose zero value is a real choice, not "unspecified" — the
+	// shape that must read back as written when it is written explicitly.
+	Bowl Bowl `protobuf:"varint,5,opt,name=bowl,proto3,enum=petstore.v1.Bowl" json:"bowl,omitempty"`
+	// A duration inside a nested attribute keeps its spelling too.
+	Interval      *durationpb.Duration `protobuf:"bytes,6,opt,name=interval,proto3" json:"interval,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -689,6 +740,20 @@ func (x *Feeding) GetFoods() []string {
 func (x *Feeding) GetNotes() map[string]string {
 	if x != nil {
 		return x.Notes
+	}
+	return nil
+}
+
+func (x *Feeding) GetBowl() Bowl {
+	if x != nil {
+		return x.Bowl
+	}
+	return Bowl_BOWL_STANDARD
+}
+
+func (x *Feeding) GetInterval() *durationpb.Duration {
+	if x != nil {
+		return x.Interval
 	}
 	return nil
 }
@@ -1621,12 +1686,14 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc8\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa6\x02\n" +
 	"\aFeeding\x12\x1a\n" +
 	"\bschedule\x18\x01 \x01(\tR\bschedule\x12\x1a\n" +
 	"\bportions\x18\x02 \x01(\x05R\bportions\x12\x14\n" +
 	"\x05foods\x18\x03 \x03(\tR\x05foods\x125\n" +
-	"\x05notes\x18\x04 \x03(\v2\x1f.petstore.v1.Feeding.NotesEntryR\x05notes\x1a8\n" +
+	"\x05notes\x18\x04 \x03(\v2\x1f.petstore.v1.Feeding.NotesEntryR\x05notes\x12%\n" +
+	"\x04bowl\x18\x05 \x01(\x0e2\x11.petstore.v1.BowlR\x04bowl\x125\n" +
+	"\binterval\x18\x06 \x01(\v2\x19.google.protobuf.DurationR\binterval\x1a8\n" +
 	"\n" +
 	"NotesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
@@ -1689,7 +1756,10 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\aPetType\x12\x18\n" +
 	"\x14PET_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPET_TYPE_DOG\x10\x01\x12\x10\n" +
-	"\fPET_TYPE_CAT\x10\x022\xb9\a\n" +
+	"\fPET_TYPE_CAT\x10\x02**\n" +
+	"\x04Bowl\x12\x11\n" +
+	"\rBOWL_STANDARD\x10\x00\x12\x0f\n" +
+	"\vBOWL_RAISED\x10\x012\xb9\a\n" +
 	"\x0fPetStoreService\x126\n" +
 	"\x06GetPet\x12\x1a.petstore.v1.GetPetRequest\x1a\x10.petstore.v1.Pet\x12G\n" +
 	"\bListPets\x12\x1c.petstore.v1.ListPetsRequest\x1a\x1d.petstore.v1.ListPetsResponse\x12<\n" +
@@ -1718,101 +1788,104 @@ func file_petstore_v1_petstore_proto_rawDescGZIP() []byte {
 	return file_petstore_v1_petstore_proto_rawDescData
 }
 
-var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_petstore_v1_petstore_proto_goTypes = []any{
 	(PetType)(0),                      // 0: petstore.v1.PetType
-	(*GetPetRequest)(nil),             // 1: petstore.v1.GetPetRequest
-	(*ListPetsRequest)(nil),           // 2: petstore.v1.ListPetsRequest
-	(*ListPetsResponse)(nil),          // 3: petstore.v1.ListPetsResponse
-	(*CreatePetRequest)(nil),          // 4: petstore.v1.CreatePetRequest
-	(*UpdatePetRequest)(nil),          // 5: petstore.v1.UpdatePetRequest
-	(*PatchPetRequest)(nil),           // 6: petstore.v1.PatchPetRequest
-	(*DeletePetRequest)(nil),          // 7: petstore.v1.DeletePetRequest
-	(*Pet)(nil),                       // 8: petstore.v1.Pet
-	(*Feeding)(nil),                   // 9: petstore.v1.Feeding
-	(*CollarConfig)(nil),              // 10: petstore.v1.CollarConfig
-	(*Engraving)(nil),                 // 11: petstore.v1.Engraving
-	(*Buckle)(nil),                    // 12: petstore.v1.Buckle
-	(*AssociationRequest)(nil),        // 13: petstore.v1.AssociationRequest
-	(*AssociateToysToPetRequest)(nil), // 14: petstore.v1.AssociateToysToPetRequest
-	(*ListToysByPetRequest)(nil),      // 15: petstore.v1.ListToysByPetRequest
-	(*ListToysByPetResponse)(nil),     // 16: petstore.v1.ListToysByPetResponse
-	(*GetToyRequest)(nil),             // 17: petstore.v1.GetToyRequest
-	(*ListToysRequest)(nil),           // 18: petstore.v1.ListToysRequest
-	(*ListToysResponse)(nil),          // 19: petstore.v1.ListToysResponse
-	(*CreateToyRequest)(nil),          // 20: petstore.v1.CreateToyRequest
-	(*UpdateToyRequest)(nil),          // 21: petstore.v1.UpdateToyRequest
-	(*PatchToyRequest)(nil),           // 22: petstore.v1.PatchToyRequest
-	(*DeleteToyRequest)(nil),          // 23: petstore.v1.DeleteToyRequest
-	(*Kennel)(nil),                    // 24: petstore.v1.Kennel
-	(*Toy)(nil),                       // 25: petstore.v1.Toy
-	nil,                               // 26: petstore.v1.Pet.LabelsEntry
-	nil,                               // 27: petstore.v1.Feeding.NotesEntry
-	(*fieldmaskpb.FieldMask)(nil),     // 28: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),     // 29: google.protobuf.Timestamp
-	(*anypb.Any)(nil),                 // 30: google.protobuf.Any
-	(*structpb.Struct)(nil),           // 31: google.protobuf.Struct
-	(*durationpb.Duration)(nil),       // 32: google.protobuf.Duration
-	(*emptypb.Empty)(nil),             // 33: google.protobuf.Empty
+	(Bowl)(0),                         // 1: petstore.v1.Bowl
+	(*GetPetRequest)(nil),             // 2: petstore.v1.GetPetRequest
+	(*ListPetsRequest)(nil),           // 3: petstore.v1.ListPetsRequest
+	(*ListPetsResponse)(nil),          // 4: petstore.v1.ListPetsResponse
+	(*CreatePetRequest)(nil),          // 5: petstore.v1.CreatePetRequest
+	(*UpdatePetRequest)(nil),          // 6: petstore.v1.UpdatePetRequest
+	(*PatchPetRequest)(nil),           // 7: petstore.v1.PatchPetRequest
+	(*DeletePetRequest)(nil),          // 8: petstore.v1.DeletePetRequest
+	(*Pet)(nil),                       // 9: petstore.v1.Pet
+	(*Feeding)(nil),                   // 10: petstore.v1.Feeding
+	(*CollarConfig)(nil),              // 11: petstore.v1.CollarConfig
+	(*Engraving)(nil),                 // 12: petstore.v1.Engraving
+	(*Buckle)(nil),                    // 13: petstore.v1.Buckle
+	(*AssociationRequest)(nil),        // 14: petstore.v1.AssociationRequest
+	(*AssociateToysToPetRequest)(nil), // 15: petstore.v1.AssociateToysToPetRequest
+	(*ListToysByPetRequest)(nil),      // 16: petstore.v1.ListToysByPetRequest
+	(*ListToysByPetResponse)(nil),     // 17: petstore.v1.ListToysByPetResponse
+	(*GetToyRequest)(nil),             // 18: petstore.v1.GetToyRequest
+	(*ListToysRequest)(nil),           // 19: petstore.v1.ListToysRequest
+	(*ListToysResponse)(nil),          // 20: petstore.v1.ListToysResponse
+	(*CreateToyRequest)(nil),          // 21: petstore.v1.CreateToyRequest
+	(*UpdateToyRequest)(nil),          // 22: petstore.v1.UpdateToyRequest
+	(*PatchToyRequest)(nil),           // 23: petstore.v1.PatchToyRequest
+	(*DeleteToyRequest)(nil),          // 24: petstore.v1.DeleteToyRequest
+	(*Kennel)(nil),                    // 25: petstore.v1.Kennel
+	(*Toy)(nil),                       // 26: petstore.v1.Toy
+	nil,                               // 27: petstore.v1.Pet.LabelsEntry
+	nil,                               // 28: petstore.v1.Feeding.NotesEntry
+	(*fieldmaskpb.FieldMask)(nil),     // 29: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),     // 30: google.protobuf.Timestamp
+	(*anypb.Any)(nil),                 // 31: google.protobuf.Any
+	(*structpb.Struct)(nil),           // 32: google.protobuf.Struct
+	(*durationpb.Duration)(nil),       // 33: google.protobuf.Duration
+	(*emptypb.Empty)(nil),             // 34: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
-	8,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
-	8,  // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
-	8,  // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
-	8,  // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
-	28, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
+	9,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
+	9,  // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
+	9,  // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
+	9,  // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
+	29, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 5: petstore.v1.Pet.type:type_name -> petstore.v1.PetType
-	26, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
-	29, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
-	30, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
-	31, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
-	9,  // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
-	32, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
-	27, // 12: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
-	12, // 13: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
-	11, // 14: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
-	13, // 15: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
-	25, // 16: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
-	25, // 17: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
-	25, // 18: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
-	25, // 19: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
-	25, // 20: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
-	28, // 21: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	10, // 22: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
-	1,  // 23: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	2,  // 24: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	4,  // 25: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	5,  // 26: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	6,  // 27: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	7,  // 28: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	17, // 29: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
-	18, // 30: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
-	20, // 31: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
-	21, // 32: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
-	22, // 33: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
-	23, // 34: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
-	14, // 35: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
-	15, // 36: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
-	8,  // 37: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	3,  // 38: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	8,  // 39: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	8,  // 40: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	8,  // 41: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	33, // 42: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	25, // 43: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
-	19, // 44: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
-	25, // 45: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
-	25, // 46: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
-	25, // 47: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
-	33, // 48: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
-	33, // 49: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
-	16, // 50: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
-	37, // [37:51] is the sub-list for method output_type
-	23, // [23:37] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	27, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
+	30, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
+	31, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
+	32, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
+	10, // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
+	33, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
+	28, // 12: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
+	1,  // 13: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
+	33, // 14: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
+	13, // 15: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
+	12, // 16: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
+	14, // 17: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
+	26, // 18: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
+	26, // 19: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
+	26, // 20: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
+	26, // 21: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
+	26, // 22: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
+	29, // 23: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	11, // 24: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
+	2,  // 25: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	3,  // 26: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	5,  // 27: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	6,  // 28: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	7,  // 29: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	8,  // 30: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	18, // 31: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
+	19, // 32: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
+	21, // 33: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
+	22, // 34: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
+	23, // 35: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
+	24, // 36: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
+	15, // 37: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	16, // 38: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	9,  // 39: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	4,  // 40: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	9,  // 41: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	9,  // 42: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	9,  // 43: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	34, // 44: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	26, // 45: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
+	20, // 46: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
+	26, // 47: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
+	26, // 48: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
+	26, // 49: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
+	34, // 50: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
+	34, // 51: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	17, // 52: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	39, // [39:53] is the sub-list for method output_type
+	25, // [25:39] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }
@@ -1825,7 +1898,7 @@ func file_petstore_v1_petstore_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_petstore_v1_petstore_proto_rawDesc), len(file_petstore_v1_petstore_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   1,

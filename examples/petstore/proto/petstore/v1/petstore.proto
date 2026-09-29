@@ -123,6 +123,16 @@ message Feeding {
   int32 portions = 2;
   repeated string foods = 3;
   map<string, string> notes = 4;
+  // An enum whose zero value is a real choice, not "unspecified" — the
+  // shape that must read back as written when it is written explicitly.
+  Bowl bowl = 5;
+  // A duration inside a nested attribute keeps its spelling too.
+  google.protobuf.Duration interval = 6;
+}
+
+enum Bowl {
+  BOWL_STANDARD = 0;
+  BOWL_RAISED = 1;
 }
 
 // CollarConfig is a concrete config type packed into Pet.config; it gets a

@@ -59,10 +59,19 @@ func PetResourceSchema() schema.Schema {
 			"display_name": schema.StringAttribute{Required: true},
 			"feeding": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
+					"bowl": schema.StringAttribute{
+						Computed:   true,
+						Optional:   true,
+						Validators: []validator.String{stringvalidator.OneOf("BOWL_STANDARD", "BOWL_RAISED")},
+					},
 					"foods": schema.ListAttribute{
 						Computed:    true,
 						ElementType: types.StringType,
 						Optional:    true,
+					},
+					"interval": schema.StringAttribute{
+						Computed: true,
+						Optional: true,
 					},
 					"notes": schema.MapAttribute{
 						Computed:    true,
@@ -153,12 +162,16 @@ type PetFeedingModel struct {
 	Portions types.Int64  `tfsdk:"portions"`
 	Foods    types.List   `tfsdk:"foods"`
 	Notes    types.Map    `tfsdk:"notes"`
+	Bowl     types.String `tfsdk:"bowl"`
+	Interval types.String `tfsdk:"interval"`
 }
 
 // PetFeedingAttrTypes returns the attribute types of the "feeding" nested attribute.
 func PetFeedingAttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"bowl":     types.StringType,
 		"foods":    types.ListType{ElemType: types.StringType},
+		"interval": types.StringType,
 		"notes":    types.MapType{ElemType: types.StringType},
 		"portions": types.Int64Type,
 		"schedule": types.StringType,
@@ -261,6 +274,17 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 		if !n.Notes.IsNull() && !n.Notes.IsUnknown() {
 			diags.Append(n.Notes.ElementsAs(ctx, &v.Notes, false)...)
 		}
+		if !n.Bowl.IsNull() && !n.Bowl.IsUnknown() {
+			v.Bowl = v1.Bowl(v1.Bowl_value[n.Bowl.ValueString()])
+		}
+		if !n.Interval.IsNull() && !n.Interval.IsUnknown() {
+			d, err := tf.ParseDuration(n.Interval.ValueString())
+			if err != nil {
+				diags.AddAttributeError(path.Root("feeding").AtName("interval"), "invalid duration", err.Error())
+			} else {
+				v.Interval = d
+			}
+		}
 		out.Feeding = v
 	}
 	out.IntakeCode = m.IntakeCode.ValueString()
@@ -281,11 +305,7 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	var diags diag.Diagnostics
 	m.Name = types.StringValue(e.Name)
 	m.DisplayName = types.StringValue(e.DisplayName)
-	if e.Type == 0 {
-		m.Type = types.StringNull()
-	} else {
-		m.Type = types.StringValue(e.Type.String())
-	}
+	m.Type = tf.EnumValue(m.Type, int32(e.Type), e.Type.String())
 	m.Age = types.Int64Value(int64(e.Age))
 	m.Vaccinated = types.BoolValue(e.Vaccinated)
 	m.Weight = types.Float64Value(e.Weight)
@@ -332,6 +352,9 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		m.Feeding = types.ObjectNull(PetFeedingAttrTypes())
 	} else {
 		var n PetFeedingModel
+		if !m.Feeding.IsNull() && !m.Feeding.IsUnknown() {
+			diags.Append(m.Feeding.As(ctx, &n, basetypes.ObjectAsOptions{})...)
+		}
 		if e.Feeding.Schedule == "" {
 			n.Schedule = types.StringNull()
 		} else {
@@ -352,6 +375,8 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 			diags.Append(d...)
 			n.Notes = v
 		}
+		n.Bowl = tf.EnumValue(n.Bowl, int32(e.Feeding.Bowl), e.Feeding.Bowl.String())
+		n.Interval = tf.DurationValue(n.Interval, e.Feeding.Interval)
 		obj, d := types.ObjectValueFrom(ctx, PetFeedingAttrTypes(), n)
 		diags.Append(d...)
 		m.Feeding = obj
@@ -551,10 +576,12 @@ func PetDataSourceSchema() schema1.Schema {
 			"display_name": schema1.StringAttribute{Computed: true},
 			"feeding": schema1.SingleNestedAttribute{
 				Attributes: map[string]schema1.Attribute{
+					"bowl": schema1.StringAttribute{Computed: true},
 					"foods": schema1.ListAttribute{
 						Computed:    true,
 						ElementType: types.StringType,
 					},
+					"interval": schema1.StringAttribute{Computed: true},
 					"notes": schema1.MapAttribute{
 						Computed:    true,
 						ElementType: types.StringType,

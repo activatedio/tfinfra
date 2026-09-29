@@ -24,6 +24,19 @@ const (
 type conv struct {
 	model func() *jen.Statement
 	proto func() *jen.Statement
+	// parent is the Terraform name of the enclosing nested attribute, empty
+	// at the top level; diagnostics anchor to the child under it.
+	parent string
+}
+
+// attrPath returns the path.Path expression a diagnostic about a field
+// anchors to: path.Root("x"), or path.Root("parent").AtName("x") inside a
+// nested attribute.
+func (c conv) attrPath(fd Field) *jen.Statement {
+	if c.parent == "" {
+		return jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName()))
+	}
+	return jen.Qual(pkgPath, "Root").Call(jen.Lit(c.parent)).Dot("AtName").Call(jen.Lit(fd.TfName()))
 }
 
 // m returns the model-side expression for a field, e.g. m.Feeding.
@@ -388,7 +401,7 @@ func toProtoNested(fd Field, c conv, owner string) jen.Code {
 		t = t.Elem()
 	}
 
-	nc := conv{model: ident("n"), proto: ident("v")}
+	nc := conv{model: ident("n"), proto: ident("v"), parent: fd.TfName()}
 
 	body := []jen.Code{
 		jen.Var().Id("n").Id(nestedModelName(owner, fd)),
@@ -446,7 +459,7 @@ func toProtoParsed(fd Field, c conv, out *jen.Statement) jen.Code {
 		jen.List(jen.Id(parsed), jen.Id("err")).Op(":=").Add(parse),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("diags").Dot("AddAttributeError").Call(
-				jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
+				c.attrPath(fd),
 				jen.Lit(summary),
 				jen.Id("err").Dot("Error").Call(),
 			),
@@ -497,10 +510,8 @@ func fromProtoScalar(fd Field, c conv) (jen.Code, bool) {
 	case FieldFloat64:
 		return m().Op("=").Qual(pkgTypes, "Float64Value").Call(numericCast(fd, c, reflect.Float64, "float64")), true
 	case FieldEnum:
-		return jen.If(e().Op("==").Lit(0)).Block(
-			m().Op("=").Qual(pkgTypes, "StringNull").Call(),
-		).Else().Block(
-			m().Op("=").Qual(pkgTypes, "StringValue").Call(e().Dot("String").Call()),
+		return m().Op("=").Qual(pkgRuntimeTf, "EnumValue").Call(
+			m(), jen.Int32().Call(e()), e().Dot("String").Call(),
 		), true
 	default:
 		return nil, false
@@ -533,7 +544,19 @@ func fromProtoNested(fd Field, c conv, owner string) jen.Code {
 	// itself: e.Feeding.Schedule rather than e.Schedule.
 	nc := conv{model: ident("n"), proto: func() *jen.Statement { return c.p(fd.GoName) }}
 
-	body := []jen.Code{jen.Var().Id("n").Id(nestedModelName(owner, fd))}
+	// n starts from the prior object, so the children that keep a written
+	// spelling — an explicit zero enum, a duration — have it to compare
+	// against. Every child is then overwritten from the message.
+	body := []jen.Code{
+		jen.Var().Id("n").Id(nestedModelName(owner, fd)),
+		jen.If(notNullNotUnknown(c, fd.GoName)).Block(
+			jen.Id("diags").Dot("Append").Call(
+				c.m(fd.GoName).Dot("As").Call(
+					jen.Id("ctx"), jen.Op("&").Id("n"), jen.Qual(pkgBasetypes, "ObjectAsOptions").Values(),
+				).Op("..."),
+			),
+		),
+	}
 	for _, nf := range fd.Nested {
 		body = append(body, fromProtoStatement(nf, nc, owner))
 	}
@@ -576,7 +599,7 @@ func toProtoJSON(fd Field, c conv, summary string) jen.Code {
 			jen.Id("err").Op("!=").Nil(),
 		).Block(
 			jen.Id("diags").Dot("AddAttributeError").Call(
-				jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName())),
+				c.attrPath(fd),
 				jen.Lit(summary),
 				jen.Id("err").Dot("Error").Call(),
 			),

@@ -79,16 +79,21 @@ func TestNormalizeFields(t *testing.T) {
 
 				feeding := byName["feeding"]
 				assert.Equal(t, gentf.FieldNestedMessage, feeding.Kind)
-				require.Len(t, feeding.Nested, 4)
+				require.Len(t, feeding.Nested, 6)
 
 				// Nested fields keep proto field-number order and carry the
 				// same kinds they would at the top level.
-				assert.Equal(t, []string{"schedule", "portions", "foods", "notes"},
-					[]string{feeding.Nested[0].ProtoName, feeding.Nested[1].ProtoName, feeding.Nested[2].ProtoName, feeding.Nested[3].ProtoName})
+				names := make([]string, 0, len(feeding.Nested))
+				for _, n := range feeding.Nested {
+					names = append(names, n.ProtoName)
+				}
+				assert.Equal(t, []string{"schedule", "portions", "foods", "notes", "bowl", "interval"}, names)
 				assert.Equal(t, gentf.FieldString, feeding.Nested[0].Kind)
 				assert.Equal(t, gentf.FieldInt64, feeding.Nested[1].Kind)
 				assert.Equal(t, gentf.FieldStringList, feeding.Nested[2].Kind)
 				assert.Equal(t, gentf.FieldStringMap, feeding.Nested[3].Kind)
+				assert.Equal(t, gentf.FieldEnum, feeding.Nested[4].Kind)
+				assert.Equal(t, gentf.FieldDuration, feeding.Nested[5].Kind)
 				assert.Equal(t, "Schedule", feeding.Nested[0].GoName)
 
 				// A JSON-marked message on the same entry stays on the
