@@ -82,6 +82,52 @@ func (PetType) EnumDescriptor() ([]byte, []int) {
 	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{0}
 }
 
+type Route int32
+
+const (
+	Route_ROUTE_INJECTION Route = 0
+	Route_ROUTE_ORAL      Route = 1
+)
+
+// Enum value maps for Route.
+var (
+	Route_name = map[int32]string{
+		0: "ROUTE_INJECTION",
+		1: "ROUTE_ORAL",
+	}
+	Route_value = map[string]int32{
+		"ROUTE_INJECTION": 0,
+		"ROUTE_ORAL":      1,
+	}
+)
+
+func (x Route) Enum() *Route {
+	p := new(Route)
+	*p = x
+	return p
+}
+
+func (x Route) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Route) Descriptor() protoreflect.EnumDescriptor {
+	return file_petstore_v1_petstore_proto_enumTypes[1].Descriptor()
+}
+
+func (Route) Type() protoreflect.EnumType {
+	return &file_petstore_v1_petstore_proto_enumTypes[1]
+}
+
+func (x Route) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Route.Descriptor instead.
+func (Route) EnumDescriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{1}
+}
+
 type Bowl int32
 
 const (
@@ -112,11 +158,11 @@ func (x Bowl) String() string {
 }
 
 func (Bowl) Descriptor() protoreflect.EnumDescriptor {
-	return file_petstore_v1_petstore_proto_enumTypes[1].Descriptor()
+	return file_petstore_v1_petstore_proto_enumTypes[2].Descriptor()
 }
 
 func (Bowl) Type() protoreflect.EnumType {
-	return &file_petstore_v1_petstore_proto_enumTypes[1]
+	return &file_petstore_v1_petstore_proto_enumTypes[2]
 }
 
 func (x Bowl) Number() protoreflect.EnumNumber {
@@ -125,7 +171,7 @@ func (x Bowl) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Bowl.Descriptor instead.
 func (Bowl) EnumDescriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{1}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{2}
 }
 
 type GetPetRequest struct {
@@ -531,7 +577,14 @@ type Pet struct {
 	GroomingInterval *durationpb.Duration `protobuf:"bytes,15,opt,name=grooming_interval,json=groomingInterval,proto3" json:"grooming_interval,omitempty"`
 	// Another pet in the store, housed with this one: its id, the last
 	// segment of its name. A reference, so it is validated by prefix.
-	BuddyId       string `protobuf:"bytes,16,opt,name=buddy_id,json=buddyId,proto3" json:"buddy_id,omitempty"`
+	BuddyId string `protobuf:"bytes,16,opt,name=buddy_id,json=buddyId,proto3" json:"buddy_id,omitempty"`
+	// A repeated message: the list-nested attribute lane, one object per
+	// element over Vaccination's own fields.
+	Vaccinations []*Vaccination `protobuf:"bytes,17,rep,name=vaccinations,proto3" json:"vaccinations,omitempty"`
+	// A repeated message declared in the JSON list: a JSON array, each
+	// element in protojson. Note holds a message of its own, which is too
+	// deep for the typed lane.
+	Notes         []*Note `protobuf:"bytes,18,rep,name=notes,proto3" json:"notes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -678,6 +731,196 @@ func (x *Pet) GetBuddyId() string {
 	return ""
 }
 
+func (x *Pet) GetVaccinations() []*Vaccination {
+	if x != nil {
+		return x.Vaccinations
+	}
+	return nil
+}
+
+func (x *Pet) GetNotes() []*Note {
+	if x != nil {
+		return x.Notes
+	}
+	return nil
+}
+
+// Vaccination is a repeated message surfaced as a list-nested attribute.
+type Vaccination struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Vaccine   string                 `protobuf:"bytes,1,opt,name=vaccine,proto3" json:"vaccine,omitempty"`
+	GivenTime *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=given_time,json=givenTime,proto3" json:"given_time,omitempty"`
+	// A duration and a zero-is-real enum, which keep their spelling per
+	// element as they do in a nested attribute.
+	ValidFor      *durationpb.Duration `protobuf:"bytes,3,opt,name=valid_for,json=validFor,proto3" json:"valid_for,omitempty"`
+	Route         Route                `protobuf:"varint,4,opt,name=route,proto3,enum=petstore.v1.Route" json:"route,omitempty"`
+	Batches       []string             `protobuf:"bytes,5,rep,name=batches,proto3" json:"batches,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Vaccination) Reset() {
+	*x = Vaccination{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Vaccination) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Vaccination) ProtoMessage() {}
+
+func (x *Vaccination) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Vaccination.ProtoReflect.Descriptor instead.
+func (*Vaccination) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Vaccination) GetVaccine() string {
+	if x != nil {
+		return x.Vaccine
+	}
+	return ""
+}
+
+func (x *Vaccination) GetGivenTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.GivenTime
+	}
+	return nil
+}
+
+func (x *Vaccination) GetValidFor() *durationpb.Duration {
+	if x != nil {
+		return x.ValidFor
+	}
+	return nil
+}
+
+func (x *Vaccination) GetRoute() Route {
+	if x != nil {
+		return x.Route
+	}
+	return Route_ROUTE_INJECTION
+}
+
+func (x *Vaccination) GetBatches() []string {
+	if x != nil {
+		return x.Batches
+	}
+	return nil
+}
+
+// Note is a repeated message on the JSON lane.
+type Note struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Text          string                 `protobuf:"bytes,1,opt,name=text,proto3" json:"text,omitempty"`
+	Author        *Author                `protobuf:"bytes,2,opt,name=author,proto3" json:"author,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Note) Reset() {
+	*x = Note{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Note) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Note) ProtoMessage() {}
+
+func (x *Note) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Note.ProtoReflect.Descriptor instead.
+func (*Note) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *Note) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *Note) GetAuthor() *Author {
+	if x != nil {
+		return x.Author
+	}
+	return nil
+}
+
+type Author struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Author) Reset() {
+	*x = Author{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Author) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Author) ProtoMessage() {}
+
+func (x *Author) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Author.ProtoReflect.Descriptor instead.
+func (*Author) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *Author) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 // Feeding is a singular nested message surfaced as a typed nested
 // attribute. Its own fields cover the scalar, list and map shapes; a
 // message inside it would not be supported (nesting is one level deep).
@@ -698,7 +941,7 @@ type Feeding struct {
 
 func (x *Feeding) Reset() {
 	*x = Feeding{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[8]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -710,7 +953,7 @@ func (x *Feeding) String() string {
 func (*Feeding) ProtoMessage() {}
 
 func (x *Feeding) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[8]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -723,7 +966,7 @@ func (x *Feeding) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Feeding.ProtoReflect.Descriptor instead.
 func (*Feeding) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{8}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Feeding) GetSchedule() string {
@@ -788,7 +1031,7 @@ type CollarConfig struct {
 
 func (x *CollarConfig) Reset() {
 	*x = CollarConfig{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -800,7 +1043,7 @@ func (x *CollarConfig) String() string {
 func (*CollarConfig) ProtoMessage() {}
 
 func (x *CollarConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[9]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -813,7 +1056,7 @@ func (x *CollarConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollarConfig.ProtoReflect.Descriptor instead.
 func (*CollarConfig) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{9}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CollarConfig) GetColor() string {
@@ -862,7 +1105,7 @@ type Engraving struct {
 
 func (x *Engraving) Reset() {
 	*x = Engraving{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -874,7 +1117,7 @@ func (x *Engraving) String() string {
 func (*Engraving) ProtoMessage() {}
 
 func (x *Engraving) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[10]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -887,7 +1130,7 @@ func (x *Engraving) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Engraving.ProtoReflect.Descriptor instead.
 func (*Engraving) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{10}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Engraving) GetText() string {
@@ -920,7 +1163,7 @@ type Buckle struct {
 
 func (x *Buckle) Reset() {
 	*x = Buckle{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +1175,7 @@ func (x *Buckle) String() string {
 func (*Buckle) ProtoMessage() {}
 
 func (x *Buckle) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[11]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +1188,7 @@ func (x *Buckle) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Buckle.ProtoReflect.Descriptor instead.
 func (*Buckle) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{11}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Buckle) GetMaterial() string {
@@ -966,7 +1209,7 @@ type AssociationRequest struct {
 
 func (x *AssociationRequest) Reset() {
 	*x = AssociationRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -978,7 +1221,7 @@ func (x *AssociationRequest) String() string {
 func (*AssociationRequest) ProtoMessage() {}
 
 func (x *AssociationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[12]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -991,7 +1234,7 @@ func (x *AssociationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssociationRequest.ProtoReflect.Descriptor instead.
 func (*AssociationRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{12}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *AssociationRequest) GetSet() []string {
@@ -1018,7 +1261,7 @@ type AssociateToysToPetRequest struct {
 
 func (x *AssociateToysToPetRequest) Reset() {
 	*x = AssociateToysToPetRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +1273,7 @@ func (x *AssociateToysToPetRequest) String() string {
 func (*AssociateToysToPetRequest) ProtoMessage() {}
 
 func (x *AssociateToysToPetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[13]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1043,7 +1286,7 @@ func (x *AssociateToysToPetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AssociateToysToPetRequest.ProtoReflect.Descriptor instead.
 func (*AssociateToysToPetRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{13}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *AssociateToysToPetRequest) GetName() string {
@@ -1072,7 +1315,7 @@ type ListToysByPetRequest struct {
 
 func (x *ListToysByPetRequest) Reset() {
 	*x = ListToysByPetRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1084,7 +1327,7 @@ func (x *ListToysByPetRequest) String() string {
 func (*ListToysByPetRequest) ProtoMessage() {}
 
 func (x *ListToysByPetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[14]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1097,7 +1340,7 @@ func (x *ListToysByPetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListToysByPetRequest.ProtoReflect.Descriptor instead.
 func (*ListToysByPetRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{14}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListToysByPetRequest) GetName() string {
@@ -1138,7 +1381,7 @@ type ListToysByPetResponse struct {
 
 func (x *ListToysByPetResponse) Reset() {
 	*x = ListToysByPetResponse{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[15]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1150,7 +1393,7 @@ func (x *ListToysByPetResponse) String() string {
 func (*ListToysByPetResponse) ProtoMessage() {}
 
 func (x *ListToysByPetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[15]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1163,7 +1406,7 @@ func (x *ListToysByPetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListToysByPetResponse.ProtoReflect.Descriptor instead.
 func (*ListToysByPetResponse) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{15}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListToysByPetResponse) GetToys() []*Toy {
@@ -1189,7 +1432,7 @@ type GetToyRequest struct {
 
 func (x *GetToyRequest) Reset() {
 	*x = GetToyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[16]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1201,7 +1444,7 @@ func (x *GetToyRequest) String() string {
 func (*GetToyRequest) ProtoMessage() {}
 
 func (x *GetToyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[16]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1214,7 +1457,7 @@ func (x *GetToyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetToyRequest.ProtoReflect.Descriptor instead.
 func (*GetToyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{16}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetToyRequest) GetName() string {
@@ -1235,7 +1478,7 @@ type ListToysRequest struct {
 
 func (x *ListToysRequest) Reset() {
 	*x = ListToysRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[17]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1247,7 +1490,7 @@ func (x *ListToysRequest) String() string {
 func (*ListToysRequest) ProtoMessage() {}
 
 func (x *ListToysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[17]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1260,7 +1503,7 @@ func (x *ListToysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListToysRequest.ProtoReflect.Descriptor instead.
 func (*ListToysRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{17}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListToysRequest) GetParent() string {
@@ -1294,7 +1537,7 @@ type ListToysResponse struct {
 
 func (x *ListToysResponse) Reset() {
 	*x = ListToysResponse{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[18]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1306,7 +1549,7 @@ func (x *ListToysResponse) String() string {
 func (*ListToysResponse) ProtoMessage() {}
 
 func (x *ListToysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[18]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1319,7 +1562,7 @@ func (x *ListToysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListToysResponse.ProtoReflect.Descriptor instead.
 func (*ListToysResponse) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{18}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListToysResponse) GetToys() []*Toy {
@@ -1346,7 +1589,7 @@ type CreateToyRequest struct {
 
 func (x *CreateToyRequest) Reset() {
 	*x = CreateToyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[19]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1601,7 @@ func (x *CreateToyRequest) String() string {
 func (*CreateToyRequest) ProtoMessage() {}
 
 func (x *CreateToyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[19]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1614,7 @@ func (x *CreateToyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateToyRequest.ProtoReflect.Descriptor instead.
 func (*CreateToyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{19}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CreateToyRequest) GetParent() string {
@@ -1398,7 +1641,7 @@ type UpdateToyRequest struct {
 
 func (x *UpdateToyRequest) Reset() {
 	*x = UpdateToyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[20]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1410,7 +1653,7 @@ func (x *UpdateToyRequest) String() string {
 func (*UpdateToyRequest) ProtoMessage() {}
 
 func (x *UpdateToyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[20]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1423,7 +1666,7 @@ func (x *UpdateToyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateToyRequest.ProtoReflect.Descriptor instead.
 func (*UpdateToyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{20}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *UpdateToyRequest) GetName() string {
@@ -1451,7 +1694,7 @@ type PatchToyRequest struct {
 
 func (x *PatchToyRequest) Reset() {
 	*x = PatchToyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[21]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1463,7 +1706,7 @@ func (x *PatchToyRequest) String() string {
 func (*PatchToyRequest) ProtoMessage() {}
 
 func (x *PatchToyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[21]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1476,7 +1719,7 @@ func (x *PatchToyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PatchToyRequest.ProtoReflect.Descriptor instead.
 func (*PatchToyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{21}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PatchToyRequest) GetName() string {
@@ -1509,7 +1752,7 @@ type DeleteToyRequest struct {
 
 func (x *DeleteToyRequest) Reset() {
 	*x = DeleteToyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[22]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1521,7 +1764,7 @@ func (x *DeleteToyRequest) String() string {
 func (*DeleteToyRequest) ProtoMessage() {}
 
 func (x *DeleteToyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[22]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1534,7 +1777,7 @@ func (x *DeleteToyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteToyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteToyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{22}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *DeleteToyRequest) GetName() string {
@@ -1557,7 +1800,7 @@ type Kennel struct {
 
 func (x *Kennel) Reset() {
 	*x = Kennel{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[23]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1569,7 +1812,7 @@ func (x *Kennel) String() string {
 func (*Kennel) ProtoMessage() {}
 
 func (x *Kennel) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[23]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1582,7 +1825,7 @@ func (x *Kennel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Kennel.ProtoReflect.Descriptor instead.
 func (*Kennel) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{23}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Kennel) GetName() string {
@@ -1612,7 +1855,7 @@ type Toy struct {
 
 func (x *Toy) Reset() {
 	*x = Toy{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[24]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1624,7 +1867,7 @@ func (x *Toy) String() string {
 func (*Toy) ProtoMessage() {}
 
 func (x *Toy) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[24]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1637,7 +1880,7 @@ func (x *Toy) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Toy.ProtoReflect.Descriptor instead.
 func (*Toy) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{24}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Toy) GetName() string {
@@ -1668,7 +1911,7 @@ type AccessKey struct {
 
 func (x *AccessKey) Reset() {
 	*x = AccessKey{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[25]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1680,7 +1923,7 @@ func (x *AccessKey) String() string {
 func (*AccessKey) ProtoMessage() {}
 
 func (x *AccessKey) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[25]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1693,7 +1936,7 @@ func (x *AccessKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AccessKey.ProtoReflect.Descriptor instead.
 func (*AccessKey) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{25}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *AccessKey) GetName() string {
@@ -1733,7 +1976,7 @@ type GetAccessKeyRequest struct {
 
 func (x *GetAccessKeyRequest) Reset() {
 	*x = GetAccessKeyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[26]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1745,7 +1988,7 @@ func (x *GetAccessKeyRequest) String() string {
 func (*GetAccessKeyRequest) ProtoMessage() {}
 
 func (x *GetAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[26]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1758,7 +2001,7 @@ func (x *GetAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*GetAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{26}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetAccessKeyRequest) GetName() string {
@@ -1779,7 +2022,7 @@ type ListAccessKeysRequest struct {
 
 func (x *ListAccessKeysRequest) Reset() {
 	*x = ListAccessKeysRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[27]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1791,7 +2034,7 @@ func (x *ListAccessKeysRequest) String() string {
 func (*ListAccessKeysRequest) ProtoMessage() {}
 
 func (x *ListAccessKeysRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[27]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1804,7 +2047,7 @@ func (x *ListAccessKeysRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAccessKeysRequest.ProtoReflect.Descriptor instead.
 func (*ListAccessKeysRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{27}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListAccessKeysRequest) GetParent() string {
@@ -1838,7 +2081,7 @@ type ListAccessKeysResponse struct {
 
 func (x *ListAccessKeysResponse) Reset() {
 	*x = ListAccessKeysResponse{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[28]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1850,7 +2093,7 @@ func (x *ListAccessKeysResponse) String() string {
 func (*ListAccessKeysResponse) ProtoMessage() {}
 
 func (x *ListAccessKeysResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[28]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1863,7 +2106,7 @@ func (x *ListAccessKeysResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAccessKeysResponse.ProtoReflect.Descriptor instead.
 func (*ListAccessKeysResponse) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{28}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *ListAccessKeysResponse) GetAccessKeys() []*AccessKey {
@@ -1893,7 +2136,7 @@ type MintAccessKeyRequest struct {
 
 func (x *MintAccessKeyRequest) Reset() {
 	*x = MintAccessKeyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[29]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1905,7 +2148,7 @@ func (x *MintAccessKeyRequest) String() string {
 func (*MintAccessKeyRequest) ProtoMessage() {}
 
 func (x *MintAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[29]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1918,7 +2161,7 @@ func (x *MintAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MintAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*MintAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{29}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *MintAccessKeyRequest) GetParent() string {
@@ -1953,7 +2196,7 @@ type MintAccessKeyResponse struct {
 
 func (x *MintAccessKeyResponse) Reset() {
 	*x = MintAccessKeyResponse{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[30]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1965,7 +2208,7 @@ func (x *MintAccessKeyResponse) String() string {
 func (*MintAccessKeyResponse) ProtoMessage() {}
 
 func (x *MintAccessKeyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[30]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1978,7 +2221,7 @@ func (x *MintAccessKeyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MintAccessKeyResponse.ProtoReflect.Descriptor instead.
 func (*MintAccessKeyResponse) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{30}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *MintAccessKeyResponse) GetAccessKey() *AccessKey {
@@ -2006,7 +2249,7 @@ type PatchAccessKeyRequest struct {
 
 func (x *PatchAccessKeyRequest) Reset() {
 	*x = PatchAccessKeyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[31]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2018,7 +2261,7 @@ func (x *PatchAccessKeyRequest) String() string {
 func (*PatchAccessKeyRequest) ProtoMessage() {}
 
 func (x *PatchAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[31]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2031,7 +2274,7 @@ func (x *PatchAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PatchAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*PatchAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{31}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *PatchAccessKeyRequest) GetName() string {
@@ -2064,7 +2307,7 @@ type DeleteAccessKeyRequest struct {
 
 func (x *DeleteAccessKeyRequest) Reset() {
 	*x = DeleteAccessKeyRequest{}
-	mi := &file_petstore_v1_petstore_proto_msgTypes[32]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2076,7 +2319,7 @@ func (x *DeleteAccessKeyRequest) String() string {
 func (*DeleteAccessKeyRequest) ProtoMessage() {}
 
 func (x *DeleteAccessKeyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_petstore_v1_petstore_proto_msgTypes[32]
+	mi := &file_petstore_v1_petstore_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2089,10 +2332,752 @@ func (x *DeleteAccessKeyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteAccessKeyRequest.ProtoReflect.Descriptor instead.
 func (*DeleteAccessKeyRequest) Descriptor() ([]byte, []int) {
-	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{32}
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteAccessKeyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// Shelter is a top-level resource whose id is one of its own fields:
+// shelters/{shelter_id}, with the caller's shelter_id carried in the entity
+// on create.
+type Shelter struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	ShelterId     string                 `protobuf:"bytes,2,opt,name=shelter_id,json=shelterId,proto3" json:"shelter_id,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Shelter) Reset() {
+	*x = Shelter{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Shelter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Shelter) ProtoMessage() {}
+
+func (x *Shelter) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Shelter.ProtoReflect.Descriptor instead.
+func (*Shelter) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *Shelter) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Shelter) GetShelterId() string {
+	if x != nil {
+		return x.ShelterId
+	}
+	return ""
+}
+
+func (x *Shelter) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type GetShelterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetShelterRequest) Reset() {
+	*x = GetShelterRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetShelterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetShelterRequest) ProtoMessage() {}
+
+func (x *GetShelterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetShelterRequest.ProtoReflect.Descriptor instead.
+func (*GetShelterRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *GetShelterRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type ListSheltersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSheltersRequest) Reset() {
+	*x = ListSheltersRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSheltersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSheltersRequest) ProtoMessage() {}
+
+func (x *ListSheltersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSheltersRequest.ProtoReflect.Descriptor instead.
+func (*ListSheltersRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *ListSheltersRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *ListSheltersRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListSheltersRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListSheltersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Shelters      []*Shelter             `protobuf:"bytes,1,rep,name=shelters,proto3" json:"shelters,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListSheltersResponse) Reset() {
+	*x = ListSheltersResponse{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListSheltersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListSheltersResponse) ProtoMessage() {}
+
+func (x *ListSheltersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListSheltersResponse.ProtoReflect.Descriptor instead.
+func (*ListSheltersResponse) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *ListSheltersResponse) GetShelters() []*Shelter {
+	if x != nil {
+		return x.Shelters
+	}
+	return nil
+}
+
+func (x *ListSheltersResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+type CreateShelterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Shelter       *Shelter               `protobuf:"bytes,2,opt,name=shelter,proto3" json:"shelter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateShelterRequest) Reset() {
+	*x = CreateShelterRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateShelterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateShelterRequest) ProtoMessage() {}
+
+func (x *CreateShelterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateShelterRequest.ProtoReflect.Descriptor instead.
+func (*CreateShelterRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *CreateShelterRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *CreateShelterRequest) GetShelter() *Shelter {
+	if x != nil {
+		return x.Shelter
+	}
+	return nil
+}
+
+type UpdateShelterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Shelter       *Shelter               `protobuf:"bytes,2,opt,name=shelter,proto3" json:"shelter,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateShelterRequest) Reset() {
+	*x = UpdateShelterRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateShelterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateShelterRequest) ProtoMessage() {}
+
+func (x *UpdateShelterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateShelterRequest.ProtoReflect.Descriptor instead.
+func (*UpdateShelterRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *UpdateShelterRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateShelterRequest) GetShelter() *Shelter {
+	if x != nil {
+		return x.Shelter
+	}
+	return nil
+}
+
+type DeleteShelterRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteShelterRequest) Reset() {
+	*x = DeleteShelterRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteShelterRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteShelterRequest) ProtoMessage() {}
+
+func (x *DeleteShelterRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteShelterRequest.ProtoReflect.Descriptor instead.
+func (*DeleteShelterRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *DeleteShelterRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// Run is a shelter's child, shelters/{shelter_id}/runs/{run_id}. Its id is
+// its own run_id field, and it also carries its parent's id: shelter_id is
+// output only, set by the server from the parent in the request.
+type Run struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	RunId         string                 `protobuf:"bytes,2,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	ShelterId     string                 `protobuf:"bytes,3,opt,name=shelter_id,json=shelterId,proto3" json:"shelter_id,omitempty"`
+	LengthM       int32                  `protobuf:"varint,4,opt,name=length_m,json=lengthM,proto3" json:"length_m,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Run) Reset() {
+	*x = Run{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Run) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Run) ProtoMessage() {}
+
+func (x *Run) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Run.ProtoReflect.Descriptor instead.
+func (*Run) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *Run) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Run) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *Run) GetShelterId() string {
+	if x != nil {
+		return x.ShelterId
+	}
+	return ""
+}
+
+func (x *Run) GetLengthM() int32 {
+	if x != nil {
+		return x.LengthM
+	}
+	return 0
+}
+
+type GetRunRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetRunRequest) Reset() {
+	*x = GetRunRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetRunRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetRunRequest) ProtoMessage() {}
+
+func (x *GetRunRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetRunRequest.ProtoReflect.Descriptor instead.
+func (*GetRunRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *GetRunRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type ListRunsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRunsRequest) Reset() {
+	*x = ListRunsRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRunsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRunsRequest) ProtoMessage() {}
+
+func (x *ListRunsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRunsRequest.ProtoReflect.Descriptor instead.
+func (*ListRunsRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *ListRunsRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *ListRunsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListRunsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListRunsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Runs          []*Run                 `protobuf:"bytes,1,rep,name=runs,proto3" json:"runs,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListRunsResponse) Reset() {
+	*x = ListRunsResponse{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListRunsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListRunsResponse) ProtoMessage() {}
+
+func (x *ListRunsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListRunsResponse.ProtoReflect.Descriptor instead.
+func (*ListRunsResponse) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *ListRunsResponse) GetRuns() []*Run {
+	if x != nil {
+		return x.Runs
+	}
+	return nil
+}
+
+func (x *ListRunsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+type CreateRunRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Run           *Run                   `protobuf:"bytes,2,opt,name=run,proto3" json:"run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateRunRequest) Reset() {
+	*x = CreateRunRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateRunRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateRunRequest) ProtoMessage() {}
+
+func (x *CreateRunRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateRunRequest.ProtoReflect.Descriptor instead.
+func (*CreateRunRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *CreateRunRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *CreateRunRequest) GetRun() *Run {
+	if x != nil {
+		return x.Run
+	}
+	return nil
+}
+
+type UpdateRunRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Run           *Run                   `protobuf:"bytes,2,opt,name=run,proto3" json:"run,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateRunRequest) Reset() {
+	*x = UpdateRunRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateRunRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateRunRequest) ProtoMessage() {}
+
+func (x *UpdateRunRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateRunRequest.ProtoReflect.Descriptor instead.
+func (*UpdateRunRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *UpdateRunRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateRunRequest) GetRun() *Run {
+	if x != nil {
+		return x.Run
+	}
+	return nil
+}
+
+type DeleteRunRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRunRequest) Reset() {
+	*x = DeleteRunRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRunRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRunRequest) ProtoMessage() {}
+
+func (x *DeleteRunRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRunRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRunRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DeleteRunRequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
@@ -2127,7 +3112,7 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"&\n" +
 	"\x10DeletePetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\xb1\x05\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x98\x06\n" +
 	"\x03Pet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12(\n" +
@@ -2149,10 +3134,24 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"intakeCode\x12&\n" +
 	"\x0fintake_age_days\x18\x0e \x01(\x05R\rintakeAgeDays\x12F\n" +
 	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x12\x19\n" +
-	"\bbuddy_id\x18\x10 \x01(\tR\abuddyId\x1a9\n" +
+	"\bbuddy_id\x18\x10 \x01(\tR\abuddyId\x12<\n" +
+	"\fvaccinations\x18\x11 \x03(\v2\x18.petstore.v1.VaccinationR\fvaccinations\x12'\n" +
+	"\x05notes\x18\x12 \x03(\v2\x11.petstore.v1.NoteR\x05notes\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa6\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x01\n" +
+	"\vVaccination\x12\x18\n" +
+	"\avaccine\x18\x01 \x01(\tR\avaccine\x129\n" +
+	"\n" +
+	"given_time\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tgivenTime\x126\n" +
+	"\tvalid_for\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\bvalidFor\x12(\n" +
+	"\x05route\x18\x04 \x01(\x0e2\x12.petstore.v1.RouteR\x05route\x12\x18\n" +
+	"\abatches\x18\x05 \x03(\tR\abatches\"G\n" +
+	"\x04Note\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12+\n" +
+	"\x06author\x18\x02 \x01(\v2\x13.petstore.v1.AuthorR\x06author\"\x1c\n" +
+	"\x06Author\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xa6\x02\n" +
 	"\aFeeding\x12\x1a\n" +
 	"\bschedule\x18\x01 \x01(\tR\bschedule\x12\x1a\n" +
 	"\bportions\x18\x02 \x01(\x05R\bportions\x12\x14\n" +
@@ -2255,15 +3254,65 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\",\n" +
 	"\x16DeleteAccessKeyRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"_\n" +
+	"\aShelter\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
+	"\n" +
+	"shelter_id\x18\x02 \x01(\tR\tshelterId\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"'\n" +
+	"\x11GetShelterRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"i\n" +
+	"\x13ListSheltersRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"p\n" +
+	"\x14ListSheltersResponse\x120\n" +
+	"\bshelters\x18\x01 \x03(\v2\x14.petstore.v1.ShelterR\bshelters\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"^\n" +
+	"\x14CreateShelterRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12.\n" +
+	"\ashelter\x18\x02 \x01(\v2\x14.petstore.v1.ShelterR\ashelter\"Z\n" +
+	"\x14UpdateShelterRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
+	"\ashelter\x18\x02 \x01(\v2\x14.petstore.v1.ShelterR\ashelter\"*\n" +
+	"\x14DeleteShelterRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"j\n" +
+	"\x03Run\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x15\n" +
+	"\x06run_id\x18\x02 \x01(\tR\x05runId\x12\x1d\n" +
+	"\n" +
+	"shelter_id\x18\x03 \x01(\tR\tshelterId\x12\x19\n" +
+	"\blength_m\x18\x04 \x01(\x05R\alengthM\"#\n" +
+	"\rGetRunRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"e\n" +
+	"\x0fListRunsRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"`\n" +
+	"\x10ListRunsResponse\x12$\n" +
+	"\x04runs\x18\x01 \x03(\v2\x10.petstore.v1.RunR\x04runs\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"N\n" +
+	"\x10CreateRunRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12\"\n" +
+	"\x03run\x18\x02 \x01(\v2\x10.petstore.v1.RunR\x03run\"J\n" +
+	"\x10UpdateRunRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\"\n" +
+	"\x03run\x18\x02 \x01(\v2\x10.petstore.v1.RunR\x03run\"&\n" +
+	"\x10DeleteRunRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name*G\n" +
 	"\aPetType\x12\x18\n" +
 	"\x14PET_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPET_TYPE_DOG\x10\x01\x12\x10\n" +
-	"\fPET_TYPE_CAT\x10\x02**\n" +
+	"\fPET_TYPE_CAT\x10\x02*,\n" +
+	"\x05Route\x12\x13\n" +
+	"\x0fROUTE_INJECTION\x10\x00\x12\x0e\n" +
+	"\n" +
+	"ROUTE_ORAL\x10\x01**\n" +
 	"\x04Bowl\x12\x11\n" +
 	"\rBOWL_STANDARD\x10\x00\x12\x0f\n" +
-	"\vBOWL_RAISED\x10\x012\xd4\n" +
-	"\n" +
+	"\vBOWL_RAISED\x10\x012\x8e\x10\n" +
 	"\x0fPetStoreService\x126\n" +
 	"\x06GetPet\x12\x1a.petstore.v1.GetPetRequest\x1a\x10.petstore.v1.Pet\x12G\n" +
 	"\bListPets\x12\x1c.petstore.v1.ListPetsRequest\x1a\x1d.petstore.v1.ListPetsResponse\x12<\n" +
@@ -2283,7 +3332,18 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\x0eListAccessKeys\x12\".petstore.v1.ListAccessKeysRequest\x1a#.petstore.v1.ListAccessKeysResponse\x12V\n" +
 	"\rMintAccessKey\x12!.petstore.v1.MintAccessKeyRequest\x1a\".petstore.v1.MintAccessKeyResponse\x12L\n" +
 	"\x0ePatchAccessKey\x12\".petstore.v1.PatchAccessKeyRequest\x1a\x16.petstore.v1.AccessKey\x12N\n" +
-	"\x0fDeleteAccessKey\x12#.petstore.v1.DeleteAccessKeyRequest\x1a\x16.google.protobuf.EmptyBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
+	"\x0fDeleteAccessKey\x12#.petstore.v1.DeleteAccessKeyRequest\x1a\x16.google.protobuf.Empty\x12B\n" +
+	"\n" +
+	"GetShelter\x12\x1e.petstore.v1.GetShelterRequest\x1a\x14.petstore.v1.Shelter\x12S\n" +
+	"\fListShelters\x12 .petstore.v1.ListSheltersRequest\x1a!.petstore.v1.ListSheltersResponse\x12H\n" +
+	"\rCreateShelter\x12!.petstore.v1.CreateShelterRequest\x1a\x14.petstore.v1.Shelter\x12H\n" +
+	"\rUpdateShelter\x12!.petstore.v1.UpdateShelterRequest\x1a\x14.petstore.v1.Shelter\x12J\n" +
+	"\rDeleteShelter\x12!.petstore.v1.DeleteShelterRequest\x1a\x16.google.protobuf.Empty\x126\n" +
+	"\x06GetRun\x12\x1a.petstore.v1.GetRunRequest\x1a\x10.petstore.v1.Run\x12G\n" +
+	"\bListRuns\x12\x1c.petstore.v1.ListRunsRequest\x1a\x1d.petstore.v1.ListRunsResponse\x12<\n" +
+	"\tCreateRun\x12\x1d.petstore.v1.CreateRunRequest\x1a\x10.petstore.v1.Run\x12<\n" +
+	"\tUpdateRun\x12\x1d.petstore.v1.UpdateRunRequest\x1a\x10.petstore.v1.Run\x12B\n" +
+	"\tDeleteRun\x12\x1d.petstore.v1.DeleteRunRequest\x1a\x16.google.protobuf.EmptyBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
 
 var (
 	file_petstore_v1_petstore_proto_rawDescOnce sync.Once
@@ -2297,129 +3357,179 @@ func file_petstore_v1_petstore_proto_rawDescGZIP() []byte {
 	return file_petstore_v1_petstore_proto_rawDescData
 }
 
-var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 35)
+var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_petstore_v1_petstore_proto_goTypes = []any{
 	(PetType)(0),                      // 0: petstore.v1.PetType
-	(Bowl)(0),                         // 1: petstore.v1.Bowl
-	(*GetPetRequest)(nil),             // 2: petstore.v1.GetPetRequest
-	(*ListPetsRequest)(nil),           // 3: petstore.v1.ListPetsRequest
-	(*ListPetsResponse)(nil),          // 4: petstore.v1.ListPetsResponse
-	(*CreatePetRequest)(nil),          // 5: petstore.v1.CreatePetRequest
-	(*UpdatePetRequest)(nil),          // 6: petstore.v1.UpdatePetRequest
-	(*PatchPetRequest)(nil),           // 7: petstore.v1.PatchPetRequest
-	(*DeletePetRequest)(nil),          // 8: petstore.v1.DeletePetRequest
-	(*Pet)(nil),                       // 9: petstore.v1.Pet
-	(*Feeding)(nil),                   // 10: petstore.v1.Feeding
-	(*CollarConfig)(nil),              // 11: petstore.v1.CollarConfig
-	(*Engraving)(nil),                 // 12: petstore.v1.Engraving
-	(*Buckle)(nil),                    // 13: petstore.v1.Buckle
-	(*AssociationRequest)(nil),        // 14: petstore.v1.AssociationRequest
-	(*AssociateToysToPetRequest)(nil), // 15: petstore.v1.AssociateToysToPetRequest
-	(*ListToysByPetRequest)(nil),      // 16: petstore.v1.ListToysByPetRequest
-	(*ListToysByPetResponse)(nil),     // 17: petstore.v1.ListToysByPetResponse
-	(*GetToyRequest)(nil),             // 18: petstore.v1.GetToyRequest
-	(*ListToysRequest)(nil),           // 19: petstore.v1.ListToysRequest
-	(*ListToysResponse)(nil),          // 20: petstore.v1.ListToysResponse
-	(*CreateToyRequest)(nil),          // 21: petstore.v1.CreateToyRequest
-	(*UpdateToyRequest)(nil),          // 22: petstore.v1.UpdateToyRequest
-	(*PatchToyRequest)(nil),           // 23: petstore.v1.PatchToyRequest
-	(*DeleteToyRequest)(nil),          // 24: petstore.v1.DeleteToyRequest
-	(*Kennel)(nil),                    // 25: petstore.v1.Kennel
-	(*Toy)(nil),                       // 26: petstore.v1.Toy
-	(*AccessKey)(nil),                 // 27: petstore.v1.AccessKey
-	(*GetAccessKeyRequest)(nil),       // 28: petstore.v1.GetAccessKeyRequest
-	(*ListAccessKeysRequest)(nil),     // 29: petstore.v1.ListAccessKeysRequest
-	(*ListAccessKeysResponse)(nil),    // 30: petstore.v1.ListAccessKeysResponse
-	(*MintAccessKeyRequest)(nil),      // 31: petstore.v1.MintAccessKeyRequest
-	(*MintAccessKeyResponse)(nil),     // 32: petstore.v1.MintAccessKeyResponse
-	(*PatchAccessKeyRequest)(nil),     // 33: petstore.v1.PatchAccessKeyRequest
-	(*DeleteAccessKeyRequest)(nil),    // 34: petstore.v1.DeleteAccessKeyRequest
-	nil,                               // 35: petstore.v1.Pet.LabelsEntry
-	nil,                               // 36: petstore.v1.Feeding.NotesEntry
-	(*fieldmaskpb.FieldMask)(nil),     // 37: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),     // 38: google.protobuf.Timestamp
-	(*anypb.Any)(nil),                 // 39: google.protobuf.Any
-	(*structpb.Struct)(nil),           // 40: google.protobuf.Struct
-	(*durationpb.Duration)(nil),       // 41: google.protobuf.Duration
-	(*emptypb.Empty)(nil),             // 42: google.protobuf.Empty
+	(Route)(0),                        // 1: petstore.v1.Route
+	(Bowl)(0),                         // 2: petstore.v1.Bowl
+	(*GetPetRequest)(nil),             // 3: petstore.v1.GetPetRequest
+	(*ListPetsRequest)(nil),           // 4: petstore.v1.ListPetsRequest
+	(*ListPetsResponse)(nil),          // 5: petstore.v1.ListPetsResponse
+	(*CreatePetRequest)(nil),          // 6: petstore.v1.CreatePetRequest
+	(*UpdatePetRequest)(nil),          // 7: petstore.v1.UpdatePetRequest
+	(*PatchPetRequest)(nil),           // 8: petstore.v1.PatchPetRequest
+	(*DeletePetRequest)(nil),          // 9: petstore.v1.DeletePetRequest
+	(*Pet)(nil),                       // 10: petstore.v1.Pet
+	(*Vaccination)(nil),               // 11: petstore.v1.Vaccination
+	(*Note)(nil),                      // 12: petstore.v1.Note
+	(*Author)(nil),                    // 13: petstore.v1.Author
+	(*Feeding)(nil),                   // 14: petstore.v1.Feeding
+	(*CollarConfig)(nil),              // 15: petstore.v1.CollarConfig
+	(*Engraving)(nil),                 // 16: petstore.v1.Engraving
+	(*Buckle)(nil),                    // 17: petstore.v1.Buckle
+	(*AssociationRequest)(nil),        // 18: petstore.v1.AssociationRequest
+	(*AssociateToysToPetRequest)(nil), // 19: petstore.v1.AssociateToysToPetRequest
+	(*ListToysByPetRequest)(nil),      // 20: petstore.v1.ListToysByPetRequest
+	(*ListToysByPetResponse)(nil),     // 21: petstore.v1.ListToysByPetResponse
+	(*GetToyRequest)(nil),             // 22: petstore.v1.GetToyRequest
+	(*ListToysRequest)(nil),           // 23: petstore.v1.ListToysRequest
+	(*ListToysResponse)(nil),          // 24: petstore.v1.ListToysResponse
+	(*CreateToyRequest)(nil),          // 25: petstore.v1.CreateToyRequest
+	(*UpdateToyRequest)(nil),          // 26: petstore.v1.UpdateToyRequest
+	(*PatchToyRequest)(nil),           // 27: petstore.v1.PatchToyRequest
+	(*DeleteToyRequest)(nil),          // 28: petstore.v1.DeleteToyRequest
+	(*Kennel)(nil),                    // 29: petstore.v1.Kennel
+	(*Toy)(nil),                       // 30: petstore.v1.Toy
+	(*AccessKey)(nil),                 // 31: petstore.v1.AccessKey
+	(*GetAccessKeyRequest)(nil),       // 32: petstore.v1.GetAccessKeyRequest
+	(*ListAccessKeysRequest)(nil),     // 33: petstore.v1.ListAccessKeysRequest
+	(*ListAccessKeysResponse)(nil),    // 34: petstore.v1.ListAccessKeysResponse
+	(*MintAccessKeyRequest)(nil),      // 35: petstore.v1.MintAccessKeyRequest
+	(*MintAccessKeyResponse)(nil),     // 36: petstore.v1.MintAccessKeyResponse
+	(*PatchAccessKeyRequest)(nil),     // 37: petstore.v1.PatchAccessKeyRequest
+	(*DeleteAccessKeyRequest)(nil),    // 38: petstore.v1.DeleteAccessKeyRequest
+	(*Shelter)(nil),                   // 39: petstore.v1.Shelter
+	(*GetShelterRequest)(nil),         // 40: petstore.v1.GetShelterRequest
+	(*ListSheltersRequest)(nil),       // 41: petstore.v1.ListSheltersRequest
+	(*ListSheltersResponse)(nil),      // 42: petstore.v1.ListSheltersResponse
+	(*CreateShelterRequest)(nil),      // 43: petstore.v1.CreateShelterRequest
+	(*UpdateShelterRequest)(nil),      // 44: petstore.v1.UpdateShelterRequest
+	(*DeleteShelterRequest)(nil),      // 45: petstore.v1.DeleteShelterRequest
+	(*Run)(nil),                       // 46: petstore.v1.Run
+	(*GetRunRequest)(nil),             // 47: petstore.v1.GetRunRequest
+	(*ListRunsRequest)(nil),           // 48: petstore.v1.ListRunsRequest
+	(*ListRunsResponse)(nil),          // 49: petstore.v1.ListRunsResponse
+	(*CreateRunRequest)(nil),          // 50: petstore.v1.CreateRunRequest
+	(*UpdateRunRequest)(nil),          // 51: petstore.v1.UpdateRunRequest
+	(*DeleteRunRequest)(nil),          // 52: petstore.v1.DeleteRunRequest
+	nil,                               // 53: petstore.v1.Pet.LabelsEntry
+	nil,                               // 54: petstore.v1.Feeding.NotesEntry
+	(*fieldmaskpb.FieldMask)(nil),     // 55: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),     // 56: google.protobuf.Timestamp
+	(*anypb.Any)(nil),                 // 57: google.protobuf.Any
+	(*structpb.Struct)(nil),           // 58: google.protobuf.Struct
+	(*durationpb.Duration)(nil),       // 59: google.protobuf.Duration
+	(*emptypb.Empty)(nil),             // 60: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
-	9,  // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
-	9,  // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
-	9,  // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
-	9,  // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
-	37, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
+	10, // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
+	10, // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
+	10, // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
+	10, // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
+	55, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 5: petstore.v1.Pet.type:type_name -> petstore.v1.PetType
-	35, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
-	38, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
-	39, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
-	40, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
-	10, // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
-	41, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
-	36, // 12: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
-	1,  // 13: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
-	41, // 14: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
-	13, // 15: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
-	12, // 16: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
-	14, // 17: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
-	26, // 18: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
-	26, // 19: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
-	26, // 20: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
-	26, // 21: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
-	26, // 22: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
-	37, // 23: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	11, // 24: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
-	38, // 25: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
-	38, // 26: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
-	27, // 27: petstore.v1.ListAccessKeysResponse.access_keys:type_name -> petstore.v1.AccessKey
-	38, // 28: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	27, // 29: petstore.v1.MintAccessKeyResponse.access_key:type_name -> petstore.v1.AccessKey
-	27, // 30: petstore.v1.PatchAccessKeyRequest.access_key:type_name -> petstore.v1.AccessKey
-	37, // 31: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	2,  // 32: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	3,  // 33: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	5,  // 34: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	6,  // 35: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	7,  // 36: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	8,  // 37: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	18, // 38: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
-	19, // 39: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
-	21, // 40: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
-	22, // 41: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
-	23, // 42: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
-	24, // 43: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
-	15, // 44: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
-	16, // 45: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
-	28, // 46: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
-	29, // 47: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
-	31, // 48: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
-	33, // 49: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
-	34, // 50: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
-	9,  // 51: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	4,  // 52: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	9,  // 53: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	9,  // 54: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	9,  // 55: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	42, // 56: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	26, // 57: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
-	20, // 58: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
-	26, // 59: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
-	26, // 60: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
-	26, // 61: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
-	42, // 62: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
-	42, // 63: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
-	17, // 64: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
-	27, // 65: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
-	30, // 66: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
-	32, // 67: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
-	27, // 68: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
-	42, // 69: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
-	51, // [51:70] is the sub-list for method output_type
-	32, // [32:51] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	53, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
+	56, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
+	57, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
+	58, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
+	14, // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
+	59, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
+	11, // 12: petstore.v1.Pet.vaccinations:type_name -> petstore.v1.Vaccination
+	12, // 13: petstore.v1.Pet.notes:type_name -> petstore.v1.Note
+	56, // 14: petstore.v1.Vaccination.given_time:type_name -> google.protobuf.Timestamp
+	59, // 15: petstore.v1.Vaccination.valid_for:type_name -> google.protobuf.Duration
+	1,  // 16: petstore.v1.Vaccination.route:type_name -> petstore.v1.Route
+	13, // 17: petstore.v1.Note.author:type_name -> petstore.v1.Author
+	54, // 18: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
+	2,  // 19: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
+	59, // 20: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
+	17, // 21: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
+	16, // 22: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
+	18, // 23: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
+	30, // 24: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
+	30, // 25: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
+	30, // 26: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
+	30, // 27: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
+	30, // 28: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
+	55, // 29: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	15, // 30: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
+	56, // 31: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
+	56, // 32: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
+	31, // 33: petstore.v1.ListAccessKeysResponse.access_keys:type_name -> petstore.v1.AccessKey
+	56, // 34: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	31, // 35: petstore.v1.MintAccessKeyResponse.access_key:type_name -> petstore.v1.AccessKey
+	31, // 36: petstore.v1.PatchAccessKeyRequest.access_key:type_name -> petstore.v1.AccessKey
+	55, // 37: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	39, // 38: petstore.v1.ListSheltersResponse.shelters:type_name -> petstore.v1.Shelter
+	39, // 39: petstore.v1.CreateShelterRequest.shelter:type_name -> petstore.v1.Shelter
+	39, // 40: petstore.v1.UpdateShelterRequest.shelter:type_name -> petstore.v1.Shelter
+	46, // 41: petstore.v1.ListRunsResponse.runs:type_name -> petstore.v1.Run
+	46, // 42: petstore.v1.CreateRunRequest.run:type_name -> petstore.v1.Run
+	46, // 43: petstore.v1.UpdateRunRequest.run:type_name -> petstore.v1.Run
+	3,  // 44: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	4,  // 45: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	6,  // 46: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	7,  // 47: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	8,  // 48: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	9,  // 49: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	22, // 50: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
+	23, // 51: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
+	25, // 52: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
+	26, // 53: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
+	27, // 54: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
+	28, // 55: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
+	19, // 56: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	20, // 57: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	32, // 58: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
+	33, // 59: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
+	35, // 60: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
+	37, // 61: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
+	38, // 62: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
+	40, // 63: petstore.v1.PetStoreService.GetShelter:input_type -> petstore.v1.GetShelterRequest
+	41, // 64: petstore.v1.PetStoreService.ListShelters:input_type -> petstore.v1.ListSheltersRequest
+	43, // 65: petstore.v1.PetStoreService.CreateShelter:input_type -> petstore.v1.CreateShelterRequest
+	44, // 66: petstore.v1.PetStoreService.UpdateShelter:input_type -> petstore.v1.UpdateShelterRequest
+	45, // 67: petstore.v1.PetStoreService.DeleteShelter:input_type -> petstore.v1.DeleteShelterRequest
+	47, // 68: petstore.v1.PetStoreService.GetRun:input_type -> petstore.v1.GetRunRequest
+	48, // 69: petstore.v1.PetStoreService.ListRuns:input_type -> petstore.v1.ListRunsRequest
+	50, // 70: petstore.v1.PetStoreService.CreateRun:input_type -> petstore.v1.CreateRunRequest
+	51, // 71: petstore.v1.PetStoreService.UpdateRun:input_type -> petstore.v1.UpdateRunRequest
+	52, // 72: petstore.v1.PetStoreService.DeleteRun:input_type -> petstore.v1.DeleteRunRequest
+	10, // 73: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	5,  // 74: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	10, // 75: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	10, // 76: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	10, // 77: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	60, // 78: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	30, // 79: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
+	24, // 80: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
+	30, // 81: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
+	30, // 82: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
+	30, // 83: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
+	60, // 84: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
+	60, // 85: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	21, // 86: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	31, // 87: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
+	34, // 88: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
+	36, // 89: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
+	31, // 90: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
+	60, // 91: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
+	39, // 92: petstore.v1.PetStoreService.GetShelter:output_type -> petstore.v1.Shelter
+	42, // 93: petstore.v1.PetStoreService.ListShelters:output_type -> petstore.v1.ListSheltersResponse
+	39, // 94: petstore.v1.PetStoreService.CreateShelter:output_type -> petstore.v1.Shelter
+	39, // 95: petstore.v1.PetStoreService.UpdateShelter:output_type -> petstore.v1.Shelter
+	60, // 96: petstore.v1.PetStoreService.DeleteShelter:output_type -> google.protobuf.Empty
+	46, // 97: petstore.v1.PetStoreService.GetRun:output_type -> petstore.v1.Run
+	49, // 98: petstore.v1.PetStoreService.ListRuns:output_type -> petstore.v1.ListRunsResponse
+	46, // 99: petstore.v1.PetStoreService.CreateRun:output_type -> petstore.v1.Run
+	46, // 100: petstore.v1.PetStoreService.UpdateRun:output_type -> petstore.v1.Run
+	60, // 101: petstore.v1.PetStoreService.DeleteRun:output_type -> google.protobuf.Empty
+	73, // [73:102] is the sub-list for method output_type
+	44, // [44:73] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }
@@ -2432,8 +3542,8 @@ func file_petstore_v1_petstore_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_petstore_v1_petstore_proto_rawDesc), len(file_petstore_v1_petstore_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   35,
+			NumEnums:      3,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

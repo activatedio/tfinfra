@@ -90,3 +90,57 @@ func TestReferenceIDWithoutExample(t *testing.T) {
 		t.Errorf("unexpected detail: %s", detail)
 	}
 }
+
+func TestReferenceIDWithoutPrefix(t *testing.T) {
+
+	type s struct {
+		arrange func() (validator.String, types.String)
+		assert  func(t *testing.T, resp *validator.StringResponse)
+	}
+
+	facility := func(value string) func() (validator.String, types.String) {
+		return func() (validator.String, types.String) {
+			return ReferenceID("", "facility", "roadside_facility.<name>.facility_id"), types.StringValue(value)
+		}
+	}
+
+	cases := map[string]s{
+		"an id passes": {
+			arrange: facility("m50"),
+			assert: func(t *testing.T, resp *validator.StringResponse) {
+				if resp.Diagnostics.HasError() {
+					t.Fatalf("unexpected error: %v", resp.Diagnostics)
+				}
+			},
+		},
+		"a full name fails, naming the attribute to reference": {
+			arrange: facility("facilities/m50"),
+			assert: func(t *testing.T, resp *validator.StringResponse) {
+				want := `facility_id takes the facility's id: "facilities/m50" is a resource name, not an id. ` +
+					`Reference the facility's facility_id attribute rather than its name, as in roadside_facility.<name>.facility_id.`
+				if resp.Diagnostics.ErrorsCount() != 1 || resp.Diagnostics.Errors()[0].Detail() != want {
+					t.Fatalf("want %q, got %v", want, resp.Diagnostics)
+				}
+			},
+		},
+		"an id attribute that is not <target>_id is named from the example": {
+			arrange: func() (validator.String, types.String) {
+				return ReferenceID("", "device_inventory", "roadside_device_inventory.<name>.device_id"), types.StringValue("device-inventory/d1")
+			},
+			assert: func(t *testing.T, resp *validator.StringResponse) {
+				if resp.Diagnostics.ErrorsCount() != 1 || !strings.Contains(resp.Diagnostics.Errors()[0].Detail(), "the device inventory's device_id attribute") {
+					t.Fatalf("detail does not name device_id: %v", resp.Diagnostics)
+				}
+			},
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			v, value := c.arrange()
+			resp := &validator.StringResponse{}
+			v.ValidateString(context.Background(), validator.StringRequest{Path: path.Root("facility_id"), ConfigValue: value}, resp)
+			c.assert(t, resp)
+		})
+	}
+}

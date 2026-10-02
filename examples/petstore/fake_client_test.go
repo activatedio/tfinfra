@@ -47,6 +47,16 @@ type fakePetStoreClient struct {
 	// API they hold no key: it exists only in the mint response.
 	accessKeys map[string]*petstorev1.AccessKey
 	lastMint   *petstorev1.MintAccessKeyRequest
+	// shelters and runs are the id-field resources, keyed by full name.
+	shelters map[string]*petstorev1.Shelter
+	runs     map[string]*petstorev1.Run
+	// lastCreateShelter and lastCreateRun are the entities as the create
+	// requests carried them, before the server filled anything in.
+	lastCreateShelter *petstorev1.Shelter
+	lastCreateRun     *petstorev1.Run
+	// runsOmitShelterID makes run reads leave shelter_id empty, a server
+	// that does not echo the parent's id it was given.
+	runsOmitShelterID bool
 }
 
 // consumeIntake mirrors a server that takes the input-only intake fields,
@@ -64,6 +74,8 @@ func newFakePetStoreClient() *fakePetStoreClient {
 		pets:        map[string]*petstorev1.Pet{},
 		toyEntities: map[string]*petstorev1.Toy{},
 		accessKeys:  map[string]*petstorev1.AccessKey{},
+		shelters:    map[string]*petstorev1.Shelter{},
+		runs:        map[string]*petstorev1.Run{},
 	}
 }
 
@@ -158,6 +170,10 @@ func (f *fakePetStoreClient) PatchPet(_ context.Context, in *petstorev1.PatchPet
 			existing.Feeding = in.GetPet().GetFeeding()
 		case "grooming_interval":
 			existing.GroomingInterval = in.GetPet().GetGroomingInterval()
+		case "vaccinations":
+			existing.Vaccinations = in.GetPet().GetVaccinations()
+		case "notes":
+			existing.Notes = in.GetPet().GetNotes()
 		case "intake_code", "intake_age_days":
 			// Consumed, never stored: the row keeps no trace of them.
 			f.lastIntakeCode = in.GetPet().GetIntakeCode()
@@ -368,5 +384,143 @@ func (f *fakePetStoreClient) DeleteAccessKey(_ context.Context, in *petstorev1.D
 		return nil, status.Errorf(codes.NotFound, "access key %q not found", in.GetName())
 	}
 	delete(f.accessKeys, in.GetName())
+	return &emptypb.Empty{}, nil
+}
+
+// --- Shelter and Run: the id-field lane. Create takes the row's id from
+// a field of the entity and ignores name, the way riteSuite's estate
+// records do; the path is authoritative on update, and there is no Patch.
+
+func (f *fakePetStoreClient) GetShelter(_ context.Context, in *petstorev1.GetShelterRequest, _ ...grpc.CallOption) (*petstorev1.Shelter, error) {
+	s, ok := f.shelters[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "shelter %q not found", in.GetName())
+	}
+	return proto.Clone(s).(*petstorev1.Shelter), nil
+}
+
+func (f *fakePetStoreClient) ListShelters(_ context.Context, _ *petstorev1.ListSheltersRequest, _ ...grpc.CallOption) (*petstorev1.ListSheltersResponse, error) {
+	names := make([]string, 0, len(f.shelters))
+	for name := range f.shelters {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	res := &petstorev1.ListSheltersResponse{}
+	for _, name := range names {
+		res.Shelters = append(res.Shelters, proto.Clone(f.shelters[name]).(*petstorev1.Shelter))
+	}
+	return res, nil
+}
+
+func (f *fakePetStoreClient) CreateShelter(_ context.Context, in *petstorev1.CreateShelterRequest, _ ...grpc.CallOption) (*petstorev1.Shelter, error) {
+	f.lastCreateParent = in.GetParent()
+	f.lastCreateShelter = proto.Clone(in.GetShelter()).(*petstorev1.Shelter)
+	if in.GetShelter().GetShelterId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "shelter_id is required")
+	}
+	s := proto.Clone(in.GetShelter()).(*petstorev1.Shelter)
+	s.Name = "shelters/" + s.GetShelterId()
+	if _, exists := f.shelters[s.GetName()]; exists {
+		return nil, status.Errorf(codes.AlreadyExists, "shelter %q already exists", s.GetName())
+	}
+	f.shelters[s.GetName()] = s
+	return proto.Clone(s).(*petstorev1.Shelter), nil
+}
+
+func (f *fakePetStoreClient) UpdateShelter(_ context.Context, in *petstorev1.UpdateShelterRequest, _ ...grpc.CallOption) (*petstorev1.Shelter, error) {
+	existing, ok := f.shelters[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "shelter %q not found", in.GetName())
+	}
+	s := proto.Clone(in.GetShelter()).(*petstorev1.Shelter)
+	s.Name = existing.GetName()
+	s.ShelterId = existing.GetShelterId()
+	f.shelters[s.GetName()] = s
+	return proto.Clone(s).(*petstorev1.Shelter), nil
+}
+
+func (f *fakePetStoreClient) DeleteShelter(_ context.Context, in *petstorev1.DeleteShelterRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if _, ok := f.shelters[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "shelter %q not found", in.GetName())
+	}
+	delete(f.shelters, in.GetName())
+	return &emptypb.Empty{}, nil
+}
+
+// readRun is what a run read returns: the stored row, without shelter_id
+// when the fake is set not to echo it.
+func (f *fakePetStoreClient) readRun(r *petstorev1.Run) *petstorev1.Run {
+	out := proto.Clone(r).(*petstorev1.Run)
+	if f.runsOmitShelterID {
+		out.ShelterId = ""
+	}
+	return out
+}
+
+func (f *fakePetStoreClient) GetRun(_ context.Context, in *petstorev1.GetRunRequest, _ ...grpc.CallOption) (*petstorev1.Run, error) {
+	r, ok := f.runs[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "run %q not found", in.GetName())
+	}
+	return f.readRun(r), nil
+}
+
+func (f *fakePetStoreClient) ListRuns(_ context.Context, in *petstorev1.ListRunsRequest, _ ...grpc.CallOption) (*petstorev1.ListRunsResponse, error) {
+	f.lastListParent = in.GetParent()
+	names := make([]string, 0, len(f.runs))
+	for name := range f.runs {
+		if strings.HasPrefix(name, in.GetParent()+"/runs/") {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	res := &petstorev1.ListRunsResponse{}
+	for _, name := range names {
+		res.Runs = append(res.Runs, f.readRun(f.runs[name]))
+	}
+	return res, nil
+}
+
+// CreateRun takes the parent's id from the parent, whatever the entity
+// says, and mints a run_id when the entity leaves it empty.
+func (f *fakePetStoreClient) CreateRun(_ context.Context, in *petstorev1.CreateRunRequest, _ ...grpc.CallOption) (*petstorev1.Run, error) {
+	f.lastCreateParent = in.GetParent()
+	f.lastCreateRun = proto.Clone(in.GetRun()).(*petstorev1.Run)
+	shelter, ok := strings.CutPrefix(in.GetParent(), "shelters/")
+	if !ok || shelter == "" {
+		return nil, status.Errorf(codes.InvalidArgument, "parent %q is not a shelter", in.GetParent())
+	}
+	r := proto.Clone(in.GetRun()).(*petstorev1.Run)
+	if r.GetRunId() == "" {
+		f.seq++
+		r.RunId = fmt.Sprintf("run%d", f.seq)
+	}
+	r.ShelterId = shelter
+	r.Name = in.GetParent() + "/runs/" + r.GetRunId()
+	if _, exists := f.runs[r.GetName()]; exists {
+		return nil, status.Errorf(codes.AlreadyExists, "run %q already exists", r.GetName())
+	}
+	f.runs[r.GetName()] = r
+	return f.readRun(r), nil
+}
+
+func (f *fakePetStoreClient) UpdateRun(_ context.Context, in *petstorev1.UpdateRunRequest, _ ...grpc.CallOption) (*petstorev1.Run, error) {
+	existing, ok := f.runs[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "run %q not found", in.GetName())
+	}
+	r := proto.Clone(in.GetRun()).(*petstorev1.Run)
+	r.Name = existing.GetName()
+	r.RunId = existing.GetRunId()
+	r.ShelterId = existing.GetShelterId()
+	f.runs[r.GetName()] = r
+	return f.readRun(r), nil
+}
+
+func (f *fakePetStoreClient) DeleteRun(_ context.Context, in *petstorev1.DeleteRunRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {
+	if _, ok := f.runs[in.GetName()]; !ok {
+		return nil, status.Errorf(codes.NotFound, "run %q not found", in.GetName())
+	}
+	delete(f.runs, in.GetName())
 	return &emptypb.Empty{}, nil
 }

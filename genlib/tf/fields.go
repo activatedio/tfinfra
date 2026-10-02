@@ -15,8 +15,8 @@ import (
 const NameField = "name"
 
 // FieldKind classifies a proto field into the Terraform attribute shape it
-// generates. Shapes outside this set (repeated messages, bytes, real
-// oneofs, non-string maps and lists, and messages nested more than one
+// generates. Shapes outside this set (bytes, real oneofs, non-string maps,
+// lists of scalars other than strings, and messages nested more than one
 // level deep) are not yet supported and fail generation loudly.
 type FieldKind int
 
@@ -56,6 +56,14 @@ const (
 	// fields. It nests one level: a message inside one of those fields
 	// belongs on the JSON lane.
 	FieldNestedMessage
+	// FieldRepeatedMessage is a repeated message field left out of the JSON
+	// list, surfaced as a ListNestedAttribute: one object per element over
+	// the message's own fields. It nests one level, like FieldNestedMessage.
+	FieldRepeatedMessage
+	// FieldJSONList is a repeated message field declared in the JSON list,
+	// surfaced as jsontypes.Normalized holding a JSON array of each
+	// element's protojson encoding.
+	FieldJSONList
 )
 
 // Field is the normalized view of one proto field: proto identity, Go
@@ -74,7 +82,8 @@ type Field struct {
 	// EnumValues holds the proto enum value names for FieldEnum.
 	EnumValues []string
 	// Nested holds the nested message's own normalized fields for
-	// FieldNestedMessage, in proto field-number order.
+	// FieldNestedMessage and FieldRepeatedMessage, in proto field-number
+	// order.
 	Nested []Field
 
 	Required  bool
@@ -87,6 +96,13 @@ type Field struct {
 	// Reference is what the field references when it holds another
 	// resource's id, validated by prefix; nil otherwise.
 	Reference *Reference
+	// ID marks the field Resource.IDField names: the resource's own id.
+	ID bool
+	// ParentID marks a field that carries one of the resource's scope
+	// identifiers ("site_id" on a lane under sites/{site_id}): one
+	// attribute with the identifier, read from the entity and never sent in
+	// it.
+	ParentID bool
 }
 
 // TfName returns the Terraform attribute name for the field.
@@ -143,11 +159,7 @@ func NormalizeFields(e Entry, res Resource) []Field {
 		byName[fields[i].ProtoName] = &fields[i]
 	}
 
-	for _, n := range res.JSON {
-		if k := byName[n].Kind; k != FieldAny && k != FieldStruct && k != FieldJSONMessage {
-			panic(fmt.Sprintf("%s.%s: JSON marker applies only to message-typed fields", t.Name(), n))
-		}
-	}
+	checkJSONKinds(t.Name(), res, byName)
 
 	if _, ok := byName[NameField]; !ok {
 		panic(fmt.Sprintf("%s: message has no %q field; tfinfra requires AIP-shaped resources", t.Name(), NameField))
@@ -155,9 +167,83 @@ func NormalizeFields(e Entry, res Resource) []Field {
 	byName[NameField].Computed = true
 
 	applyBehavior(t.Name(), res, byName)
+	applyIDField(t.Name(), res, byName)
+	applyParentIDs(t.Name(), res, byName)
 	applyReferences(t.Name(), res.References, byName)
 
 	return fields
+}
+
+// checkJSONKinds refuses a JSON marker on a field with no JSON lane.
+func checkJSONKinds(entity string, res Resource, byName map[string]*Field) {
+	for _, n := range res.JSON {
+		switch byName[n].Kind {
+		case FieldAny, FieldStruct, FieldJSONMessage, FieldJSONList:
+		default:
+			panic(fmt.Sprintf("%s.%s: JSON marker applies only to message-typed fields", entity, n))
+		}
+	}
+}
+
+// applyIDField marks the field Resource.IDField names as the resource's
+// id: a required, replace-on-change input, or an optional one when it is
+// also Computed (the API mints an id when the create leaves it empty).
+func applyIDField(entity string, res Resource, byName map[string]*Field) {
+
+	if res.IDField == "" {
+		return
+	}
+
+	f, ok := byName[res.IDField]
+	switch {
+	case !ok:
+		panic(fmt.Sprintf("%s: IDField references unknown field %q", entity, res.IDField))
+	case res.CallerNamed:
+		panic(fmt.Sprintf("%s: IDField and CallerNamed are exclusive; IDField already makes the id the caller's", entity))
+	case f.ProtoName == NameField:
+		panic(fmt.Sprintf("%s: IDField cannot be %q; that is CallerNamed", entity, NameField))
+	case f.Kind != FieldString:
+		panic(fmt.Sprintf("%s.%s: IDField must be a string field", entity, f.ProtoName))
+	case f.InputOnly || f.Sensitive:
+		panic(fmt.Sprintf("%s.%s: IDField cannot be input-only or sensitive; it is read back from every name", entity, f.ProtoName))
+	}
+
+	f.ID = true
+	f.Immutable = true
+	if f.Computed {
+		// Optional+Computed: the default attribute shape, kept from churning
+		// to unknown by UseStateForUnknown, and sent when it is set.
+		f.Computed = false
+		return
+	}
+	f.Required = true
+}
+
+// applyParentIDs marks the fields that carry one of the resource's scope
+// identifiers under the identifier's own name. The parent path is what
+// carries the value to the API, so the field takes no behavior of its own
+// beyond Computed, which it is in effect anyway.
+func applyParentIDs(entity string, res Resource, byName map[string]*Field) {
+
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		f, ok := byName[attr]
+		if !ok {
+			continue
+		}
+		switch {
+		case f.Kind != FieldString:
+			panic(fmt.Sprintf("%s.%s: a field carrying the parent identifier must be a string", entity, attr))
+		case f.ID:
+			panic(fmt.Sprintf("%s.%s: the id field cannot also be a parent identifier", entity, attr))
+		case f.Required || f.Immutable || f.InputOnly || f.Sensitive:
+			panic(fmt.Sprintf("%s.%s: carries the parent identifier, so it takes no behavior but Computed; the parent path sets it", entity, attr))
+		}
+		if _, ok := res.References[attr]; ok {
+			panic(fmt.Sprintf("%s.%s: carries the parent identifier; validate it through Spec.ScopeReferences instead", entity, attr))
+		}
+		f.ParentID = true
+		f.Computed = false
+	}
 }
 
 // NormalizeConfigFields is the variant for ConfigDataSource entries: config
@@ -224,9 +310,10 @@ func applyReferences(entity string, refs map[string]Reference, byName map[string
 }
 
 // validateReference panics on a Reference missing what its validator needs.
+// An empty Prefix is a target whose ids carry none.
 func validateReference(where string, ref Reference) {
-	if ref.Target == "" || ref.Prefix == "" {
-		panic(fmt.Sprintf("%s: a Reference needs both Target and Prefix", where))
+	if ref.Target == "" {
+		panic(fmt.Sprintf("%s: a Reference needs a Target", where))
 	}
 }
 
@@ -262,7 +349,7 @@ func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map
 	if f.Kind == FieldEnum {
 		f.EnumValues = enumValueNames(fd)
 	}
-	if f.Kind == FieldNestedMessage {
+	if f.Kind == FieldNestedMessage || f.Kind == FieldRepeatedMessage {
 		f.Nested = normalizeNested(t, f, fd)
 	}
 
@@ -279,10 +366,14 @@ func fieldKind(t reflect.Type, fd protoreflect.FieldDescriptor, jsonMarked, allo
 		}
 		return FieldStringMap
 	case fd.IsList():
-		if fd.Kind() != protoreflect.StringKind {
-			panic(fmt.Sprintf("%s.%s: only repeated string fields are supported", t.Name(), fd.Name()))
+		switch fd.Kind() {
+		case protoreflect.StringKind:
+			return FieldStringList
+		case protoreflect.MessageKind:
+			return repeatedMessageKind(t.Name(), fd, jsonMarked, allowNested)
+		default:
+			panic(fmt.Sprintf("%s.%s: only repeated string and message fields are supported", t.Name(), fd.Name()))
 		}
-		return FieldStringList
 	default:
 		return scalarKind(t.Name(), fd, jsonMarked, allowNested)
 	}
@@ -307,6 +398,9 @@ func enumValueNames(fd protoreflect.FieldDescriptor) []string {
 func normalizeNested(owner reflect.Type, f Field, fd protoreflect.FieldDescriptor) []Field {
 
 	t := f.GoType
+	if t.Kind() == reflect.Slice {
+		t = t.Elem()
+	}
 	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -400,6 +494,24 @@ func messageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, all
 		return FieldNestedMessage
 	}
 	panic(fmt.Sprintf("%s.%s: message-typed field %s sits more than one level deep; typed nested attributes nest one level, so declare the outer field in the JSON list instead", entity, fd.Name(), fd.Message().FullName()))
+}
+
+// repeatedMessageKind classifies a repeated message field: a JSON array for
+// anything in the JSON list, a list-nested attribute for the rest. A
+// well-known type has no fields of its own to nest, so it takes the JSON
+// lane.
+func repeatedMessageKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
+
+	if jsonMarked {
+		return FieldJSONList
+	}
+	if fd.Message().FullName().Parent() == "google.protobuf" {
+		panic(fmt.Sprintf("%s.%s: repeated %s is supported only on the JSON lane; declare it in the JSON list", entity, fd.Name(), fd.Message().FullName()))
+	}
+	if allowNested {
+		return FieldRepeatedMessage
+	}
+	panic(fmt.Sprintf("%s.%s: repeated message field %s sits more than one level deep; typed nested attributes nest one level, so declare the outer field in the JSON list instead", entity, fd.Name(), fd.Message().FullName()))
 }
 
 // validateFieldNames panics when a behavior list references a proto field

@@ -28,7 +28,7 @@ func TestReferences_Resolve(t *testing.T) {
 	ref := gentf.Reference{Target: "pet", Prefix: "p"}
 
 	fields := gentf.NormalizeFields(petEntry(), gentf.Resource{
-		JSON:       []string{"config", "metadata"},
+		JSON:       []string{"config", "metadata", "notes"},
 		References: map[string]gentf.Reference{"buddy_id": ref},
 	})
 	assert.Equal(t, &ref, fieldNamed(t, fields, "buddy_id").Reference)
@@ -44,7 +44,7 @@ func TestReferences_Resolve(t *testing.T) {
 func petSpec(res gentf.Resource, scopeRefs map[string]gentf.Reference) *gentf.Spec {
 	res.Scope = tf.NewScope("stores")
 	res.ClientType = reflect.TypeFor[petstorev1.PetStoreServiceClient]()
-	res.JSON = []string{"config", "metadata"}
+	res.JSON = []string{"config", "metadata", "notes"}
 	return &gentf.Spec{
 		Package:         "generated",
 		ScopeReferences: scopeRefs,
@@ -74,7 +74,7 @@ func TestIDAttribute_Collision(t *testing.T) {
 }
 
 func TestScopeReferences_Validated(t *testing.T) {
-	assert.PanicsWithValue(t, `ScopeReferences.store_id: a Reference needs both Target and Prefix`, func() {
+	assert.PanicsWithValue(t, `ScopeReferences.store_id: a Reference needs a Target`, func() {
 		gentf.NewRegistry().RunDirectoryPathHandler(t.TempDir(),
 			petSpec(gentf.Resource{}, map[string]gentf.Reference{"store_id": {Prefix: "s"}}))
 	})

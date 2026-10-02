@@ -98,6 +98,34 @@ resource "petstore_pet" "tom" {
 }
 ```
 
+Resources whose entity carries its own id in a field — the API takes it from
+`facility_id` on create, and composes `facilities/{facility_id}` — declare
+`IDField: "facility_id"`. That field is the id attribute (required and
+replace-on-change, or optional when also `Computed`, for an API that mints
+one when it is left empty). A field named like a parent identifier
+(`site_id` on a lane under `sites/{site_id}`) is the same attribute as the
+identifier, read back from the entity:
+
+```hcl
+resource "petstore_run" "long" {
+  shelter_id = petstore_shelter.north.shelter_id   # the parent, and a field
+  run_id     = "long"                              # name = shelters/north/runs/long
+}
+```
+
+A repeated message becomes a list of nested objects, or a JSON array when it
+is in the `JSON` list:
+
+```hcl
+resource "petstore_pet" "rex" {
+  display_name = "Rex"
+  vaccinations = [
+    { vaccine = "rabies", valid_for = "8760h" },
+  ]
+  notes = jsonencode([{ text = "calm", author = { name = "Ana" } }])
+}
+```
+
 Resources whose id the caller chooses rather than the server — the API takes
 it from the entity's `name` field on create — declare `CallerNamed: true`,
 which makes `<type_name>_id` a required, replace-on-change input:

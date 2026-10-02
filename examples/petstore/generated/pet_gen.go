@@ -130,6 +130,13 @@ func PetResourceSchema() schema.Schema {
 				MarkdownDescription: "Full resource name; serves as the Terraform ID.",
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
+			"notes": schema.StringAttribute{
+				Computed:            true,
+				CustomType:          jsontypes.NormalizedType{},
+				MarkdownDescription: "`notes` as a JSON array, each element the protojson encoding of Note.",
+				Optional:            true,
+				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+			},
 			"pet_id": schema.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
@@ -157,6 +164,35 @@ func PetResourceSchema() schema.Schema {
 				Computed:      true,
 				Optional:      true,
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+			},
+			"vaccinations": schema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema.NestedAttributeObject{Attributes: map[string]schema.Attribute{
+					"batches": schema.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+						Optional:    true,
+					},
+					"given_time": schema.StringAttribute{
+						Computed: true,
+						Optional: true,
+					},
+					"route": schema.StringAttribute{
+						Computed:   true,
+						Optional:   true,
+						Validators: []validator.String{stringvalidator.OneOf("ROUTE_INJECTION", "ROUTE_ORAL")},
+					},
+					"vaccine": schema.StringAttribute{
+						Computed: true,
+						Optional: true,
+					},
+					"valid_for": schema.StringAttribute{
+						Computed: true,
+						Optional: true,
+					},
+				}},
+				Optional:      true,
+				PlanModifiers: []planmodifier.List{listplanmodifier.UseStateForUnknown()},
 			},
 			"weight": schema.Float64Attribute{
 				Computed:      true,
@@ -190,6 +226,26 @@ func PetFeedingAttrTypes() map[string]attr.Type {
 	}
 }
 
+// PetVaccinationsModel is the Terraform model for Pet's "vaccinations" nested attribute.
+type PetVaccinationsModel struct {
+	Vaccine   types.String `tfsdk:"vaccine"`
+	GivenTime types.String `tfsdk:"given_time"`
+	ValidFor  types.String `tfsdk:"valid_for"`
+	Route     types.String `tfsdk:"route"`
+	Batches   types.List   `tfsdk:"batches"`
+}
+
+// PetVaccinationsAttrTypes returns the attribute types of the "vaccinations" nested attribute.
+func PetVaccinationsAttrTypes() map[string]attr.Type {
+	return map[string]attr.Type{
+		"batches":    types.ListType{ElemType: types.StringType},
+		"given_time": types.StringType,
+		"route":      types.StringType,
+		"vaccine":    types.StringType,
+		"valid_for":  types.StringType,
+	}
+}
+
 // PetModel is the Terraform plan/state model for Pet.
 type PetModel struct {
 	Name             types.String         `tfsdk:"name"`
@@ -210,6 +266,8 @@ type PetModel struct {
 	IntakeAgeDays    types.Int64          `tfsdk:"intake_age_days"`
 	GroomingInterval types.String         `tfsdk:"grooming_interval"`
 	BuddyId          types.String         `tfsdk:"buddy_id"`
+	Vaccinations     types.List           `tfsdk:"vaccinations"`
+	Notes            jsontypes.Normalized `tfsdk:"notes"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
@@ -227,11 +285,13 @@ func NewPetModel() *PetModel {
 		Labels:           types.MapNull(types.StringType),
 		Metadata:         jsontypes.NewNormalizedNull(),
 		Name:             types.StringNull(),
+		Notes:            jsontypes.NewNormalizedNull(),
 		PetId:            types.StringNull(),
 		StoreId:          types.StringNull(),
 		Tags:             types.ListNull(types.StringType),
 		Type:             types.StringNull(),
 		Vaccinated:       types.BoolNull(),
+		Vaccinations:     types.ListNull(types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}),
 		Weight:           types.Float64Null(),
 	}
 }
@@ -314,10 +374,51 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 		}
 	}
 	out.BuddyId = m.BuddyId.ValueString()
+	if !m.Vaccinations.IsNull() && !m.Vaccinations.IsUnknown() {
+		var items []PetVaccinationsModel
+		diags.Append(m.Vaccinations.ElementsAs(ctx, &items, false)...)
+		for i, n := range items {
+			v := &v1.Vaccination{}
+			v.Vaccine = n.Vaccine.ValueString()
+			if !n.GivenTime.IsNull() && !n.GivenTime.IsUnknown() {
+				t, err := time.Parse(time.RFC3339, n.GivenTime.ValueString())
+				if err != nil {
+					diags.AddAttributeError(path.Root("vaccinations").AtListIndex(i).AtName("given_time"), "invalid RFC 3339 timestamp", err.Error())
+				} else {
+					v.GivenTime = timestamppb.New(t)
+				}
+			}
+			if !n.ValidFor.IsNull() && !n.ValidFor.IsUnknown() {
+				d, err := tf.ParseDuration(n.ValidFor.ValueString())
+				if err != nil {
+					diags.AddAttributeError(path.Root("vaccinations").AtListIndex(i).AtName("valid_for"), "invalid duration", err.Error())
+				} else {
+					v.ValidFor = d
+				}
+			}
+			if !n.Route.IsNull() && !n.Route.IsUnknown() {
+				v.Route = v1.Route(v1.Route_value[n.Route.ValueString()])
+			}
+			if !n.Batches.IsNull() && !n.Batches.IsUnknown() {
+				diags.Append(n.Batches.ElementsAs(ctx, &v.Batches, false)...)
+			}
+			out.Vaccinations = append(out.Vaccinations, v)
+		}
+	}
+	if !m.Notes.IsNull() && !m.Notes.IsUnknown() {
+		items, err := tf.JSONListToProto(m.Notes.ValueString(), func() *v1.Note {
+			return &v1.Note{}
+		})
+		if err != nil {
+			diags.AddAttributeError(path.Root("notes"), "invalid Note JSON array", err.Error())
+		} else {
+			out.Notes = items
+		}
+	}
 	return out, diags
 }
 
-// FromProto populates the model from its proto message. Scope identifier attributes and input-only attributes are left untouched.
+// FromProto populates the model from its proto message. Input-only attributes, and scope identifier attributes the entity does not carry, are left untouched.
 func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	var diags diag.Diagnostics
 	m.Name = types.StringValue(e.Name)
@@ -327,14 +428,18 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	m.Vaccinated = types.BoolValue(e.Vaccinated)
 	m.Weight = types.Float64Value(e.Weight)
 	if len(e.Tags) == 0 {
-		m.Tags = types.ListNull(types.StringType)
+		if !tf.KeepEmpty(m.Tags) {
+			m.Tags = types.ListNull(types.StringType)
+		}
 	} else {
 		v, d := types.ListValueFrom(ctx, types.StringType, e.Tags)
 		diags.Append(d...)
 		m.Tags = v
 	}
 	if len(e.Labels) == 0 {
-		m.Labels = types.MapNull(types.StringType)
+		if !tf.KeepEmpty(m.Labels) {
+			m.Labels = types.MapNull(types.StringType)
+		}
 	} else {
 		v, d := types.MapValueFrom(ctx, types.StringType, e.Labels)
 		diags.Append(d...)
@@ -379,14 +484,18 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		}
 		n.Portions = types.Int64Value(int64(e.Feeding.Portions))
 		if len(e.Feeding.Foods) == 0 {
-			n.Foods = types.ListNull(types.StringType)
+			if !tf.KeepEmpty(n.Foods) {
+				n.Foods = types.ListNull(types.StringType)
+			}
 		} else {
 			v, d := types.ListValueFrom(ctx, types.StringType, e.Feeding.Foods)
 			diags.Append(d...)
 			n.Foods = v
 		}
 		if len(e.Feeding.Notes) == 0 {
-			n.Notes = types.MapNull(types.StringType)
+			if !tf.KeepEmpty(n.Notes) {
+				n.Notes = types.MapNull(types.StringType)
+			}
 		} else {
 			v, d := types.MapValueFrom(ctx, types.StringType, e.Feeding.Notes)
 			diags.Append(d...)
@@ -403,6 +512,53 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		m.BuddyId = types.StringNull()
 	} else {
 		m.BuddyId = types.StringValue(e.BuddyId)
+	}
+	if len(e.Vaccinations) == 0 {
+		if !tf.KeepEmpty(m.Vaccinations) {
+			m.Vaccinations = types.ListNull(types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()})
+		}
+	} else {
+		var prior []PetVaccinationsModel
+		if !m.Vaccinations.IsNull() && !m.Vaccinations.IsUnknown() {
+			diags.Append(m.Vaccinations.ElementsAs(ctx, &prior, false)...)
+		}
+		items := make([]PetVaccinationsModel, len(e.Vaccinations))
+		for i, el := range e.Vaccinations {
+			var n PetVaccinationsModel
+			if i < len(prior) {
+				n = prior[i]
+			}
+			if el.Vaccine == "" {
+				n.Vaccine = types.StringNull()
+			} else {
+				n.Vaccine = types.StringValue(el.Vaccine)
+			}
+			if el.GivenTime == nil {
+				n.GivenTime = types.StringNull()
+			} else {
+				n.GivenTime = types.StringValue(el.GivenTime.AsTime().Format(time.RFC3339))
+			}
+			n.ValidFor = tf.DurationValue(n.ValidFor, el.ValidFor)
+			n.Route = tf.EnumValue(n.Route, int32(el.Route), el.Route.String())
+			if len(el.Batches) == 0 {
+				if !tf.KeepEmpty(n.Batches) {
+					n.Batches = types.ListNull(types.StringType)
+				}
+			} else {
+				v, d := types.ListValueFrom(ctx, types.StringType, el.Batches)
+				diags.Append(d...)
+				n.Batches = v
+			}
+			items[i] = n
+		}
+		list, d := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}, items)
+		diags.Append(d...)
+		m.Vaccinations = list
+	}
+	if v, err := tf.JSONListValue(m.Notes, e.Notes); err != nil {
+		diags.AddError("cannot encode notes", err.Error())
+	} else {
+		m.Notes = v
 	}
 	return diags
 }
@@ -465,6 +621,14 @@ func (m *PetModel) UpdateMask(ctx context.Context, prior *PetModel) []string {
 	}
 	if !m.BuddyId.Equal(prior.BuddyId) {
 		paths = append(paths, "buddy_id")
+	}
+	if !m.Vaccinations.Equal(prior.Vaccinations) {
+		paths = append(paths, "vaccinations")
+	}
+	if !m.Notes.Equal(prior.Notes) {
+		if eq, _ := m.Notes.StringSemanticEquals(ctx, prior.Notes); !eq {
+			paths = append(paths, "notes")
+		}
 	}
 	return paths
 }
@@ -639,6 +803,10 @@ func PetDataSourceSchema() schema1.Schema {
 				MarkdownDescription: "Full resource name of the object to read.",
 				Required:            true,
 			},
+			"notes": schema1.StringAttribute{
+				Computed:   true,
+				CustomType: jsontypes.NormalizedType{},
+			},
 			"pet_id": schema1.StringAttribute{
 				Computed:            true,
 				MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
@@ -650,7 +818,20 @@ func PetDataSourceSchema() schema1.Schema {
 			},
 			"type":       schema1.StringAttribute{Computed: true},
 			"vaccinated": schema1.BoolAttribute{Computed: true},
-			"weight":     schema1.Float64Attribute{Computed: true},
+			"vaccinations": schema1.ListNestedAttribute{
+				Computed: true,
+				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
+					"batches": schema1.ListAttribute{
+						Computed:    true,
+						ElementType: types.StringType,
+					},
+					"given_time": schema1.StringAttribute{Computed: true},
+					"route":      schema1.StringAttribute{Computed: true},
+					"vaccine":    schema1.StringAttribute{Computed: true},
+					"valid_for":  schema1.StringAttribute{Computed: true},
+				}},
+			},
+			"weight": schema1.Float64Attribute{Computed: true},
 		},
 		MarkdownDescription: "An animal in a store's care, from intake to adoption. This data source reads one by its full resource name.",
 	}
@@ -701,6 +882,8 @@ type PetItemModel struct {
 	Feeding          types.Object         `tfsdk:"feeding"`
 	GroomingInterval types.String         `tfsdk:"grooming_interval"`
 	BuddyId          types.String         `tfsdk:"buddy_id"`
+	Vaccinations     types.List           `tfsdk:"vaccinations"`
+	Notes            jsontypes.Normalized `tfsdk:"notes"`
 }
 
 // PetItemAttrTypes returns the attribute types of one pets list element.
@@ -716,10 +899,12 @@ func PetItemAttrTypes() map[string]attr.Type {
 		"labels":            types.MapType{ElemType: types.StringType},
 		"metadata":          jsontypes.NormalizedType{},
 		"name":              types.StringType,
+		"notes":             jsontypes.NormalizedType{},
 		"pet_id":            types.StringType,
 		"tags":              types.ListType{ElemType: types.StringType},
 		"type":              types.StringType,
 		"vaccinated":        types.BoolType,
+		"vaccinations":      types.ListType{ElemType: types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}},
 		"weight":            types.Float64Type,
 	}
 }
@@ -776,6 +961,10 @@ func PetListDataSourceSchema() schema1.Schema {
 						Computed:            true,
 						MarkdownDescription: "Full resource name.",
 					},
+					"notes": schema1.StringAttribute{
+						Computed:   true,
+						CustomType: jsontypes.NormalizedType{},
+					},
 					"pet_id": schema1.StringAttribute{
 						Computed:            true,
 						MarkdownDescription: "Server-assigned resource id — the last segment of `name`, and what other resources' `*_id` attributes take.",
@@ -786,7 +975,20 @@ func PetListDataSourceSchema() schema1.Schema {
 					},
 					"type":       schema1.StringAttribute{Computed: true},
 					"vaccinated": schema1.BoolAttribute{Computed: true},
-					"weight":     schema1.Float64Attribute{Computed: true},
+					"vaccinations": schema1.ListNestedAttribute{
+						Computed: true,
+						NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
+							"batches": schema1.ListAttribute{
+								Computed:    true,
+								ElementType: types.StringType,
+							},
+							"given_time": schema1.StringAttribute{Computed: true},
+							"route":      schema1.StringAttribute{Computed: true},
+							"vaccine":    schema1.StringAttribute{Computed: true},
+							"valid_for":  schema1.StringAttribute{Computed: true},
+						}},
+					},
+					"weight": schema1.Float64Attribute{Computed: true},
 				}},
 			},
 			"store_id": schema1.StringAttribute{
@@ -810,14 +1012,18 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 	item.Vaccinated = types.BoolValue(e.Vaccinated)
 	item.Weight = types.Float64Value(e.Weight)
 	if len(e.Tags) == 0 {
-		item.Tags = types.ListNull(types.StringType)
+		if !tf.KeepEmpty(item.Tags) {
+			item.Tags = types.ListNull(types.StringType)
+		}
 	} else {
 		v, d := types.ListValueFrom(ctx, types.StringType, e.Tags)
 		diags.Append(d...)
 		item.Tags = v
 	}
 	if len(e.Labels) == 0 {
-		item.Labels = types.MapNull(types.StringType)
+		if !tf.KeepEmpty(item.Labels) {
+			item.Labels = types.MapNull(types.StringType)
+		}
 	} else {
 		v, d := types.MapValueFrom(ctx, types.StringType, e.Labels)
 		diags.Append(d...)
@@ -862,14 +1068,18 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 		}
 		n.Portions = types.Int64Value(int64(e.Feeding.Portions))
 		if len(e.Feeding.Foods) == 0 {
-			n.Foods = types.ListNull(types.StringType)
+			if !tf.KeepEmpty(n.Foods) {
+				n.Foods = types.ListNull(types.StringType)
+			}
 		} else {
 			v, d := types.ListValueFrom(ctx, types.StringType, e.Feeding.Foods)
 			diags.Append(d...)
 			n.Foods = v
 		}
 		if len(e.Feeding.Notes) == 0 {
-			n.Notes = types.MapNull(types.StringType)
+			if !tf.KeepEmpty(n.Notes) {
+				n.Notes = types.MapNull(types.StringType)
+			}
 		} else {
 			v, d := types.MapValueFrom(ctx, types.StringType, e.Feeding.Notes)
 			diags.Append(d...)
@@ -886,6 +1096,53 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 		item.BuddyId = types.StringNull()
 	} else {
 		item.BuddyId = types.StringValue(e.BuddyId)
+	}
+	if len(e.Vaccinations) == 0 {
+		if !tf.KeepEmpty(item.Vaccinations) {
+			item.Vaccinations = types.ListNull(types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()})
+		}
+	} else {
+		var prior []PetVaccinationsModel
+		if !item.Vaccinations.IsNull() && !item.Vaccinations.IsUnknown() {
+			diags.Append(item.Vaccinations.ElementsAs(ctx, &prior, false)...)
+		}
+		items := make([]PetVaccinationsModel, len(e.Vaccinations))
+		for i, el := range e.Vaccinations {
+			var n PetVaccinationsModel
+			if i < len(prior) {
+				n = prior[i]
+			}
+			if el.Vaccine == "" {
+				n.Vaccine = types.StringNull()
+			} else {
+				n.Vaccine = types.StringValue(el.Vaccine)
+			}
+			if el.GivenTime == nil {
+				n.GivenTime = types.StringNull()
+			} else {
+				n.GivenTime = types.StringValue(el.GivenTime.AsTime().Format(time.RFC3339))
+			}
+			n.ValidFor = tf.DurationValue(n.ValidFor, el.ValidFor)
+			n.Route = tf.EnumValue(n.Route, int32(el.Route), el.Route.String())
+			if len(el.Batches) == 0 {
+				if !tf.KeepEmpty(n.Batches) {
+					n.Batches = types.ListNull(types.StringType)
+				}
+			} else {
+				v, d := types.ListValueFrom(ctx, types.StringType, el.Batches)
+				diags.Append(d...)
+				n.Batches = v
+			}
+			items[i] = n
+		}
+		list, d := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}, items)
+		diags.Append(d...)
+		item.Vaccinations = list
+	}
+	if v, err := tf.JSONListValue(item.Notes, e.Notes); err != nil {
+		diags.AddError("cannot encode notes", err.Error())
+	} else {
+		item.Notes = v
 	}
 	id, err := crud.IDFromName(e.Name)
 	if err != nil {

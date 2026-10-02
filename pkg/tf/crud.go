@@ -83,6 +83,10 @@ type CrudParams[E proto.Message, M Model[E, M]] struct {
 	// IDAttribute's value into the entity's name field, where the server
 	// takes it from.
 	CallerNamed bool
+	// ParentAttributes are the scope identifier attributes the entity also
+	// carries as fields. Like the id, every state write and import fills
+	// them from the name, which is authoritative for them.
+	ParentAttributes []string
 }
 
 // Crud is the generic runtime behind generated resources and singular data
@@ -240,21 +244,36 @@ func (c *Crud[E, M]) applyCallerID(ctx context.Context, plan tfsdk.Plan, e E) di
 }
 
 // storeID writes the resource's own id, the last segment of name, into
-// state. It does nothing for a resource with no id attribute.
+// state, and the parent identifiers the entity carries. It does nothing for
+// a resource with neither.
 func (c *Crud[E, M]) storeID(ctx context.Context, state *tfsdk.State, name string) diag.Diagnostics {
 
 	var diags diag.Diagnostics
-	if c.params.IDAttribute == "" {
+	if c.params.IDAttribute == "" && len(c.params.ParentAttributes) == 0 {
 		return diags
 	}
 
-	id, err := c.IDFromName(name)
+	parents, id, err := c.params.Scope.ParseName(c.params.Collection, name)
 	if err != nil {
 		diags.AddError(fmt.Sprintf("unexpected %s name", c.params.TypeName), err.Error())
 		return diags
 	}
 
-	return state.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)
+	return c.setIDs(ctx, state, parents, id)
+}
+
+// setIDs writes the id attribute and the carried parent identifiers.
+func (c *Crud[E, M]) setIDs(ctx context.Context, state *tfsdk.State, parents map[string]string, id string) diag.Diagnostics {
+
+	var diags diag.Diagnostics
+	if c.params.IDAttribute != "" {
+		diags.Append(state.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
+	}
+	for _, attr := range c.params.ParentAttributes {
+		diags.Append(state.SetAttribute(ctx, path.Root(attr), parents[attr])...)
+	}
+
+	return diags
 }
 
 // storeOnce writes a mint's once-only values into state. No read returns
@@ -399,7 +418,7 @@ func (c *Crud[E, M]) Delete(ctx context.Context, req resource.DeleteRequest, res
 // the full AIP resource name.
 func (c *Crud[E, M]) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 
-	_, id, err := c.params.Scope.ParseName(c.params.Collection, req.ID)
+	parents, id, err := c.params.Scope.ParseName(c.params.Collection, req.ID)
 	if err != nil {
 		resp.Diagnostics.AddError(fmt.Sprintf("invalid import ID for %s", c.params.TypeName), err.Error())
 		return
@@ -409,10 +428,9 @@ func (c *Crud[E, M]) ImportState(ctx context.Context, req resource.ImportStateRe
 
 	// The id lands in state on import: a caller-named resource's is required,
 	// so without it the first plan would force replacement, and a server-named
-	// one's is what other resources reference.
-	if c.params.IDAttribute != "" {
-		resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root(c.params.IDAttribute), id)...)
-	}
+	// one's is what other resources reference. A carried parent identifier
+	// lands too, so a configured one does not force replacement either.
+	resp.Diagnostics.Append(c.setIDs(ctx, &resp.State, parents, id)...)
 }
 
 // ReadDataSource implements the singular data source Read: Get by full name.

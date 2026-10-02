@@ -113,6 +113,11 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	n := namesFor(fm.Entry, res)
 	n.Examples = referenceExamples(fm.Spec)
 	n.ScopeRefs = fm.Spec.ScopeReferences
+	for _, fd := range fields {
+		if fd.ParentID {
+			n.ParentAttributes = append(n.ParentAttributes, fd.TfName())
+		}
+	}
 	checkIDAttribute(n, res, fields)
 
 	writeResourceSchema(f, fm.Entry, res, n, fields)
@@ -142,10 +147,11 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 // checkIDAttribute panics when the resource's own id attribute shares a
 // name with another of its attributes: a parent identifier, a proto field,
 // or a minted resource's own. One would silently shadow the other in the
-// schema.
+// schema. An IDField is a proto field by design, and NormalizeFields has
+// already refused one that is also a parent identifier.
 func checkIDAttribute(n entityNames, res Resource, fields []Field) {
 
-	if n.IDAttribute == "" {
+	if n.IDAttribute == "" || n.IDField {
 		return
 	}
 

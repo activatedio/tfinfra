@@ -29,6 +29,9 @@ type conv struct {
 	// parent is the Terraform name of the enclosing nested attribute, empty
 	// at the top level; diagnostics anchor to the child under it.
 	parent string
+	// index is the variable holding the element's position when the
+	// enclosing attribute is a list, empty otherwise.
+	index string
 }
 
 // attrPath returns the path.Path expression a diagnostic about a field
@@ -37,6 +40,9 @@ type conv struct {
 func (c conv) attrPath(fd Field) *jen.Statement {
 	if c.parent == "" {
 		return jen.Qual(pkgPath, "Root").Call(jen.Lit(fd.TfName()))
+	}
+	if c.index != "" {
+		return jen.Qual(pkgPath, "Root").Call(jen.Lit(c.parent)).Dot("AtListIndex").Call(jen.Id(c.index)).Dot("AtName").Call(jen.Lit(fd.TfName()))
 	}
 	return jen.Qual(pkgPath, "Root").Call(jen.Lit(c.parent)).Dot("AtName").Call(jen.Lit(fd.TfName()))
 }
@@ -59,7 +65,8 @@ var (
 )
 
 // nestedModelName is the generated model type for a nested message
-// attribute: PetFeedingModel for Pet's "feeding".
+// attribute, or for one element of a list of them: PetFeedingModel for
+// Pet's "feeding".
 func nestedModelName(owner string, fd Field) string { return owner + fd.GoName + "Model" }
 
 // nestedAttrTypesName is the generated attribute-type map function for a
@@ -84,10 +91,12 @@ func modelFieldType(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "List")
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "Map")
-	case FieldAny, FieldStruct, FieldJSONMessage:
+	case FieldAny, FieldStruct, FieldJSONMessage, FieldJSONList:
 		return jen.Qual(pkgJsontypes, "Normalized")
 	case FieldNestedMessage:
 		return jen.Qual(pkgTypes, "Object")
+	case FieldRepeatedMessage:
+		return jen.Qual(pkgTypes, "List")
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
@@ -109,20 +118,28 @@ func attrTypeFor(fd Field) *jen.Statement {
 		return jen.Qual(pkgTypes, "ListType").Values(jen.Dict{jen.Id("ElemType"): jen.Qual(pkgTypes, "StringType")})
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "MapType").Values(jen.Dict{jen.Id("ElemType"): jen.Qual(pkgTypes, "StringType")})
-	case FieldAny, FieldStruct, FieldJSONMessage:
+	case FieldAny, FieldStruct, FieldJSONMessage, FieldJSONList:
 		return jen.Qual(pkgJsontypes, "NormalizedType").Values()
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
 }
 
-// writeNestedModels emits, for each nested message attribute, the model
-// struct the framework converts the object to and from, plus its
-// attribute-type map.
+// elementObjectType returns types.ObjectType{AttrTypes: ...} for one element
+// of a repeated message attribute.
+func elementObjectType(owner string, fd Field) *jen.Statement {
+	return jen.Qual(pkgTypes, "ObjectType").Values(jen.Dict{
+		jen.Id("AttrTypes"): jen.Id(nestedAttrTypesName(owner, fd)).Call(),
+	})
+}
+
+// writeNestedModels emits, for each nested message attribute and each list
+// of them, the model struct the framework converts one object to and from,
+// plus its attribute-type map.
 func writeNestedModels(f *jen.File, owner string, fields []Field) {
 
 	for _, fd := range fields {
-		if fd.Kind != FieldNestedMessage {
+		if fd.Kind != FieldNestedMessage && fd.Kind != FieldRepeatedMessage {
 			continue
 		}
 
@@ -163,37 +180,7 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 
 	writeNestedModels(f, t.Name(), fields)
 
-	// Struct: name first, then the caller-assigned id, then scope
-	// identifiers, then remaining proto fields in declaration order.
-	structFields := make([]jen.Code, 0, len(fields)+len(res.Scope.IdentifierAttributes())+len(mintAttributes(res))+1)
-
-	structFields = append(structFields,
-		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: NameField}))
-
-	if n.IDAttribute != "" {
-		structFields = append(structFields,
-			jen.Id(snakeToCamel(n.IDAttribute)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: n.IDAttribute}))
-	}
-
-	for _, attr := range res.Scope.IdentifierAttributes() {
-		structFields = append(structFields,
-			jen.Id(snakeToCamel(attr)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: attr}))
-	}
-
-	for _, fd := range fields {
-		if fd.ProtoName == NameField {
-			continue
-		}
-		structFields = append(structFields,
-			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{tfsdkTag: fd.TfName()}))
-	}
-
-	// A minted resource's once-only values and keepers: state only, so the
-	// proto conversions below never touch them.
-	for _, a := range mintAttributes(res) {
-		structFields = append(structFields,
-			jen.Id(snakeToCamel(a.name)).Add(modelFieldType(a.kind)).Tag(map[string]string{tfsdkTag: a.name}))
-	}
+	structFields := modelStructFields(res, n, fields)
 
 	f.Commentf("%s is the Terraform plan/state model for %s.", modelName, t.Name())
 	f.Type().Id(modelName).Struct(structFields...)
@@ -207,6 +194,11 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 		jen.Id("out").Op(":=").Op("&").Add(entityQual()).Values(),
 	)
 	for _, fd := range fields {
+		// A parent identifier the entity carries reaches the API in the
+		// parent path, which is authoritative for it.
+		if fd.ParentID {
+			continue
+		}
 		to = append(to, toProtoStatement(fd, convToProto, t.Name()))
 	}
 	to = append(to, jen.Return(jen.Id("out"), jen.Id("diags")))
@@ -229,7 +221,7 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 	}
 	from = append(from, jen.Return(jen.Id("diags")))
 
-	f.Commentf("FromProto populates the model from its proto message. Scope identifier attributes and input-only attributes are left untouched.")
+	f.Commentf("FromProto populates the model from its proto message. Input-only attributes, and scope identifier attributes the entity does not carry, are left untouched.")
 	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("FromProto").
 		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("e").Op("*").Add(entityQual())).
 		Qual(pkgDiag, "Diagnostics").
@@ -238,11 +230,57 @@ func writeModel(f *jen.File, e Entry, res Resource, n entityNames, fields []Fiel
 	writeModelAccessors(f, res, fields, modelName)
 }
 
+// modelStructFields lists the model struct's fields: name first, then the
+// added id, then scope identifiers, then the proto fields in declaration
+// order, then a minted resource's own. An id or scope identifier that is a
+// proto field comes with the fields.
+func modelStructFields(res Resource, n entityNames, fields []Field) []jen.Code {
+
+	structFields := make([]jen.Code, 0, len(fields)+len(res.Scope.IdentifierAttributes())+len(mintAttributes(res))+1)
+
+	structFields = append(structFields,
+		jen.Id("Name").Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: NameField}))
+
+	if n.IDAttribute != "" && !n.IDField {
+		structFields = append(structFields,
+			jen.Id(snakeToCamel(n.IDAttribute)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: n.IDAttribute}))
+	}
+
+	carried := parentIDFields(fields)
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		if carried[attr] {
+			continue
+		}
+		structFields = append(structFields,
+			jen.Id(snakeToCamel(attr)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: attr}))
+	}
+
+	for _, fd := range fields {
+		if fd.ProtoName == NameField {
+			continue
+		}
+		structFields = append(structFields,
+			jen.Id(fd.GoName).Add(modelFieldType(fd.Kind)).Tag(map[string]string{tfsdkTag: fd.TfName()}))
+	}
+
+	// A minted resource's once-only values and keepers: state only, so the
+	// proto conversions below never touch them.
+	for _, a := range mintAttributes(res) {
+		structFields = append(structFields,
+			jen.Id(snakeToCamel(a.name)).Add(modelFieldType(a.kind)).Tag(map[string]string{tfsdkTag: a.name}))
+	}
+
+	return structFields
+}
+
 // typedNull returns the typed null expression for a field, including the
 // attribute-type map an object null needs.
 func typedNull(fd Field, owner string) *jen.Statement {
 	if fd.Kind == FieldNestedMessage {
 		return jen.Qual(pkgTypes, "ObjectNull").Call(jen.Id(nestedAttrTypesName(owner, fd)).Call())
+	}
+	if fd.Kind == FieldRepeatedMessage {
+		return jen.Qual(pkgTypes, "ListNull").Call(elementObjectType(owner, fd))
 	}
 	return typedNullKind(fd.Kind)
 }
@@ -264,7 +302,7 @@ func typedNullKind(kind FieldKind) *jen.Statement {
 		return jen.Qual(pkgTypes, "ListNull").Call(jen.Qual(pkgTypes, "StringType"))
 	case FieldStringMap:
 		return jen.Qual(pkgTypes, "MapNull").Call(jen.Qual(pkgTypes, "StringType"))
-	case FieldAny, FieldStruct, FieldJSONMessage:
+	case FieldAny, FieldStruct, FieldJSONMessage, FieldJSONList:
 		return jen.Qual(pkgJsontypes, "NewNormalizedNull").Call()
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
@@ -279,11 +317,15 @@ func writeModelConstructor(f *jen.File, res Resource, n entityNames, fields []Fi
 		jen.Id("Name"): typedNullKind(FieldString),
 	}
 
-	if n.IDAttribute != "" {
+	if n.IDAttribute != "" && !n.IDField {
 		d[jen.Id(snakeToCamel(n.IDAttribute))] = typedNullKind(FieldString)
 	}
 
+	carried := parentIDFields(fields)
 	for _, attr := range res.Scope.IdentifierAttributes() {
+		if carried[attr] {
+			continue
+		}
 		d[jen.Id(snakeToCamel(attr))] = typedNullKind(FieldString)
 	}
 
@@ -313,23 +355,55 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 		jen.Return(jen.Id("m").Dot("Name")),
 	)
 
-	scope := jen.Dict{}
-	for _, attr := range res.Scope.IdentifierAttributes() {
-		scope[jen.Lit(attr)] = jen.Id("m").Dot(snakeToCamel(attr)).Dot("ValueString").Call()
-	}
+	scope := scopeIdentifierValues(res, fields)
 
 	f.Commentf("ScopeIdentifiers implements tf.Model: per-resource scope attribute values, null as \"\".")
 	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("ScopeIdentifiers").Params().Map(jen.String()).String().Block(
 		jen.Return(jen.Map(jen.String()).String().Values(scope)),
 	)
 
+	mask := updateMaskStatements(fields)
+
+	f.Commentf("UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.")
+	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("UpdateMask").
+		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("prior").Op("*").Id(modelName)).Index().String().
+		Block(mask...)
+}
+
+// scopeIdentifierValues maps each scope identifier to the model field
+// holding it: the carrying proto field's, or the identifier's own.
+func scopeIdentifierValues(res Resource, fields []Field) jen.Dict {
+
+	goNames := map[string]string{}
+	for _, fd := range fields {
+		if fd.ParentID {
+			goNames[fd.TfName()] = fd.GoName
+		}
+	}
+
+	scope := jen.Dict{}
+	for _, attr := range res.Scope.IdentifierAttributes() {
+		goName, ok := goNames[attr]
+		if !ok {
+			goName = snakeToCamel(attr)
+		}
+		scope[jen.Lit(attr)] = jen.Id("m").Dot(goName).Dot("ValueString").Call()
+	}
+
+	return scope
+}
+
+// updateMaskStatements builds UpdateMask's body: one comparison per field
+// a practitioner can change.
+func updateMaskStatements(fields []Field) []jen.Code {
+
 	mask := make([]jen.Code, 0, len(fields)+2)
 	mask = append(mask, jen.Var().Id("paths").Index().String())
 	for _, fd := range fields {
-		if fd.ProtoName == NameField || fd.Computed {
+		if fd.ProtoName == NameField || fd.Computed || fd.ParentID {
 			continue
 		}
-		if fd.Kind == FieldAny || fd.Kind == FieldStruct || fd.Kind == FieldJSONMessage {
+		if fd.Kind == FieldAny || fd.Kind == FieldStruct || fd.Kind == FieldJSONMessage || fd.Kind == FieldJSONList {
 			// JSON attributes compare semantically so formatting-only
 			// differences never land in the mask. Value equality short-
 			// circuits first: semantic comparison cannot handle nulls.
@@ -352,10 +426,7 @@ func writeModelAccessors(f *jen.File, res Resource, fields []Field, modelName st
 	}
 	mask = append(mask, jen.Return(jen.Id("paths")))
 
-	f.Commentf("UpdateMask implements tf.Model: proto field paths whose values differ from prior, skipping name and computed fields.")
-	f.Func().Params(jen.Id("m").Op("*").Id(modelName)).Id("UpdateMask").
-		Params(jen.Id("ctx").Qual("context", "Context"), jen.Id("prior").Op("*").Id(modelName)).Index().String().
-		Block(mask...)
+	return mask
 }
 
 func notNullNotUnknown(c conv, goName string) *jen.Statement {
@@ -393,12 +464,25 @@ func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 				).Op("..."),
 			),
 		)
-	case FieldAny, FieldStruct, FieldJSONMessage:
-		return toProtoJSON(fd, c, jsonSummary(fd))
-	case FieldNestedMessage:
-		return toProtoNested(fd, c, owner)
 	case FieldTimestamp, FieldDuration:
 		return toProtoParsed(fd, c, out)
+	default:
+		return toProtoMessage(fd, c, owner)
+	}
+}
+
+// toProtoMessage handles the message-typed kinds: the JSON lanes and the
+// typed nested ones.
+func toProtoMessage(fd Field, c conv, owner string) jen.Code {
+	switch fd.Kind {
+	case FieldAny, FieldStruct, FieldJSONMessage:
+		return toProtoJSON(fd, c, jsonSummary(fd))
+	case FieldJSONList:
+		return toProtoJSONList(fd, c)
+	case FieldNestedMessage:
+		return toProtoNested(fd, c, owner)
+	case FieldRepeatedMessage:
+		return toProtoRepeated(fd, c, owner)
 	default:
 		panic(fmt.Sprintf("unhandled field kind %d", fd.Kind))
 	}
@@ -416,7 +500,8 @@ func toProtoNested(fd Field, c conv, owner string) jen.Code {
 
 	nc := conv{model: ident("n"), proto: ident("v"), parent: fd.TfName()}
 
-	body := []jen.Code{
+	body := make([]jen.Code, 0, len(fd.Nested)+4)
+	body = append(body,
 		jen.Var().Id("n").Id(nestedModelName(owner, fd)),
 		jen.Id("diags").Dot("Append").Call(
 			c.m(fd.GoName).Dot("As").Call(
@@ -424,13 +509,74 @@ func toProtoNested(fd Field, c conv, owner string) jen.Code {
 			).Op("..."),
 		),
 		jen.Id("v").Op(":=").Op("&").Qual(t.PkgPath(), t.Name()).Values(),
-	}
+	)
 	for _, nf := range fd.Nested {
 		body = append(body, toProtoStatement(nf, nc, owner))
 	}
 	body = append(body, c.p(fd.GoName).Op("=").Id("v"))
 
 	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(body...)
+}
+
+// toProtoRepeated emits: convert the list attribute into a slice of the
+// generated element model, then map each element onto a fresh message. A
+// null or unknown list leaves the proto field nil.
+func toProtoRepeated(fd Field, c conv, owner string) jen.Code {
+
+	t := fd.GoType.Elem().Elem()
+
+	// The element's position names a diagnostic's path, so it is bound
+	// only when a child can produce one.
+	index := "_"
+	for _, nf := range fd.Nested {
+		if nf.Kind == FieldTimestamp || nf.Kind == FieldDuration {
+			index = "i"
+		}
+	}
+
+	nc := conv{model: ident("n"), proto: ident("v"), parent: fd.TfName(), index: index}
+
+	loop := make([]jen.Code, 0, len(fd.Nested)+4)
+	loop = append(loop,
+		jen.Id("v").Op(":=").Op("&").Qual(t.PkgPath(), t.Name()).Values(),
+	)
+	for _, nf := range fd.Nested {
+		loop = append(loop, toProtoStatement(nf, nc, owner))
+	}
+	loop = append(loop, c.p(fd.GoName).Op("=").Append(c.p(fd.GoName), jen.Id("v")))
+
+	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
+		jen.Var().Id("items").Index().Id(nestedModelName(owner, fd)),
+		jen.Id("diags").Dot("Append").Call(
+			c.m(fd.GoName).Dot("ElementsAs").Call(jen.Id("ctx"), jen.Op("&").Id("items"), jen.False()).Op("..."),
+		),
+		jen.For(jen.List(jen.Id(index), jen.Id("n")).Op(":=").Range().Id("items")).Block(loop...),
+	)
+}
+
+// toProtoJSONList emits: parse the JSON array into the field's messages,
+// with an attribute-anchored diagnostic on bad input.
+func toProtoJSONList(fd Field, c conv) jen.Code {
+
+	t := fd.GoType.Elem().Elem()
+
+	return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
+		jen.List(jen.Id("items"), jen.Id("err")).Op(":=").Qual(pkgRuntimeTf, "JSONListToProto").Call(
+			c.m(fd.GoName).Dot("ValueString").Call(),
+			jen.Func().Params().Op("*").Qual(t.PkgPath(), t.Name()).Block(
+				jen.Return(jen.Op("&").Qual(t.PkgPath(), t.Name()).Values()),
+			),
+		),
+		jen.If(jen.Id("err").Op("!=").Nil()).Block(
+			jen.Id("diags").Dot("AddAttributeError").Call(
+				c.attrPath(fd),
+				jen.Lit(fmt.Sprintf("invalid %s JSON array", t.Name())),
+				jen.Id("err").Dot("Error").Call(),
+			),
+		).Else().Block(
+			c.p(fd.GoName).Op("=").Id("items"),
+		),
+	)
 }
 
 // toProtoNumeric emits m.<Field>.Value<Wide>(), narrowed to the pb struct
@@ -497,6 +643,10 @@ func fromProtoStatement(fd Field, c conv, owner string) jen.Code {
 		return fromProtoJSON(fd, c)
 	case FieldNestedMessage:
 		return fromProtoNested(fd, c, owner)
+	case FieldRepeatedMessage:
+		return fromProtoRepeated(fd, c, owner)
+	case FieldJSONList:
+		return fromProtoJSONList(fd, c)
 	case FieldTimestamp:
 		return fromProtoTimestamp(fd, c)
 	case FieldDuration:
@@ -560,7 +710,8 @@ func fromProtoNested(fd Field, c conv, owner string) jen.Code {
 	// n starts from the prior object, so the children that keep a written
 	// spelling — an explicit zero enum, a duration — have it to compare
 	// against. Every child is then overwritten from the message.
-	body := []jen.Code{
+	body := make([]jen.Code, 0, len(fd.Nested)+4)
+	body = append(body,
 		jen.Var().Id("n").Id(nestedModelName(owner, fd)),
 		jen.If(notNullNotUnknown(c, fd.GoName)).Block(
 			jen.Id("diags").Dot("Append").Call(
@@ -569,7 +720,7 @@ func fromProtoNested(fd Field, c conv, owner string) jen.Code {
 				).Op("..."),
 			),
 		),
-	}
+	)
 	for _, nf := range fd.Nested {
 		body = append(body, fromProtoStatement(nf, nc, owner))
 	}
@@ -584,6 +735,67 @@ func fromProtoNested(fd Field, c conv, owner string) jen.Code {
 	return jen.If(c.p(fd.GoName).Op("==").Nil()).Block(
 		c.m(fd.GoName).Op("=").Qual(pkgTypes, "ObjectNull").Call(attrTypes()),
 	).Else().Block(body...)
+}
+
+// fromProtoRepeated emits: populate one generated element model per
+// message, then wrap them as a list. Each element starts from the prior
+// list's element at its position, so the children that keep a written
+// spelling have it to compare against. No elements read as a typed null,
+// unless the prior list is a known empty one: what the practitioner wrote
+// as [] reads back as [].
+func fromProtoRepeated(fd Field, c conv, owner string) jen.Code {
+
+	elemType := func() *jen.Statement { return elementObjectType(owner, fd) }
+	model := nestedModelName(owner, fd)
+
+	nc := conv{model: ident("n"), proto: ident("el")}
+
+	loop := make([]jen.Code, 0, len(fd.Nested)+4)
+	loop = append(loop,
+		jen.Var().Id("n").Id(model),
+		jen.If(jen.Id("i").Op("<").Len(jen.Id("prior"))).Block(
+			jen.Id("n").Op("=").Id("prior").Index(jen.Id("i")),
+		),
+	)
+	for _, nf := range fd.Nested {
+		loop = append(loop, fromProtoStatement(nf, nc, owner))
+	}
+	loop = append(loop, jen.Id("items").Index(jen.Id("i")).Op("=").Id("n"))
+
+	return jen.If(jen.Len(c.p(fd.GoName)).Op("==").Lit(0)).Block(
+		jen.If(jen.Op("!").Qual(pkgRuntimeTf, "KeepEmpty").Call(c.m(fd.GoName))).Block(
+			c.m(fd.GoName).Op("=").Qual(pkgTypes, "ListNull").Call(elemType()),
+		),
+	).Else().Block(
+		jen.Var().Id("prior").Index().Id(model),
+		jen.If(notNullNotUnknown(c, fd.GoName)).Block(
+			jen.Id("diags").Dot("Append").Call(
+				c.m(fd.GoName).Dot("ElementsAs").Call(jen.Id("ctx"), jen.Op("&").Id("prior"), jen.False()).Op("..."),
+			),
+		),
+		jen.Id("items").Op(":=").Make(jen.Index().Id(model), jen.Len(c.p(fd.GoName))),
+		jen.For(jen.List(jen.Id("i"), jen.Id("el")).Op(":=").Range().Add(c.p(fd.GoName))).Block(loop...),
+		jen.List(jen.Id("list"), jen.Id("d")).Op(":=").Qual(pkgTypes, "ListValueFrom").Call(jen.Id("ctx"), elemType(), jen.Id("items")),
+		jen.Id("diags").Dot("Append").Call(jen.Id("d").Op("...")),
+		c.m(fd.GoName).Op("=").Id("list"),
+	)
+}
+
+// fromProtoJSONList emits: encode the messages as a JSON array through the
+// runtime, which reads no elements as null unless the prior value is an
+// empty array.
+func fromProtoJSONList(fd Field, c conv) jen.Code {
+	return jen.If(
+		jen.List(jen.Id("v"), jen.Id("err")).Op(":=").Qual(pkgRuntimeTf, "JSONListValue").Call(c.m(fd.GoName), c.p(fd.GoName)),
+		jen.Id("err").Op("!=").Nil(),
+	).Block(
+		jen.Id("diags").Dot("AddError").Call(
+			jen.Lit(fmt.Sprintf("cannot encode %s", fd.TfName())),
+			jen.Id("err").Dot("Error").Call(),
+		),
+	).Else().Block(
+		c.m(fd.GoName).Op("=").Id("v"),
+	)
 }
 
 // jsonSummary is the diagnostic summary for a bad JSON attribute value.
@@ -668,8 +880,12 @@ func numericCast(fd Field, c conv, wideKind reflect.Kind, wide string) jen.Code 
 
 func fromProtoCollection(fd Field, c conv, nullFunc, valueFunc string) jen.Code {
 
+	// No elements read as a typed null, unless the prior value is a known
+	// empty one: what the practitioner wrote as [] or {} reads back as such.
 	return jen.If(jen.Len(c.p(fd.GoName)).Op("==").Lit(0)).Block(
-		c.m(fd.GoName).Op("=").Qual(pkgTypes, nullFunc).Call(jen.Qual(pkgTypes, "StringType")),
+		jen.If(jen.Op("!").Qual(pkgRuntimeTf, "KeepEmpty").Call(c.m(fd.GoName))).Block(
+			c.m(fd.GoName).Op("=").Qual(pkgTypes, nullFunc).Call(jen.Qual(pkgTypes, "StringType")),
+		),
 	).Else().Block(
 		jen.List(jen.Id("v"), jen.Id("d")).Op(":=").Qual(pkgTypes, valueFunc).Call(
 			jen.Id("ctx"), jen.Qual(pkgTypes, "StringType"), c.p(fd.GoName),

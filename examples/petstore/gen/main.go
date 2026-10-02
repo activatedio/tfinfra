@@ -13,18 +13,26 @@ import (
 	tf "github.com/activatedio/tfinfra/pkg/tf"
 )
 
+// petstore is the provider's type name and the ProviderData.Clients key.
+const petstore = "petstore"
+
 // The example service's scope table. Consumers declare their own; tfinfra
 // predefines none.
-var scopeStore = tf.NewScope("stores")
+var (
+	scopeStore   = tf.NewScope("stores")
+	scopeShelter = tf.NewScope("shelters")
+)
 
 func main() {
 
 	gentf.NewRegistry().RunDirectoryPathHandler("../generated", &gentf.Spec{
 		Package:          "generated",
-		ProviderTypeName: "petstore",
+		ProviderTypeName: petstore,
 		// Every store id starts "s-", so a store_id is validated as one.
 		ScopeReferences: map[string]gentf.Reference{
 			"store_id": {Target: "store", Prefix: "s"},
+			// Shelter ids carry no prefix: only a full name is refused.
+			"shelter_id": {Target: "shelter"},
 		},
 		Entries: []gentf.Entry{
 			{
@@ -33,7 +41,7 @@ func main() {
 					gentf.Resource{
 						Scope:       scopeStore,
 						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
-						Client:      "petstore",
+						Client:      petstore,
 						Required:    []string{"display_name"},
 						Description: "An animal in a store's care, from intake to adoption.",
 						// intake_code covers input-only plus immutable (a
@@ -42,7 +50,9 @@ func main() {
 						Immutable: []string{"type", "intake_code"},
 						Computed:  []string{"create_time"},
 						InputOnly: []string{"intake_code", "intake_age_days"},
-						JSON:      []string{"config", "metadata"},
+						// notes is a repeated message on the JSON lane;
+						// vaccinations, left out, is a list-nested attribute.
+						JSON: []string{"config", "metadata", "notes"},
 						// buddy_id takes another pet's pet_id.
 						References: map[string]gentf.Reference{
 							"buddy_id": {Target: "pet", Prefix: "p"},
@@ -61,7 +71,7 @@ func main() {
 					gentf.Resource{
 						Scope:       scopeStore,
 						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
-						Client:      "petstore",
+						Client:      petstore,
 						CallerNamed: true,
 						Required:    []string{"display_name"},
 					},
@@ -78,12 +88,49 @@ func main() {
 						Scope:       scopeStore,
 						Ops:         gentf.OpGet | gentf.OpList | gentf.OpPatch | gentf.OpDelete,
 						ClientType:  reflect.TypeFor[petstorev1.PetStoreServiceClient](),
-						Client:      "petstore",
+						Client:      petstore,
 						Required:    []string{"display_name"},
 						Computed:    []string{"create_time"},
 						Description: "A store's key for calling the API.",
 						Mint:        &gentf.Mint{Method: "MintAccessKey", Once: []string{"key"}},
 					},
+					gentf.DataSourceList{},
+				},
+			},
+			{
+				// Shelter's id is its own shelter_id field, which the create
+				// request carries in the entity; the API has no Patch.
+				Type: reflect.TypeFor[petstorev1.Shelter](),
+				Implementations: []any{
+					gentf.Resource{
+						Scope:      tf.ScopeNone,
+						Ops:        gentf.OpGet | gentf.OpList | gentf.OpCreate | gentf.OpUpdate | gentf.OpDelete,
+						ClientType: reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:     petstore,
+						UseUpdate:  true,
+						IDField:    "shelter_id",
+						Required:   []string{"display_name"},
+					},
+					gentf.DataSource{},
+					gentf.DataSourceList{},
+				},
+			},
+			{
+				// Run is a shelter's child. Its run_id is optional: the server
+				// mints one when the create leaves it empty. Its shelter_id is
+				// the parent identifier, which the entity carries too.
+				Type: reflect.TypeFor[petstorev1.Run](),
+				Implementations: []any{
+					gentf.Resource{
+						Scope:      scopeShelter,
+						Ops:        gentf.OpGet | gentf.OpList | gentf.OpCreate | gentf.OpUpdate | gentf.OpDelete,
+						ClientType: reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:     petstore,
+						UseUpdate:  true,
+						IDField:    "run_id",
+						Computed:   []string{"run_id", "shelter_id"},
+					},
+					gentf.DataSource{},
 					gentf.DataSourceList{},
 				},
 			},

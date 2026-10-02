@@ -321,7 +321,8 @@ func bindMintRequest(where string, t, req reflect.Type, fields []Field, op *Mint
 func checkMintCarried(where string, fields []Field, carried map[string]bool) {
 
 	for _, f := range fields {
-		if f.ProtoName != NameField && !f.Computed && !carried[f.ProtoName] {
+		// A parent identifier the entity carries travels in the parent.
+		if f.ProtoName != NameField && !f.Computed && !f.ParentID && !carried[f.ProtoName] {
 			panic(fmt.Sprintf("%s: %q can be set, but the request has no field to carry it; mark it Computed if the mint does not take it",
 				where, f.ProtoName))
 		}

@@ -22,11 +22,18 @@ type entityNames struct {
 	Model      string // PetModel
 	LowerCamel string // pet (Go identifier prefix for unexported types)
 	// IDAttribute is the resource's own id attribute ("toy_id"): an input
-	// when CallerNamed, else computed from "name". Empty for an entry with
-	// no Resource.
+	// when CallerNamed, else computed from "name", or the proto field
+	// IDField names. Empty for an entry with no Resource.
 	IDAttribute string
 	// CallerNamed mirrors Resource.CallerNamed.
 	CallerNamed bool
+	// IDField is true when IDAttribute is a proto field (Resource.IDField),
+	// which the field's own attribute and conversions already cover; false
+	// when it is the attribute tfinfra adds.
+	IDField bool
+	// ParentAttributes are the scope identifiers the entity carries as
+	// fields, in scope order; set once the fields are normalized.
+	ParentAttributes []string
 	// Examples maps each Reference Target that is a resource of the spec to
 	// the expression that yields its id ("petstore_pet.<name>.pet_id").
 	Examples map[string]string
@@ -58,6 +65,9 @@ func namesFor(e Entry, res Resource) entityNames {
 	if HasImplementation[Resource](e) {
 		idAttribute = typeName + "_id"
 	}
+	if res.IDField != "" {
+		idAttribute = res.IDField
+	}
 
 	return entityNames{
 		Entity:      t.Name(),
@@ -67,6 +77,7 @@ func namesFor(e Entry, res Resource) entityNames {
 		LowerCamel:  lowerFirst(t.Name()),
 		IDAttribute: idAttribute,
 		CallerNamed: res.CallerNamed,
+		IDField:     res.IDField != "",
 	}
 }
 
@@ -120,6 +131,13 @@ func writeCrudFactory(f *jen.File, e Entry, res Resource, cm ClientModel, n enti
 	}
 	if n.CallerNamed {
 		params[jen.Id("CallerNamed")] = jen.True()
+	}
+	if len(n.ParentAttributes) > 0 {
+		attrs := make([]jen.Code, 0, len(n.ParentAttributes))
+		for _, a := range n.ParentAttributes {
+			attrs = append(attrs, jen.Lit(a))
+		}
+		params[jen.Id("ParentAttributes")] = jen.Index().String().Values(attrs...)
 	}
 
 	f.Commentf("new%sCrud builds the %s runtime from provider data; it returns nil (no error) before the provider is configured.", n.Entity, n.TypeName)

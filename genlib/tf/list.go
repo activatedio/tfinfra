@@ -43,8 +43,11 @@ func itemFields(fields []Field) []Field {
 // itemAttrType is the attr.Type of an item field, nested objects included.
 func itemAttrType(owner string, fd Field) *jen.Statement {
 	if fd.Kind == FieldNestedMessage {
-		return jen.Qual(pkgTypes, "ObjectType").Values(jen.Dict{
-			jen.Id("AttrTypes"): jen.Id(nestedAttrTypesName(owner, fd)).Call(),
+		return elementObjectType(owner, fd)
+	}
+	if fd.Kind == FieldRepeatedMessage {
+		return jen.Qual(pkgTypes, "ListType").Values(jen.Dict{
+			jen.Id("ElemType"): elementObjectType(owner, fd),
 		})
 	}
 	return attrTypeFor(fd)
@@ -59,10 +62,11 @@ func writeListDataSource(f *jen.File, e Entry, res Resource, n entityNames, ln l
 	items := itemFields(fields)
 	scopeAttrs := res.Scope.IdentifierAttributes()
 
-	// The item model: name, the caller-assigned id, the entity's fields.
+	// The item model: name, the caller-assigned id, the entity's fields. An
+	// id that is a proto field comes with the fields.
 	itemStruct := make([]jen.Code, 0, len(items)+1)
 	itemTypes := jen.Dict{}
-	if n.IDAttribute != "" {
+	if n.IDAttribute != "" && !n.IDField {
 		itemStruct = append(itemStruct, jen.Id(snakeToCamel(n.IDAttribute)).Qual(pkgTypes, "String").Tag(map[string]string{tfsdkTag: n.IDAttribute}))
 		itemTypes[jen.Lit(n.IDAttribute)] = jen.Qual(pkgTypes, "StringType")
 	}
@@ -97,7 +101,7 @@ func writeListDataSource(f *jen.File, e Entry, res Resource, n entityNames, ln l
 func writeListDataSourceSchema(f *jen.File, entity string, res Resource, n entityNames, ln listNames, items []Field, scopeAttrs []string) {
 
 	itemAttrs := jen.Dict{}
-	if n.IDAttribute != "" {
+	if n.IDAttribute != "" && !n.IDField {
 		itemAttrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Computed"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit(dataSourceIDDescription(n)),
@@ -165,7 +169,7 @@ func writeItemFromProto(f *jen.File, e Entry, n entityNames, ln listNames, items
 	for _, fd := range items {
 		body = append(body, fromProtoStatement(fd, c, n.Entity))
 	}
-	if n.IDAttribute != "" {
+	if n.IDAttribute != "" && !n.IDField {
 		body = append(body,
 			jen.List(jen.Id("id"), jen.Id("err")).Op(":=").Id("crud").Dot("IDFromName").Call(jen.Id("e").Dot("Name")),
 			jen.If(jen.Id("err").Op("!=").Nil()).Block(

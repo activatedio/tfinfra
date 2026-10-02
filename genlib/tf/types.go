@@ -38,7 +38,9 @@ type Reference struct {
 	// "<Target>_id" attribute is the value to reference. Required.
 	Target string
 	// Prefix is what every id of Target starts with, before a hyphen: "st"
-	// for "st-01". Required.
+	// for "st-01". Empty means the ids carry no prefix ("m50"): the value is
+	// then only checked to be an id rather than a resource name, so a full
+	// name still fails but another type's id cannot be told apart.
 	Prefix string
 }
 
@@ -80,15 +82,22 @@ func HasImplementation[I any](e Entry) bool {
 // sensitive. Field names are proto field names (snake_case); referencing an
 // unknown field panics at generation time.
 //
-// Every resource carries a "<type_name>_id" attribute holding its own id, the
-// last segment of "name": a required input on a CallerNamed resource, and
-// otherwise computed from "name" on create, read and import. Its singular
-// data source and each item of its plural one carry it too. It is what other
-// resources' References take.
+// Every resource carries an attribute holding its own id, the last segment of
+// "name": "<type_name>_id", a required input on a CallerNamed resource and
+// otherwise computed from "name" on create, read and import, or the proto
+// field IDField names. Its singular data source and each item of its plural
+// one carry it too. It is what other resources' References take.
 type Resource struct {
 	// Scope is the resource's position in the AIP hierarchy; it contributes
 	// one optional, RequiresReplace identifier attribute per parent
 	// collection (e.g. "tenant_id").
+	//
+	// An entity may also carry its parent's id as a proto field of the same
+	// name (a lane's "site_id" under sites/{site_id}/lanes/{lane_id}). The
+	// field and the identifier are then one attribute: the parent path
+	// carries it to the API, never the entity, and reads fill it from the
+	// field, so an imported resource has it. It is Optional+Computed to
+	// allow that, and may appear in no behavior list but Computed.
 	Scope runtimetf.Scope
 	// Ops selects which operations the API exposes; the zero value means
 	// all (OpAll).
@@ -123,6 +132,19 @@ type Resource struct {
 	// stays computed and keeps its role as the full resource name and the
 	// Terraform ID.
 	CallerNamed bool
+	// IDField names the proto string field that holds the resource's own id,
+	// for APIs that take the id from a field of the entity on create
+	// ("facility_id" on Facility, whose name is facilities/{facility_id})
+	// rather than from "name". That field is the id attribute: no
+	// "<type_name>_id" is added, and the id travels to the API through the
+	// ordinary proto conversion. Import and data source reads fill it from
+	// the last segment of "name", like any id attribute.
+	//
+	// It is a required, replace-on-change input. Listed in Computed too, it
+	// is an optional one instead, for an API that mints an id when the
+	// create leaves the field empty: set, it is sent; unset, the minted id
+	// is read back and kept. Exclusive with CallerNamed.
+	IDField string
 	// Required lists proto fields the practitioner must set.
 	Required []string
 	// Immutable lists proto fields that force replacement when changed

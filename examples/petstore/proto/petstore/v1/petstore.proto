@@ -48,6 +48,22 @@ service PetStoreService {
   rpc MintAccessKey(MintAccessKeyRequest) returns (MintAccessKeyResponse);
   rpc PatchAccessKey(PatchAccessKeyRequest) returns (AccessKey);
   rpc DeleteAccessKey(DeleteAccessKeyRequest) returns (google.protobuf.Empty);
+
+  // Shelter and Run take their ids from a field of their own, the way
+  // riteSuite's estate records do: the create request carries the id in
+  // shelter_id / run_id, and the server ignores name. There is no Patch, so
+  // an update replaces the whole entity.
+  rpc GetShelter(GetShelterRequest) returns (Shelter);
+  rpc ListShelters(ListSheltersRequest) returns (ListSheltersResponse);
+  rpc CreateShelter(CreateShelterRequest) returns (Shelter);
+  rpc UpdateShelter(UpdateShelterRequest) returns (Shelter);
+  rpc DeleteShelter(DeleteShelterRequest) returns (google.protobuf.Empty);
+
+  rpc GetRun(GetRunRequest) returns (Run);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc CreateRun(CreateRunRequest) returns (Run);
+  rpc UpdateRun(UpdateRunRequest) returns (Run);
+  rpc DeleteRun(DeleteRunRequest) returns (google.protobuf.Empty);
 }
 
 message GetPetRequest {
@@ -126,6 +142,40 @@ message Pet {
   // Another pet in the store, housed with this one: its id, the last
   // segment of its name. A reference, so it is validated by prefix.
   string buddy_id = 16;
+
+  // A repeated message: the list-nested attribute lane, one object per
+  // element over Vaccination's own fields.
+  repeated Vaccination vaccinations = 17;
+  // A repeated message declared in the JSON list: a JSON array, each
+  // element in protojson. Note holds a message of its own, which is too
+  // deep for the typed lane.
+  repeated Note notes = 18;
+}
+
+// Vaccination is a repeated message surfaced as a list-nested attribute.
+message Vaccination {
+  string vaccine = 1;
+  google.protobuf.Timestamp given_time = 2;
+  // A duration and a zero-is-real enum, which keep their spelling per
+  // element as they do in a nested attribute.
+  google.protobuf.Duration valid_for = 3;
+  Route route = 4;
+  repeated string batches = 5;
+}
+
+enum Route {
+  ROUTE_INJECTION = 0;
+  ROUTE_ORAL = 1;
+}
+
+// Note is a repeated message on the JSON lane.
+message Note {
+  string text = 1;
+  Author author = 2;
+}
+
+message Author {
+  string name = 1;
 }
 
 // Feeding is a singular nested message surfaced as a typed nested
@@ -292,5 +342,82 @@ message PatchAccessKeyRequest {
 }
 
 message DeleteAccessKeyRequest {
+  string name = 1;
+}
+
+// Shelter is a top-level resource whose id is one of its own fields:
+// shelters/{shelter_id}, with the caller's shelter_id carried in the entity
+// on create.
+message Shelter {
+  string name = 1;
+  string shelter_id = 2;
+  string display_name = 3;
+}
+
+message GetShelterRequest {
+  string name = 1;
+}
+
+message ListSheltersRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListSheltersResponse {
+  repeated Shelter shelters = 1;
+  string next_page_token = 2;
+}
+
+message CreateShelterRequest {
+  string parent = 1;
+  Shelter shelter = 2;
+}
+
+message UpdateShelterRequest {
+  string name = 1;
+  Shelter shelter = 2;
+}
+
+message DeleteShelterRequest {
+  string name = 1;
+}
+
+// Run is a shelter's child, shelters/{shelter_id}/runs/{run_id}. Its id is
+// its own run_id field, and it also carries its parent's id: shelter_id is
+// output only, set by the server from the parent in the request.
+message Run {
+  string name = 1;
+  string run_id = 2;
+  string shelter_id = 3;
+  int32 length_m = 4;
+}
+
+message GetRunRequest {
+  string name = 1;
+}
+
+message ListRunsRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListRunsResponse {
+  repeated Run runs = 1;
+  string next_page_token = 2;
+}
+
+message CreateRunRequest {
+  string parent = 1;
+  Run run = 2;
+}
+
+message UpdateRunRequest {
+  string name = 1;
+  Run run = 2;
+}
+
+message DeleteRunRequest {
   string name = 1;
 }

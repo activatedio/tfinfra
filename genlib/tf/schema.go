@@ -28,28 +28,36 @@ type attrShape struct {
 	jsonCustomType  bool
 }
 
-func shapeFor(kind FieldKind) attrShape {
+// attrShapes is the attribute shape of every supported kind.
+var attrShapes = func() map[FieldKind]attrShape {
 	base := "github.com/hashicorp/terraform-plugin-framework/resource/schema/"
-	switch kind {
-	case FieldString, FieldEnum, FieldTimestamp, FieldDuration:
-		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, false}
-	case FieldBool:
-		return attrShape{"BoolAttribute", "Bool", base + "boolplanmodifier", false, false}
-	case FieldInt64:
-		return attrShape{"Int64Attribute", "Int64", base + "int64planmodifier", false, false}
-	case FieldFloat64:
-		return attrShape{"Float64Attribute", "Float64", base + "float64planmodifier", false, false}
-	case FieldStringList:
-		return attrShape{"ListAttribute", "List", base + "listplanmodifier", true, false}
-	case FieldStringMap:
-		return attrShape{"MapAttribute", "Map", base + "mapplanmodifier", true, false}
-	case FieldAny, FieldStruct, FieldJSONMessage:
-		return attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, true}
-	case FieldNestedMessage:
-		return attrShape{"SingleNestedAttribute", "Object", base + "objectplanmodifier", false, false}
-	default:
+	str := attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, false}
+	json := attrShape{"StringAttribute", "String", base + "stringplanmodifier", false, true}
+	return map[FieldKind]attrShape{
+		FieldString:          str,
+		FieldEnum:            str,
+		FieldTimestamp:       str,
+		FieldDuration:        str,
+		FieldBool:            {"BoolAttribute", "Bool", base + "boolplanmodifier", false, false},
+		FieldInt64:           {"Int64Attribute", "Int64", base + "int64planmodifier", false, false},
+		FieldFloat64:         {"Float64Attribute", "Float64", base + "float64planmodifier", false, false},
+		FieldStringList:      {"ListAttribute", "List", base + "listplanmodifier", true, false},
+		FieldStringMap:       {"MapAttribute", "Map", base + "mapplanmodifier", true, false},
+		FieldAny:             json,
+		FieldStruct:          json,
+		FieldJSONMessage:     json,
+		FieldJSONList:        json,
+		FieldNestedMessage:   {"SingleNestedAttribute", "Object", base + "objectplanmodifier", false, false},
+		FieldRepeatedMessage: {"ListNestedAttribute", "List", base + "listplanmodifier", false, false},
+	}
+}()
+
+func shapeFor(kind FieldKind) attrShape {
+	shape, ok := attrShapes[kind]
+	if !ok {
 		panic(fmt.Sprintf("unhandled field kind %d", kind))
 	}
+	return shape
 }
 
 // writeResourceSchema emits func <Entity>ResourceSchema() schema.Schema.
@@ -60,6 +68,8 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 	attrs := jen.Dict{}
 
 	switch {
+	case n.IDField:
+		// The id is a proto field: its own attribute, built below.
 	case n.CallerNamed:
 		// The caller-assigned id: required, replacement on change — the
 		// server composes "name" from the parent and this id.
@@ -82,8 +92,13 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 		})
 	}
 
-	// Scope identifier attributes: optional, replacement on change.
+	// Scope identifier attributes: optional, replacement on change. One the
+	// entity carries as a field is built with the fields.
+	carried := parentIDFields(fields)
 	for _, attr := range res.Scope.IdentifierAttributes() {
+		if carried[attr] {
+			continue
+		}
 		d := jen.Dict{
 			jen.Id("Optional"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default. Changing it replaces the resource.", attr)),
@@ -98,6 +113,10 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 	}
 
 	for _, fd := range fields {
+		if fd.ParentID {
+			attrs[jen.Lit(fd.TfName())] = parentIDAttributeFor(fd, n)
+			continue
+		}
 		attrs[jen.Lit(fd.TfName())] = attributeFor(fd, n.Examples)
 	}
 
@@ -145,14 +164,18 @@ func writeDataSourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fi
 
 	attrs := jen.Dict{}
 
-	if n.IDAttribute != "" {
+	if n.IDAttribute != "" && !n.IDField {
 		attrs[jen.Lit(n.IDAttribute)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Computed"):            jen.True(),
 			jen.Id("MarkdownDescription"): jen.Lit(dataSourceIDDescription(n)),
 		})
 	}
 
+	carried := parentIDFields(fields)
 	for _, attr := range res.Scope.IdentifierAttributes() {
+		if carried[attr] {
+			continue
+		}
 		attrs[jen.Lit(attr)] = jen.Qual(pkgDatasourceSchema, "StringAttribute").Values(jen.Dict{
 			jen.Id("Computed"): jen.True(),
 		})
@@ -190,6 +213,46 @@ func applyTypeKeys(d jen.Dict, pkg string, fd Field, nested func(Field) jen.Code
 	if fd.Kind == FieldNestedMessage {
 		d[jen.Id("Attributes")] = nestedAttributes(pkg, fd, nested)
 	}
+	if fd.Kind == FieldRepeatedMessage {
+		d[jen.Id("NestedObject")] = jen.Qual(pkg, "NestedAttributeObject").Values(jen.Dict{
+			jen.Id("Attributes"): nestedAttributes(pkg, fd, nested),
+		})
+	}
+}
+
+// parentIDFields is the set of scope identifier attributes a field
+// carries.
+func parentIDFields(fields []Field) map[string]bool {
+	out := map[string]bool{}
+	for _, fd := range fields {
+		if fd.ParentID {
+			out[fd.TfName()] = true
+		}
+	}
+	return out
+}
+
+// parentIDAttributeFor builds a scope identifier the entity also carries
+// as a field. Unlike a plain identifier it is Computed as well: reads fill
+// it from the field, so an import has it and a resource that took the
+// provider default shows it. Changing it still replaces the resource.
+func parentIDAttributeFor(fd Field, n entityNames) jen.Code {
+
+	d := jen.Dict{
+		jen.Id("Optional"): jen.True(),
+		jen.Id("Computed"): jen.True(),
+		jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default, and reads back from the entity. "+
+			"Changing it replaces the resource.", fd.TfName())),
+		jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
+			jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
+			jen.Qual(shapeFor(FieldString).planModifierPkg, "UseStateForUnknown").Call(),
+		),
+	}
+	if ref, ok := n.ScopeRefs[fd.TfName()]; ok {
+		d[jen.Id("Validators")] = referenceValidators(ref, n.Examples)
+	}
+
+	return jen.Qual(pkgResourceSchema, "StringAttribute").Values(d)
 }
 
 func dataSourceAttributeFor(fd Field) jen.Code {
@@ -356,6 +419,12 @@ func attributeDescription(fd Field) string {
 	if fd.ProtoName == NameField {
 		return "Full resource name; serves as the Terraform ID."
 	}
+	if fd.ID && fd.Required {
+		return "Caller-assigned resource id — the last segment of `name`, which the server composes from it. Changing it replaces the resource."
+	}
+	if fd.ID {
+		return "Resource id — the last segment of `name`. The server assigns one when it is left unset. Changing it replaces the resource."
+	}
 	if desc := shapeDescription(fd); desc != "" {
 		return desc
 	}
@@ -383,6 +452,9 @@ func shapeDescription(fd Field) string {
 	}
 	if fd.Kind == FieldJSONMessage {
 		return fmt.Sprintf("`%s` as the protojson encoding of %s.", fd.TfName(), fd.GoType.Elem().Name())
+	}
+	if fd.Kind == FieldJSONList {
+		return fmt.Sprintf("`%s` as a JSON array, each element the protojson encoding of %s.", fd.TfName(), fd.GoType.Elem().Elem().Name())
 	}
 	return ""
 }

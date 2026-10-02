@@ -45,6 +45,16 @@ const (
 	PetStoreService_MintAccessKey_FullMethodName      = "/petstore.v1.PetStoreService/MintAccessKey"
 	PetStoreService_PatchAccessKey_FullMethodName     = "/petstore.v1.PetStoreService/PatchAccessKey"
 	PetStoreService_DeleteAccessKey_FullMethodName    = "/petstore.v1.PetStoreService/DeleteAccessKey"
+	PetStoreService_GetShelter_FullMethodName         = "/petstore.v1.PetStoreService/GetShelter"
+	PetStoreService_ListShelters_FullMethodName       = "/petstore.v1.PetStoreService/ListShelters"
+	PetStoreService_CreateShelter_FullMethodName      = "/petstore.v1.PetStoreService/CreateShelter"
+	PetStoreService_UpdateShelter_FullMethodName      = "/petstore.v1.PetStoreService/UpdateShelter"
+	PetStoreService_DeleteShelter_FullMethodName      = "/petstore.v1.PetStoreService/DeleteShelter"
+	PetStoreService_GetRun_FullMethodName             = "/petstore.v1.PetStoreService/GetRun"
+	PetStoreService_ListRuns_FullMethodName           = "/petstore.v1.PetStoreService/ListRuns"
+	PetStoreService_CreateRun_FullMethodName          = "/petstore.v1.PetStoreService/CreateRun"
+	PetStoreService_UpdateRun_FullMethodName          = "/petstore.v1.PetStoreService/UpdateRun"
+	PetStoreService_DeleteRun_FullMethodName          = "/petstore.v1.PetStoreService/DeleteRun"
 )
 
 // PetStoreServiceClient is the client API for PetStoreService service.
@@ -80,6 +90,20 @@ type PetStoreServiceClient interface {
 	MintAccessKey(ctx context.Context, in *MintAccessKeyRequest, opts ...grpc.CallOption) (*MintAccessKeyResponse, error)
 	PatchAccessKey(ctx context.Context, in *PatchAccessKeyRequest, opts ...grpc.CallOption) (*AccessKey, error)
 	DeleteAccessKey(ctx context.Context, in *DeleteAccessKeyRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Shelter and Run take their ids from a field of their own, the way
+	// riteSuite's estate records do: the create request carries the id in
+	// shelter_id / run_id, and the server ignores name. There is no Patch, so
+	// an update replaces the whole entity.
+	GetShelter(ctx context.Context, in *GetShelterRequest, opts ...grpc.CallOption) (*Shelter, error)
+	ListShelters(ctx context.Context, in *ListSheltersRequest, opts ...grpc.CallOption) (*ListSheltersResponse, error)
+	CreateShelter(ctx context.Context, in *CreateShelterRequest, opts ...grpc.CallOption) (*Shelter, error)
+	UpdateShelter(ctx context.Context, in *UpdateShelterRequest, opts ...grpc.CallOption) (*Shelter, error)
+	DeleteShelter(ctx context.Context, in *DeleteShelterRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetRun(ctx context.Context, in *GetRunRequest, opts ...grpc.CallOption) (*Run, error)
+	ListRuns(ctx context.Context, in *ListRunsRequest, opts ...grpc.CallOption) (*ListRunsResponse, error)
+	CreateRun(ctx context.Context, in *CreateRunRequest, opts ...grpc.CallOption) (*Run, error)
+	UpdateRun(ctx context.Context, in *UpdateRunRequest, opts ...grpc.CallOption) (*Run, error)
+	DeleteRun(ctx context.Context, in *DeleteRunRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type petStoreServiceClient struct {
@@ -280,6 +304,106 @@ func (c *petStoreServiceClient) DeleteAccessKey(ctx context.Context, in *DeleteA
 	return out, nil
 }
 
+func (c *petStoreServiceClient) GetShelter(ctx context.Context, in *GetShelterRequest, opts ...grpc.CallOption) (*Shelter, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Shelter)
+	err := c.cc.Invoke(ctx, PetStoreService_GetShelter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListShelters(ctx context.Context, in *ListSheltersRequest, opts ...grpc.CallOption) (*ListSheltersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSheltersResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListShelters_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) CreateShelter(ctx context.Context, in *CreateShelterRequest, opts ...grpc.CallOption) (*Shelter, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Shelter)
+	err := c.cc.Invoke(ctx, PetStoreService_CreateShelter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) UpdateShelter(ctx context.Context, in *UpdateShelterRequest, opts ...grpc.CallOption) (*Shelter, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Shelter)
+	err := c.cc.Invoke(ctx, PetStoreService_UpdateShelter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) DeleteShelter(ctx context.Context, in *DeleteShelterRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, PetStoreService_DeleteShelter_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) GetRun(ctx context.Context, in *GetRunRequest, opts ...grpc.CallOption) (*Run, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Run)
+	err := c.cc.Invoke(ctx, PetStoreService_GetRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListRuns(ctx context.Context, in *ListRunsRequest, opts ...grpc.CallOption) (*ListRunsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRunsResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListRuns_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) CreateRun(ctx context.Context, in *CreateRunRequest, opts ...grpc.CallOption) (*Run, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Run)
+	err := c.cc.Invoke(ctx, PetStoreService_CreateRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) UpdateRun(ctx context.Context, in *UpdateRunRequest, opts ...grpc.CallOption) (*Run, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Run)
+	err := c.cc.Invoke(ctx, PetStoreService_UpdateRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) DeleteRun(ctx context.Context, in *DeleteRunRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, PetStoreService_DeleteRun_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PetStoreServiceServer is the server API for PetStoreService service.
 // All implementations must embed UnimplementedPetStoreServiceServer
 // for forward compatibility.
@@ -313,6 +437,20 @@ type PetStoreServiceServer interface {
 	MintAccessKey(context.Context, *MintAccessKeyRequest) (*MintAccessKeyResponse, error)
 	PatchAccessKey(context.Context, *PatchAccessKeyRequest) (*AccessKey, error)
 	DeleteAccessKey(context.Context, *DeleteAccessKeyRequest) (*emptypb.Empty, error)
+	// Shelter and Run take their ids from a field of their own, the way
+	// riteSuite's estate records do: the create request carries the id in
+	// shelter_id / run_id, and the server ignores name. There is no Patch, so
+	// an update replaces the whole entity.
+	GetShelter(context.Context, *GetShelterRequest) (*Shelter, error)
+	ListShelters(context.Context, *ListSheltersRequest) (*ListSheltersResponse, error)
+	CreateShelter(context.Context, *CreateShelterRequest) (*Shelter, error)
+	UpdateShelter(context.Context, *UpdateShelterRequest) (*Shelter, error)
+	DeleteShelter(context.Context, *DeleteShelterRequest) (*emptypb.Empty, error)
+	GetRun(context.Context, *GetRunRequest) (*Run, error)
+	ListRuns(context.Context, *ListRunsRequest) (*ListRunsResponse, error)
+	CreateRun(context.Context, *CreateRunRequest) (*Run, error)
+	UpdateRun(context.Context, *UpdateRunRequest) (*Run, error)
+	DeleteRun(context.Context, *DeleteRunRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedPetStoreServiceServer()
 }
 
@@ -379,6 +517,36 @@ func (UnimplementedPetStoreServiceServer) PatchAccessKey(context.Context, *Patch
 }
 func (UnimplementedPetStoreServiceServer) DeleteAccessKey(context.Context, *DeleteAccessKeyRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteAccessKey not implemented")
+}
+func (UnimplementedPetStoreServiceServer) GetShelter(context.Context, *GetShelterRequest) (*Shelter, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetShelter not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListShelters(context.Context, *ListSheltersRequest) (*ListSheltersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListShelters not implemented")
+}
+func (UnimplementedPetStoreServiceServer) CreateShelter(context.Context, *CreateShelterRequest) (*Shelter, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateShelter not implemented")
+}
+func (UnimplementedPetStoreServiceServer) UpdateShelter(context.Context, *UpdateShelterRequest) (*Shelter, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateShelter not implemented")
+}
+func (UnimplementedPetStoreServiceServer) DeleteShelter(context.Context, *DeleteShelterRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteShelter not implemented")
+}
+func (UnimplementedPetStoreServiceServer) GetRun(context.Context, *GetRunRequest) (*Run, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetRun not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListRuns(context.Context, *ListRunsRequest) (*ListRunsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRuns not implemented")
+}
+func (UnimplementedPetStoreServiceServer) CreateRun(context.Context, *CreateRunRequest) (*Run, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateRun not implemented")
+}
+func (UnimplementedPetStoreServiceServer) UpdateRun(context.Context, *UpdateRunRequest) (*Run, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateRun not implemented")
+}
+func (UnimplementedPetStoreServiceServer) DeleteRun(context.Context, *DeleteRunRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteRun not implemented")
 }
 func (UnimplementedPetStoreServiceServer) mustEmbedUnimplementedPetStoreServiceServer() {}
 func (UnimplementedPetStoreServiceServer) testEmbeddedByValue()                         {}
@@ -743,6 +911,186 @@ func _PetStoreService_DeleteAccessKey_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PetStoreService_GetShelter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetShelterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).GetShelter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_GetShelter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).GetShelter(ctx, req.(*GetShelterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListShelters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSheltersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListShelters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListShelters_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListShelters(ctx, req.(*ListSheltersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_CreateShelter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShelterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).CreateShelter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_CreateShelter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).CreateShelter(ctx, req.(*CreateShelterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_UpdateShelter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateShelterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).UpdateShelter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_UpdateShelter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).UpdateShelter(ctx, req.(*UpdateShelterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_DeleteShelter_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteShelterRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).DeleteShelter(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_DeleteShelter_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).DeleteShelter(ctx, req.(*DeleteShelterRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_GetRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).GetRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_GetRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).GetRun(ctx, req.(*GetRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListRuns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRunsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListRuns(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListRuns_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListRuns(ctx, req.(*ListRunsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_CreateRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).CreateRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_CreateRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).CreateRun(ctx, req.(*CreateRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_UpdateRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).UpdateRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_UpdateRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).UpdateRun(ctx, req.(*UpdateRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_DeleteRun_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRunRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).DeleteRun(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_DeleteRun_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).DeleteRun(ctx, req.(*DeleteRunRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PetStoreService_ServiceDesc is the grpc.ServiceDesc for PetStoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -825,6 +1173,46 @@ var PetStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteAccessKey",
 			Handler:    _PetStoreService_DeleteAccessKey_Handler,
+		},
+		{
+			MethodName: "GetShelter",
+			Handler:    _PetStoreService_GetShelter_Handler,
+		},
+		{
+			MethodName: "ListShelters",
+			Handler:    _PetStoreService_ListShelters_Handler,
+		},
+		{
+			MethodName: "CreateShelter",
+			Handler:    _PetStoreService_CreateShelter_Handler,
+		},
+		{
+			MethodName: "UpdateShelter",
+			Handler:    _PetStoreService_UpdateShelter_Handler,
+		},
+		{
+			MethodName: "DeleteShelter",
+			Handler:    _PetStoreService_DeleteShelter_Handler,
+		},
+		{
+			MethodName: "GetRun",
+			Handler:    _PetStoreService_GetRun_Handler,
+		},
+		{
+			MethodName: "ListRuns",
+			Handler:    _PetStoreService_ListRuns_Handler,
+		},
+		{
+			MethodName: "CreateRun",
+			Handler:    _PetStoreService_CreateRun_Handler,
+		},
+		{
+			MethodName: "UpdateRun",
+			Handler:    _PetStoreService_UpdateRun_Handler,
+		},
+		{
+			MethodName: "DeleteRun",
+			Handler:    _PetStoreService_DeleteRun_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -30,7 +30,7 @@ func TestNormalizeFields(t *testing.T) {
 					Immutable: []string{"type"},
 					Computed:  []string{"create_time"},
 					Sensitive: []string{"labels"},
-					JSON:      []string{"config", "metadata"},
+					JSON:      []string{"config", "metadata", "notes"},
 				}
 			},
 			assert: func(t *testing.T, got []gentf.Field) {
@@ -39,7 +39,7 @@ func TestNormalizeFields(t *testing.T) {
 				for _, f := range got {
 					byName[f.ProtoName] = f
 				}
-				require.Len(t, got, 16)
+				require.Len(t, got, 18)
 
 				assert.Equal(t, gentf.FieldString, byName["name"].Kind)
 				assert.True(t, byName["name"].Computed)
@@ -68,7 +68,7 @@ func TestNormalizeFields(t *testing.T) {
 		},
 		"a singular message left out of the JSON list becomes a nested attribute": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"}}
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata", "notes"}}
 			},
 			assert: func(t *testing.T, got []gentf.Field) {
 
@@ -106,7 +106,7 @@ func TestNormalizeFields(t *testing.T) {
 				return petEntry(), gentf.Resource{
 					Immutable: []string{"intake_code"},
 					InputOnly: []string{"intake_code", "intake_age_days"},
-					JSON:      []string{"config", "metadata"},
+					JSON:      []string{"config", "metadata", "notes"},
 				}
 			},
 			assert: func(t *testing.T, got []gentf.Field) {
@@ -148,17 +148,17 @@ func TestNormalizeFields_Panics(t *testing.T) {
 	cases := map[string]s{
 		"unknown field reference lists valid names": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{Required: []string{"nope"}, JSON: []string{"config", "metadata"}}
+				return petEntry(), gentf.Resource{Required: []string{"nope"}, JSON: []string{"config", "metadata", "notes"}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t,
-					`Pet: Required references unknown field "nope" (fields: age, buddy_id, config, create_time, display_name, feeding, grooming_interval, intake_age_days, intake_code, labels, metadata, name, tags, type, vaccinated, weight)`,
+					`Pet: Required references unknown field "nope" (fields: age, buddy_id, config, create_time, display_name, feeding, grooming_interval, intake_age_days, intake_code, labels, metadata, name, notes, tags, type, vaccinated, vaccinations, weight)`,
 					f)
 			},
 		},
 		"required and computed conflict": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{Required: []string{"create_time"}, Computed: []string{"create_time"}, JSON: []string{"config", "metadata"}}
+				return petEntry(), gentf.Resource{Required: []string{"create_time"}, Computed: []string{"create_time"}, JSON: []string{"config", "metadata", "notes"}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t, "Pet.create_time: field cannot be both required and computed", f)
@@ -174,7 +174,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 		},
 		"JSON marker on a non-Any field": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"labels", "config", "metadata"}}
+				return petEntry(), gentf.Resource{JSON: []string{"labels", "config", "metadata", "notes"}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t, "Pet.labels: JSON marker applies only to message-typed fields", f)
@@ -193,7 +193,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 				return petEntry(), gentf.Resource{
 					InputOnly: []string{"create_time"},
 					Computed:  []string{"create_time"},
-					JSON:      []string{"config", "metadata"},
+					JSON:      []string{"config", "metadata", "notes"},
 				}
 			},
 			assert: func(t *testing.T, f func()) {
@@ -216,7 +216,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 		},
 		"a reference to an unknown field": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"},
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata", "notes"},
 					References: map[string]gentf.Reference{"nope_id": {Target: "pet", Prefix: "p"}}}
 			},
 			assert: func(t *testing.T, f func()) {
@@ -225,7 +225,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 		},
 		"a reference that is not a string": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"},
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata", "notes"},
 					References: map[string]gentf.Reference{"age": {Target: "pet", Prefix: "p"}}}
 			},
 			assert: func(t *testing.T, f func()) {
@@ -234,20 +234,20 @@ func TestNormalizeFields_Panics(t *testing.T) {
 		},
 		"a computed reference": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"}, Computed: []string{"buddy_id"},
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata", "notes"}, Computed: []string{"buddy_id"},
 					References: map[string]gentf.Reference{"buddy_id": {Target: "pet", Prefix: "p"}}}
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t, `Pet.buddy_id: a reference is an input; it cannot be computed`, f)
 			},
 		},
-		"a reference without a prefix": {
+		"a reference without a target": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
-				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata"},
-					References: map[string]gentf.Reference{"buddy_id": {Target: "pet"}}}
+				return petEntry(), gentf.Resource{JSON: []string{"config", "metadata", "notes"},
+					References: map[string]gentf.Reference{"buddy_id": {Prefix: "p"}}}
 			},
 			assert: func(t *testing.T, f func()) {
-				assert.PanicsWithValue(t, `Pet.buddy_id: a Reference needs both Target and Prefix`, f)
+				assert.PanicsWithValue(t, `Pet.buddy_id: a Reference needs a Target`, f)
 			},
 		},
 		"non-message type": {

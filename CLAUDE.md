@@ -33,6 +33,7 @@ pkg/              # runtime imported by generated code (returns errors)
     reference.go  # ReferenceID: the prefix validator on attributes holding another resource's id
     assoc.go      # Association runtime: authoritative member sets
     duration.go   # ParseDuration / FormatDuration / DurationValue (keep the written spelling)
+    collection.go # KeepEmpty (a written [] or {} reads back as such), JSON-array lists of messages
     enum.go       # EnumValue (an explicit zero reads back as written)
 examples/petstore # end-to-end example; generated/ is the golden output contract
   proto/          # toy proto + AIP service (buf; regeneration is manual, output committed)
@@ -102,8 +103,34 @@ Generation panics when it collides with a parent identifier, a proto field,
 or a minted resource's own attribute (`checkIDAttribute`); set `TypeName` to
 rename.
 
+`Resource.IDField` covers APIs whose entity carries its own id in a field
+and takes it from there on create — riteSuite's estate records
+(`Facility.facility_id`, whose name is `facilities/{facility_id}`); the server
+ignores `name`. That field *is* the id attribute: no `<type_name>_id` is
+added, so nothing collides, and the id reaches the API through the ordinary
+`ToProto`. It is Required with `RequiresReplace`; listed in `Computed` too, it
+is Optional+Computed with `RequiresReplace` and `UseStateForUnknown`, for an
+API that mints an id when the create leaves the field empty (sent when set,
+read back when not). `Crud.storeID` and import fill it from the last name
+segment like any id attribute. Exclusive with `CallerNamed`; a non-string,
+input-only, sensitive or `name` id field panics. `Shelter` (required) and
+`Run` (minted when unset) in the petstore example are the golden cases.
+
+A scope identifier the entity also carries as a proto field of the same
+name (`Run.shelter_id` under `shelters/{shelter_id}/runs/{run_id}`, riteSuite's
+`Lane.site_id`) is one attribute, not a collision (`Field.ParentID`). The
+parent path carries it to the API, so `ToProto` and `UpdateMask` skip it;
+`FromProto` reads it from the entity, and `Crud` fills it from the name after
+every state write and on import (`CrudParams.ParentAttributes`), so it holds
+even against a server that does not echo it. It is Optional+Computed with
+`RequiresReplace` and `UseStateForUnknown`: an imported resource has it, and a
+resource that took the provider default shows it. It takes no behavior list
+but `Computed`, and validates through `Spec.ScopeReferences`, not
+`Resource.References`.
+
 A `Reference{Target, Prefix}` marks a string attribute holding another
-resource's id: `Resource.References` and `ConfigDataSource.References` by
+resource's id (an empty `Prefix` is for ids that carry none, such as
+riteSuite's `m50`: then only a value with a `/`, a full name, fails): `Resource.References` and `ConfigDataSource.References` by
 proto field name, `Spec.ScopeReferences` by parent attribute name (every
 resource's parent attributes and every plural data source's). Each emits
 `tf.ReferenceID(prefix, target, example)`, a plan-time validator: the value
@@ -197,6 +224,8 @@ strings on every resource schema.
 | google.protobuf.Struct (JSON) | jsontypes.Normalized (JSON object) | jsontypes.Normalized |
 | any other message (JSON)    | jsontypes.Normalized (protojson)   | jsontypes.Normalized |
 | singular message (no JSON marker) | SingleNestedAttribute       | types.Object     |
+| repeated message (no JSON marker) | ListNestedAttribute         | types.List of types.Object |
+| repeated message (JSON)     | jsontypes.Normalized (JSON array of protojson) | jsontypes.Normalized |
 
 Any and Struct MUST be listed in the `JSON` list. Any other singular
 message field takes one of two lanes:
@@ -222,6 +251,16 @@ source — it reads in protojson form with trailing zeros trimmed (`"90s"`,
 `"0.5s"`). Inside a nested attribute the comparison runs against the prior
 object's child, so a nested duration keeps its spelling too.
 
+A **repeated message** takes the same two lanes. Left out of `JSON` it is a
+`ListNestedAttribute` over the message's fields, one generated
+`<Entity><Field>Model` per element (`Pet.vaccinations`); each element reads
+back seeded from the prior list's element at its position, so durations and
+explicit zero enums keep their spelling per element, and the whole list is
+one update-mask path. Listed in `JSON` it is a JSON array whose elements are
+each the element message's protojson (`Pet.notes`), through
+`pkg/tf.JSONListToProto` / `JSONListValue`; that is the lane for an element
+message holding a message, and for repeated well-known types.
+
 Nested attributes nest **one level**: a message inside a nested message
 panics, and belongs on the JSON lane. Nested children are Optional+Computed
 with no plan modifiers — `UseStateForUnknown` on a child reads prior state
@@ -229,8 +268,8 @@ at its own path, which is null whenever the parent object was null, and
 would pin the child against what the server returns. The whole object is
 one update-mask path, which is what replacing a message means.
 
-Anything else (repeated messages, bytes, real oneofs, non-string
-lists/maps) panics with a "not yet supported" message.
+Anything else (bytes, real oneofs, repeated scalars other than string,
+non-string maps) panics with a "not yet supported" message.
 
 ## Any-config pattern
 
@@ -269,7 +308,10 @@ unsetting requires an explicit zero value.
 **Read-side null convention** (to be refined with proto3 `optional`
 presence in the CRUD runtime task): strings, enums, lists, maps,
 timestamps and durations read a proto zero value as Terraform null — except
-`name` and `Required` fields, which always carry a value. Bools and numbers
+`name` and `Required` fields, which always carry a value. A list, map or
+JSON array the practitioner wrote empty (`[]`, `{}`) reads back empty
+(`pkg/tf.KeepEmpty`): null there would be an inconsistent result after
+apply. Bools and numbers
 always carry a value, because proto3 cannot distinguish zero from unset.
 
 **An enum's zero value reads back as written.** Some enums' zero is a real
@@ -329,8 +371,10 @@ runtime), caller-assigned resource ids (`Resource.CallerNamed`), typed
 nested attributes (one level, resources and config data sources alike),
 input-only fields (`Resource.InputOnly`), minted resources with once-only
 values and `keepers` (`Resource.Mint`), the `<type_name>_id` attribute on
-every resource and data source, and prefix-validated references
-(`Reference`).
+every resource and data source, prefix-validated references (`Reference`,
+prefix-less included), ids in an entity field (`Resource.IDField`), parent
+identifiers the entity carries, and repeated messages (list-nested and
+JSON-array lanes).
 
 Plural data sources (`DataSourceList`): the scope identifiers are optional
 attributes over the provider defaults, and the entities arrive as a list of
@@ -346,7 +390,8 @@ never-echoed case, `Mint` the server-minted secret kept in state, neither
 the caller-supplied secret never stored; no generated resource needs one
 yet), proto3 `optional` presence in the null convention,
 Wiring/DI index variant, a server-side filter on list data sources, nested
-attributes more than one level deep. Auth ships separately in
+attributes more than one level deep, a resource with no Delete (destroy
+forgets it), and a Get-less resource. Auth ships separately in
 `api-client-go/credentials/bearer`.
 
 ## Working in this repo
