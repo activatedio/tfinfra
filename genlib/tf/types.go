@@ -122,6 +122,13 @@ type Resource struct {
 	// UseUpdate selects the full-replace Update operation instead of Patch
 	// with an update mask.
 	UseUpdate bool
+	// DeleteForgets is for an API with no Delete<Entity> (Ops without
+	// OpDelete), where the record, once created, stays. Destroying the
+	// resource then removes it from Terraform state with a warning that the
+	// record remains, instead of failing; the resource's description says
+	// so. With a Delete<Entity> in Ops it panics: there is nothing to
+	// forget instead of.
+	DeleteForgets bool
 	// CallerNamed declares that the resource's own id comes from the caller
 	// rather than the server: the create request carries it in the entity's
 	// "name" field, and the server composes the full resource name from the

@@ -55,6 +55,10 @@ const (
 	PetStoreService_CreateRun_FullMethodName          = "/petstore.v1.PetStoreService/CreateRun"
 	PetStoreService_UpdateRun_FullMethodName          = "/petstore.v1.PetStoreService/UpdateRun"
 	PetStoreService_DeleteRun_FullMethodName          = "/petstore.v1.PetStoreService/DeleteRun"
+	PetStoreService_GetBreed_FullMethodName           = "/petstore.v1.PetStoreService/GetBreed"
+	PetStoreService_ListBreeds_FullMethodName         = "/petstore.v1.PetStoreService/ListBreeds"
+	PetStoreService_CreateBreed_FullMethodName        = "/petstore.v1.PetStoreService/CreateBreed"
+	PetStoreService_UpdateBreed_FullMethodName        = "/petstore.v1.PetStoreService/UpdateBreed"
 )
 
 // PetStoreServiceClient is the client API for PetStoreService service.
@@ -104,6 +108,11 @@ type PetStoreServiceClient interface {
 	CreateRun(ctx context.Context, in *CreateRunRequest, opts ...grpc.CallOption) (*Run, error)
 	UpdateRun(ctx context.Context, in *UpdateRunRequest, opts ...grpc.CallOption) (*Run, error)
 	DeleteRun(ctx context.Context, in *DeleteRunRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Breed has no Delete: a breed, once recorded, stays.
+	GetBreed(ctx context.Context, in *GetBreedRequest, opts ...grpc.CallOption) (*Breed, error)
+	ListBreeds(ctx context.Context, in *ListBreedsRequest, opts ...grpc.CallOption) (*ListBreedsResponse, error)
+	CreateBreed(ctx context.Context, in *CreateBreedRequest, opts ...grpc.CallOption) (*Breed, error)
+	UpdateBreed(ctx context.Context, in *UpdateBreedRequest, opts ...grpc.CallOption) (*Breed, error)
 }
 
 type petStoreServiceClient struct {
@@ -404,6 +413,46 @@ func (c *petStoreServiceClient) DeleteRun(ctx context.Context, in *DeleteRunRequ
 	return out, nil
 }
 
+func (c *petStoreServiceClient) GetBreed(ctx context.Context, in *GetBreedRequest, opts ...grpc.CallOption) (*Breed, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Breed)
+	err := c.cc.Invoke(ctx, PetStoreService_GetBreed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) ListBreeds(ctx context.Context, in *ListBreedsRequest, opts ...grpc.CallOption) (*ListBreedsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBreedsResponse)
+	err := c.cc.Invoke(ctx, PetStoreService_ListBreeds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) CreateBreed(ctx context.Context, in *CreateBreedRequest, opts ...grpc.CallOption) (*Breed, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Breed)
+	err := c.cc.Invoke(ctx, PetStoreService_CreateBreed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *petStoreServiceClient) UpdateBreed(ctx context.Context, in *UpdateBreedRequest, opts ...grpc.CallOption) (*Breed, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Breed)
+	err := c.cc.Invoke(ctx, PetStoreService_UpdateBreed_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PetStoreServiceServer is the server API for PetStoreService service.
 // All implementations must embed UnimplementedPetStoreServiceServer
 // for forward compatibility.
@@ -451,6 +500,11 @@ type PetStoreServiceServer interface {
 	CreateRun(context.Context, *CreateRunRequest) (*Run, error)
 	UpdateRun(context.Context, *UpdateRunRequest) (*Run, error)
 	DeleteRun(context.Context, *DeleteRunRequest) (*emptypb.Empty, error)
+	// Breed has no Delete: a breed, once recorded, stays.
+	GetBreed(context.Context, *GetBreedRequest) (*Breed, error)
+	ListBreeds(context.Context, *ListBreedsRequest) (*ListBreedsResponse, error)
+	CreateBreed(context.Context, *CreateBreedRequest) (*Breed, error)
+	UpdateBreed(context.Context, *UpdateBreedRequest) (*Breed, error)
 	mustEmbedUnimplementedPetStoreServiceServer()
 }
 
@@ -547,6 +601,18 @@ func (UnimplementedPetStoreServiceServer) UpdateRun(context.Context, *UpdateRunR
 }
 func (UnimplementedPetStoreServiceServer) DeleteRun(context.Context, *DeleteRunRequest) (*emptypb.Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteRun not implemented")
+}
+func (UnimplementedPetStoreServiceServer) GetBreed(context.Context, *GetBreedRequest) (*Breed, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBreed not implemented")
+}
+func (UnimplementedPetStoreServiceServer) ListBreeds(context.Context, *ListBreedsRequest) (*ListBreedsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBreeds not implemented")
+}
+func (UnimplementedPetStoreServiceServer) CreateBreed(context.Context, *CreateBreedRequest) (*Breed, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBreed not implemented")
+}
+func (UnimplementedPetStoreServiceServer) UpdateBreed(context.Context, *UpdateBreedRequest) (*Breed, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateBreed not implemented")
 }
 func (UnimplementedPetStoreServiceServer) mustEmbedUnimplementedPetStoreServiceServer() {}
 func (UnimplementedPetStoreServiceServer) testEmbeddedByValue()                         {}
@@ -1091,6 +1157,78 @@ func _PetStoreService_DeleteRun_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PetStoreService_GetBreed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBreedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).GetBreed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_GetBreed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).GetBreed(ctx, req.(*GetBreedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_ListBreeds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBreedsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).ListBreeds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_ListBreeds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).ListBreeds(ctx, req.(*ListBreedsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_CreateBreed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBreedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).CreateBreed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_CreateBreed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).CreateBreed(ctx, req.(*CreateBreedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PetStoreService_UpdateBreed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateBreedRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PetStoreServiceServer).UpdateBreed(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PetStoreService_UpdateBreed_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PetStoreServiceServer).UpdateBreed(ctx, req.(*UpdateBreedRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PetStoreService_ServiceDesc is the grpc.ServiceDesc for PetStoreService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1213,6 +1351,22 @@ var PetStoreService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteRun",
 			Handler:    _PetStoreService_DeleteRun_Handler,
+		},
+		{
+			MethodName: "GetBreed",
+			Handler:    _PetStoreService_GetBreed_Handler,
+		},
+		{
+			MethodName: "ListBreeds",
+			Handler:    _PetStoreService_ListBreeds_Handler,
+		},
+		{
+			MethodName: "CreateBreed",
+			Handler:    _PetStoreService_CreateBreed_Handler,
+		},
+		{
+			MethodName: "UpdateBreed",
+			Handler:    _PetStoreService_UpdateBreed_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

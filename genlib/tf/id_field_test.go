@@ -261,3 +261,21 @@ func TestNormalizeFields_Volatile(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteForgets_WithDeletePanics(t *testing.T) {
+
+	spec := &gentf.Spec{Package: "generated", Entries: []gentf.Entry{{
+		Type: reflect.TypeFor[petstorev1.Shelter](),
+		Implementations: []any{gentf.Resource{
+			Ops:           gentf.OpGet | gentf.OpList | gentf.OpCreate | gentf.OpUpdate | gentf.OpDelete,
+			ClientType:    reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+			UseUpdate:     true,
+			IDField:       "shelter_id",
+			DeleteForgets: true,
+		}},
+	}}}
+
+	assert.PanicsWithValue(t, "Shelter: DeleteForgets is for an API with no DeleteShelter; drop OpDelete from Ops, or drop DeleteForgets", func() {
+		gentf.NewRegistry().RunDirectoryPathHandler(t.TempDir(), spec)
+	})
+}

@@ -165,6 +165,13 @@ result. A volatile field has no plan modifier, so any update plans it
 unknown, and a plan with no change keeps it. Listing one implies `Computed`.
 `Pet.update_time` is the golden case.
 
+`Resource.DeleteForgets` covers an API with no `Delete<Entity>` (Ops without
+`OpDelete`), whose records, once created, stay: riteSuite's retention
+classes. Destroying the resource removes it from state with a warning that
+the record remains, rather than failing every `terraform destroy` that
+includes one; the resource description says so. With a Delete in Ops it
+panics. `Breed` is the golden case.
+
 `Resource.InputOnly` covers fields the API consumes but never echoes back:
 creation parameters that describe how to make something rather than what was
 made (a certificate's `validity_days`, `key_size`, `subject_common_name`),
@@ -399,8 +406,7 @@ never-echoed case, `Mint` the server-minted secret kept in state, neither
 the caller-supplied secret never stored; no generated resource needs one
 yet), proto3 `optional` presence in the null convention,
 Wiring/DI index variant, a server-side filter on list data sources, nested
-attributes more than one level deep, a resource with no Delete (destroy
-forgets it), and a Get-less resource. Auth ships separately in
+attributes more than one level deep, and a Get-less resource. Auth ships separately in
 `api-client-go/credentials/bearer`.
 
 ## Working in this repo

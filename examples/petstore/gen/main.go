@@ -137,6 +137,21 @@ func main() {
 				},
 			},
 			{
+				// Breed has no Delete: destroying one forgets it.
+				Type: reflect.TypeFor[petstorev1.Breed](),
+				Implementations: []any{
+					gentf.Resource{
+						Scope:         tf.ScopeNone,
+						Ops:           gentf.OpGet | gentf.OpList | gentf.OpCreate | gentf.OpUpdate,
+						ClientType:    reflect.TypeFor[petstorev1.PetStoreServiceClient](),
+						Client:        petstore,
+						UseUpdate:     true,
+						IDField:       "breed_id",
+						DeleteForgets: true,
+					},
+				},
+			},
+			{
 				Type: reflect.TypeFor[petstorev1.CollarConfig](),
 				Implementations: []any{
 					gentf.ConfigDataSource{

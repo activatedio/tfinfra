@@ -109,6 +109,10 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	res, _ := GetImplementation[Resource](fm.Entry)
 	fields := NormalizeFields(fm.Entry, res)
 	cm := AnalyzeClient(fm.Entry, res)
+	if res.DeleteForgets && cm.Delete != nil {
+		panic(fmt.Sprintf("%s: DeleteForgets is for an API with no Delete%s; drop OpDelete from Ops, or drop DeleteForgets",
+			entityType(fm.Entry).Name(), entityType(fm.Entry).Name()))
+	}
 	cm.Mint = AnalyzeMint(fm.Entry, res, fields)
 	n := namesFor(fm.Entry, res)
 	n.Examples = referenceExamples(fm.Spec)

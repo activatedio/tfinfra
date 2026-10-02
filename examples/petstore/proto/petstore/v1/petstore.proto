@@ -64,6 +64,12 @@ service PetStoreService {
   rpc CreateRun(CreateRunRequest) returns (Run);
   rpc UpdateRun(UpdateRunRequest) returns (Run);
   rpc DeleteRun(DeleteRunRequest) returns (google.protobuf.Empty);
+
+  // Breed has no Delete: a breed, once recorded, stays.
+  rpc GetBreed(GetBreedRequest) returns (Breed);
+  rpc ListBreeds(ListBreedsRequest) returns (ListBreedsResponse);
+  rpc CreateBreed(CreateBreedRequest) returns (Breed);
+  rpc UpdateBreed(UpdateBreedRequest) returns (Breed);
 }
 
 message GetPetRequest {
@@ -423,4 +429,37 @@ message UpdateRunRequest {
 
 message DeleteRunRequest {
   string name = 1;
+}
+
+// Breed is a record the API never deletes: there is no DeleteBreed, and
+// destroying the resource forgets it.
+message Breed {
+  string name = 1;
+  string breed_id = 2;
+  string display_name = 3;
+}
+
+message GetBreedRequest {
+  string name = 1;
+}
+
+message ListBreedsRequest {
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+}
+
+message ListBreedsResponse {
+  repeated Breed breeds = 1;
+  string next_page_token = 2;
+}
+
+message CreateBreedRequest {
+  string parent = 1;
+  Breed breed = 2;
+}
+
+message UpdateBreedRequest {
+  string name = 1;
+  Breed breed = 2;
 }

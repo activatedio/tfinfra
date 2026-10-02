@@ -3093,6 +3093,328 @@ func (x *DeleteRunRequest) GetName() string {
 	return ""
 }
 
+// Breed is a record the API never deletes: there is no DeleteBreed, and
+// destroying the resource forgets it.
+type Breed struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	BreedId       string                 `protobuf:"bytes,2,opt,name=breed_id,json=breedId,proto3" json:"breed_id,omitempty"`
+	DisplayName   string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Breed) Reset() {
+	*x = Breed{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Breed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Breed) ProtoMessage() {}
+
+func (x *Breed) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Breed.ProtoReflect.Descriptor instead.
+func (*Breed) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *Breed) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Breed) GetBreedId() string {
+	if x != nil {
+		return x.BreedId
+	}
+	return ""
+}
+
+func (x *Breed) GetDisplayName() string {
+	if x != nil {
+		return x.DisplayName
+	}
+	return ""
+}
+
+type GetBreedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBreedRequest) Reset() {
+	*x = GetBreedRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBreedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBreedRequest) ProtoMessage() {}
+
+func (x *GetBreedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBreedRequest.ProtoReflect.Descriptor instead.
+func (*GetBreedRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *GetBreedRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type ListBreedsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	PageToken     string                 `protobuf:"bytes,3,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBreedsRequest) Reset() {
+	*x = ListBreedsRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBreedsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBreedsRequest) ProtoMessage() {}
+
+func (x *ListBreedsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBreedsRequest.ProtoReflect.Descriptor instead.
+func (*ListBreedsRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *ListBreedsRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *ListBreedsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListBreedsRequest) GetPageToken() string {
+	if x != nil {
+		return x.PageToken
+	}
+	return ""
+}
+
+type ListBreedsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Breeds        []*Breed               `protobuf:"bytes,1,rep,name=breeds,proto3" json:"breeds,omitempty"`
+	NextPageToken string                 `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3" json:"next_page_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBreedsResponse) Reset() {
+	*x = ListBreedsResponse{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBreedsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBreedsResponse) ProtoMessage() {}
+
+func (x *ListBreedsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBreedsResponse.ProtoReflect.Descriptor instead.
+func (*ListBreedsResponse) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *ListBreedsResponse) GetBreeds() []*Breed {
+	if x != nil {
+		return x.Breeds
+	}
+	return nil
+}
+
+func (x *ListBreedsResponse) GetNextPageToken() string {
+	if x != nil {
+		return x.NextPageToken
+	}
+	return ""
+}
+
+type CreateBreedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Parent        string                 `protobuf:"bytes,1,opt,name=parent,proto3" json:"parent,omitempty"`
+	Breed         *Breed                 `protobuf:"bytes,2,opt,name=breed,proto3" json:"breed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateBreedRequest) Reset() {
+	*x = CreateBreedRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[54]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBreedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBreedRequest) ProtoMessage() {}
+
+func (x *CreateBreedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[54]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBreedRequest.ProtoReflect.Descriptor instead.
+func (*CreateBreedRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{54}
+}
+
+func (x *CreateBreedRequest) GetParent() string {
+	if x != nil {
+		return x.Parent
+	}
+	return ""
+}
+
+func (x *CreateBreedRequest) GetBreed() *Breed {
+	if x != nil {
+		return x.Breed
+	}
+	return nil
+}
+
+type UpdateBreedRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Breed         *Breed                 `protobuf:"bytes,2,opt,name=breed,proto3" json:"breed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdateBreedRequest) Reset() {
+	*x = UpdateBreedRequest{}
+	mi := &file_petstore_v1_petstore_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdateBreedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdateBreedRequest) ProtoMessage() {}
+
+func (x *UpdateBreedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_petstore_v1_petstore_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdateBreedRequest.ProtoReflect.Descriptor instead.
+func (*UpdateBreedRequest) Descriptor() ([]byte, []int) {
+	return file_petstore_v1_petstore_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *UpdateBreedRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateBreedRequest) GetBreed() *Breed {
+	if x != nil {
+		return x.Breed
+	}
+	return nil
+}
+
 var File_petstore_v1_petstore_proto protoreflect.FileDescriptor
 
 const file_petstore_v1_petstore_proto_rawDesc = "" +
@@ -3312,7 +3634,27 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\"\n" +
 	"\x03run\x18\x02 \x01(\v2\x10.petstore.v1.RunR\x03run\"&\n" +
 	"\x10DeleteRunRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name*G\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"Y\n" +
+	"\x05Breed\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x19\n" +
+	"\bbreed_id\x18\x02 \x01(\tR\abreedId\x12!\n" +
+	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\"%\n" +
+	"\x0fGetBreedRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"g\n" +
+	"\x11ListBreedsRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"page_token\x18\x03 \x01(\tR\tpageToken\"h\n" +
+	"\x12ListBreedsResponse\x12*\n" +
+	"\x06breeds\x18\x01 \x03(\v2\x12.petstore.v1.BreedR\x06breeds\x12&\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\"V\n" +
+	"\x12CreateBreedRequest\x12\x16\n" +
+	"\x06parent\x18\x01 \x01(\tR\x06parent\x12(\n" +
+	"\x05breed\x18\x02 \x01(\v2\x12.petstore.v1.BreedR\x05breed\"R\n" +
+	"\x12UpdateBreedRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
+	"\x05breed\x18\x02 \x01(\v2\x12.petstore.v1.BreedR\x05breed*G\n" +
 	"\aPetType\x12\x18\n" +
 	"\x14PET_TYPE_UNSPECIFIED\x10\x00\x12\x10\n" +
 	"\fPET_TYPE_DOG\x10\x01\x12\x10\n" +
@@ -3323,7 +3665,7 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"ROUTE_ORAL\x10\x01**\n" +
 	"\x04Bowl\x12\x11\n" +
 	"\rBOWL_STANDARD\x10\x00\x12\x0f\n" +
-	"\vBOWL_RAISED\x10\x012\x8e\x10\n" +
+	"\vBOWL_RAISED\x10\x012\xa3\x12\n" +
 	"\x0fPetStoreService\x126\n" +
 	"\x06GetPet\x12\x1a.petstore.v1.GetPetRequest\x1a\x10.petstore.v1.Pet\x12G\n" +
 	"\bListPets\x12\x1c.petstore.v1.ListPetsRequest\x1a\x1d.petstore.v1.ListPetsResponse\x12<\n" +
@@ -3354,7 +3696,12 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\bListRuns\x12\x1c.petstore.v1.ListRunsRequest\x1a\x1d.petstore.v1.ListRunsResponse\x12<\n" +
 	"\tCreateRun\x12\x1d.petstore.v1.CreateRunRequest\x1a\x10.petstore.v1.Run\x12<\n" +
 	"\tUpdateRun\x12\x1d.petstore.v1.UpdateRunRequest\x1a\x10.petstore.v1.Run\x12B\n" +
-	"\tDeleteRun\x12\x1d.petstore.v1.DeleteRunRequest\x1a\x16.google.protobuf.EmptyBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
+	"\tDeleteRun\x12\x1d.petstore.v1.DeleteRunRequest\x1a\x16.google.protobuf.Empty\x12<\n" +
+	"\bGetBreed\x12\x1c.petstore.v1.GetBreedRequest\x1a\x12.petstore.v1.Breed\x12M\n" +
+	"\n" +
+	"ListBreeds\x12\x1e.petstore.v1.ListBreedsRequest\x1a\x1f.petstore.v1.ListBreedsResponse\x12B\n" +
+	"\vCreateBreed\x12\x1f.petstore.v1.CreateBreedRequest\x1a\x12.petstore.v1.Breed\x12B\n" +
+	"\vUpdateBreed\x12\x1f.petstore.v1.UpdateBreedRequest\x1a\x12.petstore.v1.BreedBMZKgithub.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1;petstorev1b\x06proto3"
 
 var (
 	file_petstore_v1_petstore_proto_rawDescOnce sync.Once
@@ -3369,7 +3716,7 @@ func file_petstore_v1_petstore_proto_rawDescGZIP() []byte {
 }
 
 var file_petstore_v1_petstore_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_petstore_v1_petstore_proto_msgTypes = make([]protoimpl.MessageInfo, 58)
 var file_petstore_v1_petstore_proto_goTypes = []any{
 	(PetType)(0),                      // 0: petstore.v1.PetType
 	(Route)(0),                        // 1: petstore.v1.Route
@@ -3424,38 +3771,44 @@ var file_petstore_v1_petstore_proto_goTypes = []any{
 	(*CreateRunRequest)(nil),          // 50: petstore.v1.CreateRunRequest
 	(*UpdateRunRequest)(nil),          // 51: petstore.v1.UpdateRunRequest
 	(*DeleteRunRequest)(nil),          // 52: petstore.v1.DeleteRunRequest
-	nil,                               // 53: petstore.v1.Pet.LabelsEntry
-	nil,                               // 54: petstore.v1.Feeding.NotesEntry
-	(*fieldmaskpb.FieldMask)(nil),     // 55: google.protobuf.FieldMask
-	(*timestamppb.Timestamp)(nil),     // 56: google.protobuf.Timestamp
-	(*anypb.Any)(nil),                 // 57: google.protobuf.Any
-	(*structpb.Struct)(nil),           // 58: google.protobuf.Struct
-	(*durationpb.Duration)(nil),       // 59: google.protobuf.Duration
-	(*emptypb.Empty)(nil),             // 60: google.protobuf.Empty
+	(*Breed)(nil),                     // 53: petstore.v1.Breed
+	(*GetBreedRequest)(nil),           // 54: petstore.v1.GetBreedRequest
+	(*ListBreedsRequest)(nil),         // 55: petstore.v1.ListBreedsRequest
+	(*ListBreedsResponse)(nil),        // 56: petstore.v1.ListBreedsResponse
+	(*CreateBreedRequest)(nil),        // 57: petstore.v1.CreateBreedRequest
+	(*UpdateBreedRequest)(nil),        // 58: petstore.v1.UpdateBreedRequest
+	nil,                               // 59: petstore.v1.Pet.LabelsEntry
+	nil,                               // 60: petstore.v1.Feeding.NotesEntry
+	(*fieldmaskpb.FieldMask)(nil),     // 61: google.protobuf.FieldMask
+	(*timestamppb.Timestamp)(nil),     // 62: google.protobuf.Timestamp
+	(*anypb.Any)(nil),                 // 63: google.protobuf.Any
+	(*structpb.Struct)(nil),           // 64: google.protobuf.Struct
+	(*durationpb.Duration)(nil),       // 65: google.protobuf.Duration
+	(*emptypb.Empty)(nil),             // 66: google.protobuf.Empty
 }
 var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	10, // 0: petstore.v1.ListPetsResponse.pets:type_name -> petstore.v1.Pet
 	10, // 1: petstore.v1.CreatePetRequest.pet:type_name -> petstore.v1.Pet
 	10, // 2: petstore.v1.UpdatePetRequest.pet:type_name -> petstore.v1.Pet
 	10, // 3: petstore.v1.PatchPetRequest.pet:type_name -> petstore.v1.Pet
-	55, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
+	61, // 4: petstore.v1.PatchPetRequest.update_mask:type_name -> google.protobuf.FieldMask
 	0,  // 5: petstore.v1.Pet.type:type_name -> petstore.v1.PetType
-	53, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
-	56, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
-	57, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
-	58, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
+	59, // 6: petstore.v1.Pet.labels:type_name -> petstore.v1.Pet.LabelsEntry
+	62, // 7: petstore.v1.Pet.create_time:type_name -> google.protobuf.Timestamp
+	63, // 8: petstore.v1.Pet.config:type_name -> google.protobuf.Any
+	64, // 9: petstore.v1.Pet.metadata:type_name -> google.protobuf.Struct
 	14, // 10: petstore.v1.Pet.feeding:type_name -> petstore.v1.Feeding
-	59, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
+	65, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
 	11, // 12: petstore.v1.Pet.vaccinations:type_name -> petstore.v1.Vaccination
 	12, // 13: petstore.v1.Pet.notes:type_name -> petstore.v1.Note
-	56, // 14: petstore.v1.Pet.update_time:type_name -> google.protobuf.Timestamp
-	56, // 15: petstore.v1.Vaccination.given_time:type_name -> google.protobuf.Timestamp
-	59, // 16: petstore.v1.Vaccination.valid_for:type_name -> google.protobuf.Duration
+	62, // 14: petstore.v1.Pet.update_time:type_name -> google.protobuf.Timestamp
+	62, // 15: petstore.v1.Vaccination.given_time:type_name -> google.protobuf.Timestamp
+	65, // 16: petstore.v1.Vaccination.valid_for:type_name -> google.protobuf.Duration
 	1,  // 17: petstore.v1.Vaccination.route:type_name -> petstore.v1.Route
 	13, // 18: petstore.v1.Note.author:type_name -> petstore.v1.Author
-	54, // 19: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
+	60, // 19: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
 	2,  // 20: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
-	59, // 21: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
+	65, // 21: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
 	17, // 22: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
 	16, // 23: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
 	18, // 24: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
@@ -3464,84 +3817,95 @@ var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	30, // 27: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
 	30, // 28: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
 	30, // 29: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
-	55, // 30: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	61, // 30: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
 	15, // 31: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
-	56, // 32: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
-	56, // 33: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
+	62, // 32: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
+	62, // 33: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
 	31, // 34: petstore.v1.ListAccessKeysResponse.access_keys:type_name -> petstore.v1.AccessKey
-	56, // 35: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	62, // 35: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
 	31, // 36: petstore.v1.MintAccessKeyResponse.access_key:type_name -> petstore.v1.AccessKey
 	31, // 37: petstore.v1.PatchAccessKeyRequest.access_key:type_name -> petstore.v1.AccessKey
-	55, // 38: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	61, // 38: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
 	39, // 39: petstore.v1.ListSheltersResponse.shelters:type_name -> petstore.v1.Shelter
 	39, // 40: petstore.v1.CreateShelterRequest.shelter:type_name -> petstore.v1.Shelter
 	39, // 41: petstore.v1.UpdateShelterRequest.shelter:type_name -> petstore.v1.Shelter
 	46, // 42: petstore.v1.ListRunsResponse.runs:type_name -> petstore.v1.Run
 	46, // 43: petstore.v1.CreateRunRequest.run:type_name -> petstore.v1.Run
 	46, // 44: petstore.v1.UpdateRunRequest.run:type_name -> petstore.v1.Run
-	3,  // 45: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	4,  // 46: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	6,  // 47: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	7,  // 48: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	8,  // 49: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	9,  // 50: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	22, // 51: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
-	23, // 52: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
-	25, // 53: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
-	26, // 54: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
-	27, // 55: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
-	28, // 56: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
-	19, // 57: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
-	20, // 58: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
-	32, // 59: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
-	33, // 60: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
-	35, // 61: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
-	37, // 62: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
-	38, // 63: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
-	40, // 64: petstore.v1.PetStoreService.GetShelter:input_type -> petstore.v1.GetShelterRequest
-	41, // 65: petstore.v1.PetStoreService.ListShelters:input_type -> petstore.v1.ListSheltersRequest
-	43, // 66: petstore.v1.PetStoreService.CreateShelter:input_type -> petstore.v1.CreateShelterRequest
-	44, // 67: petstore.v1.PetStoreService.UpdateShelter:input_type -> petstore.v1.UpdateShelterRequest
-	45, // 68: petstore.v1.PetStoreService.DeleteShelter:input_type -> petstore.v1.DeleteShelterRequest
-	47, // 69: petstore.v1.PetStoreService.GetRun:input_type -> petstore.v1.GetRunRequest
-	48, // 70: petstore.v1.PetStoreService.ListRuns:input_type -> petstore.v1.ListRunsRequest
-	50, // 71: petstore.v1.PetStoreService.CreateRun:input_type -> petstore.v1.CreateRunRequest
-	51, // 72: petstore.v1.PetStoreService.UpdateRun:input_type -> petstore.v1.UpdateRunRequest
-	52, // 73: petstore.v1.PetStoreService.DeleteRun:input_type -> petstore.v1.DeleteRunRequest
-	10, // 74: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	5,  // 75: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	10, // 76: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	10, // 77: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	10, // 78: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	60, // 79: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	30, // 80: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
-	24, // 81: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
-	30, // 82: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
-	30, // 83: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
-	30, // 84: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
-	60, // 85: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
-	60, // 86: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
-	21, // 87: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
-	31, // 88: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
-	34, // 89: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
-	36, // 90: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
-	31, // 91: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
-	60, // 92: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
-	39, // 93: petstore.v1.PetStoreService.GetShelter:output_type -> petstore.v1.Shelter
-	42, // 94: petstore.v1.PetStoreService.ListShelters:output_type -> petstore.v1.ListSheltersResponse
-	39, // 95: petstore.v1.PetStoreService.CreateShelter:output_type -> petstore.v1.Shelter
-	39, // 96: petstore.v1.PetStoreService.UpdateShelter:output_type -> petstore.v1.Shelter
-	60, // 97: petstore.v1.PetStoreService.DeleteShelter:output_type -> google.protobuf.Empty
-	46, // 98: petstore.v1.PetStoreService.GetRun:output_type -> petstore.v1.Run
-	49, // 99: petstore.v1.PetStoreService.ListRuns:output_type -> petstore.v1.ListRunsResponse
-	46, // 100: petstore.v1.PetStoreService.CreateRun:output_type -> petstore.v1.Run
-	46, // 101: petstore.v1.PetStoreService.UpdateRun:output_type -> petstore.v1.Run
-	60, // 102: petstore.v1.PetStoreService.DeleteRun:output_type -> google.protobuf.Empty
-	74, // [74:103] is the sub-list for method output_type
-	45, // [45:74] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	53, // 45: petstore.v1.ListBreedsResponse.breeds:type_name -> petstore.v1.Breed
+	53, // 46: petstore.v1.CreateBreedRequest.breed:type_name -> petstore.v1.Breed
+	53, // 47: petstore.v1.UpdateBreedRequest.breed:type_name -> petstore.v1.Breed
+	3,  // 48: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	4,  // 49: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	6,  // 50: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	7,  // 51: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	8,  // 52: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	9,  // 53: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	22, // 54: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
+	23, // 55: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
+	25, // 56: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
+	26, // 57: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
+	27, // 58: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
+	28, // 59: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
+	19, // 60: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	20, // 61: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	32, // 62: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
+	33, // 63: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
+	35, // 64: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
+	37, // 65: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
+	38, // 66: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
+	40, // 67: petstore.v1.PetStoreService.GetShelter:input_type -> petstore.v1.GetShelterRequest
+	41, // 68: petstore.v1.PetStoreService.ListShelters:input_type -> petstore.v1.ListSheltersRequest
+	43, // 69: petstore.v1.PetStoreService.CreateShelter:input_type -> petstore.v1.CreateShelterRequest
+	44, // 70: petstore.v1.PetStoreService.UpdateShelter:input_type -> petstore.v1.UpdateShelterRequest
+	45, // 71: petstore.v1.PetStoreService.DeleteShelter:input_type -> petstore.v1.DeleteShelterRequest
+	47, // 72: petstore.v1.PetStoreService.GetRun:input_type -> petstore.v1.GetRunRequest
+	48, // 73: petstore.v1.PetStoreService.ListRuns:input_type -> petstore.v1.ListRunsRequest
+	50, // 74: petstore.v1.PetStoreService.CreateRun:input_type -> petstore.v1.CreateRunRequest
+	51, // 75: petstore.v1.PetStoreService.UpdateRun:input_type -> petstore.v1.UpdateRunRequest
+	52, // 76: petstore.v1.PetStoreService.DeleteRun:input_type -> petstore.v1.DeleteRunRequest
+	54, // 77: petstore.v1.PetStoreService.GetBreed:input_type -> petstore.v1.GetBreedRequest
+	55, // 78: petstore.v1.PetStoreService.ListBreeds:input_type -> petstore.v1.ListBreedsRequest
+	57, // 79: petstore.v1.PetStoreService.CreateBreed:input_type -> petstore.v1.CreateBreedRequest
+	58, // 80: petstore.v1.PetStoreService.UpdateBreed:input_type -> petstore.v1.UpdateBreedRequest
+	10, // 81: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	5,  // 82: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	10, // 83: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	10, // 84: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	10, // 85: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	66, // 86: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	30, // 87: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
+	24, // 88: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
+	30, // 89: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
+	30, // 90: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
+	30, // 91: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
+	66, // 92: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
+	66, // 93: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	21, // 94: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	31, // 95: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
+	34, // 96: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
+	36, // 97: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
+	31, // 98: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
+	66, // 99: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
+	39, // 100: petstore.v1.PetStoreService.GetShelter:output_type -> petstore.v1.Shelter
+	42, // 101: petstore.v1.PetStoreService.ListShelters:output_type -> petstore.v1.ListSheltersResponse
+	39, // 102: petstore.v1.PetStoreService.CreateShelter:output_type -> petstore.v1.Shelter
+	39, // 103: petstore.v1.PetStoreService.UpdateShelter:output_type -> petstore.v1.Shelter
+	66, // 104: petstore.v1.PetStoreService.DeleteShelter:output_type -> google.protobuf.Empty
+	46, // 105: petstore.v1.PetStoreService.GetRun:output_type -> petstore.v1.Run
+	49, // 106: petstore.v1.PetStoreService.ListRuns:output_type -> petstore.v1.ListRunsResponse
+	46, // 107: petstore.v1.PetStoreService.CreateRun:output_type -> petstore.v1.Run
+	46, // 108: petstore.v1.PetStoreService.UpdateRun:output_type -> petstore.v1.Run
+	66, // 109: petstore.v1.PetStoreService.DeleteRun:output_type -> google.protobuf.Empty
+	53, // 110: petstore.v1.PetStoreService.GetBreed:output_type -> petstore.v1.Breed
+	56, // 111: petstore.v1.PetStoreService.ListBreeds:output_type -> petstore.v1.ListBreedsResponse
+	53, // 112: petstore.v1.PetStoreService.CreateBreed:output_type -> petstore.v1.Breed
+	53, // 113: petstore.v1.PetStoreService.UpdateBreed:output_type -> petstore.v1.Breed
+	81, // [81:114] is the sub-list for method output_type
+	48, // [48:81] is the sub-list for method input_type
+	48, // [48:48] is the sub-list for extension type_name
+	48, // [48:48] is the sub-list for extension extendee
+	0,  // [0:48] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }
@@ -3555,7 +3919,7 @@ func file_petstore_v1_petstore_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_petstore_v1_petstore_proto_rawDesc), len(file_petstore_v1_petstore_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   52,
+			NumMessages:   58,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -142,10 +142,14 @@ const pkgDatasourceSchema = "github.com/hashicorp/terraform-plugin-framework/dat
 // resourceDescription is the entry's Description, or the generated
 // placeholder when it has none.
 func resourceDescription(typeName string, res Resource) string {
-	if res.Description != "" {
-		return res.Description
+	desc := res.Description
+	if desc == "" {
+		desc = fmt.Sprintf("%s resource.", typeName)
 	}
-	return fmt.Sprintf("%s resource.", typeName)
+	if res.DeleteForgets {
+		desc += " The API cannot delete one: destroying it removes it from Terraform state, and the record stays."
+	}
+	return desc
 }
 
 // dataSourceDescription says what the singular data source reads, led by

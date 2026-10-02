@@ -75,6 +75,9 @@ type CrudParams[E proto.Message, M Model[E, M]] struct {
 	// UseUpdate selects the full-replace Update operation instead of
 	// Patch with an update mask.
 	UseUpdate bool
+	// DeleteForgets makes Delete, for an API with none, remove the resource
+	// from state with a warning that the record stays, instead of failing.
+	DeleteForgets bool
 	// IDAttribute is the attribute holding the resource's own id, the last
 	// segment of its name ("toy_id"). Every create, read, update, import and
 	// data source read fills it from the name; empty leaves it out.
@@ -398,6 +401,13 @@ func (c *Crud[E, M]) doUpdate(ctx context.Context, name string, e E, plan, state
 func (c *Crud[E, M]) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 
 	if c.params.Client.Delete == nil {
+		if c.params.DeleteForgets {
+			// No error: the framework removes the resource from state.
+			resp.Diagnostics.AddWarning(fmt.Sprintf("%s not deleted", c.params.TypeName), fmt.Sprintf(
+				"The API cannot delete a %s, so destroying it removes it from Terraform state only: the record stays. "+
+					"Import it to manage it again.", c.params.TypeName))
+			return
+		}
 		resp.Diagnostics.AddError("operation not supported", fmt.Sprintf("%s does not support delete", c.params.TypeName))
 		return
 	}

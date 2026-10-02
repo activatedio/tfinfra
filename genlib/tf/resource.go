@@ -126,6 +126,9 @@ func writeCrudFactory(f *jen.File, e Entry, res Resource, cm ClientModel, n enti
 	if res.UseUpdate {
 		params[jen.Id("UseUpdate")] = jen.True()
 	}
+	if res.DeleteForgets {
+		params[jen.Id("DeleteForgets")] = jen.True()
+	}
 	if n.IDAttribute != "" {
 		params[jen.Id("IDAttribute")] = jen.Lit(n.IDAttribute)
 	}

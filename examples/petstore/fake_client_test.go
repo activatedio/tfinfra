@@ -60,6 +60,8 @@ type fakePetStoreClient struct {
 	runsOmitShelterID bool
 	// writes counts pet writes, for update_time.
 	writes int
+	// breeds are the never-deleted records, keyed by full name.
+	breeds map[string]*petstorev1.Breed
 }
 
 // consumeIntake mirrors a server that takes the input-only intake fields,
@@ -79,6 +81,7 @@ func newFakePetStoreClient() *fakePetStoreClient {
 		accessKeys:  map[string]*petstorev1.AccessKey{},
 		shelters:    map[string]*petstorev1.Shelter{},
 		runs:        map[string]*petstorev1.Run{},
+		breeds:      map[string]*petstorev1.Breed{},
 	}
 }
 
@@ -536,4 +539,40 @@ func (f *fakePetStoreClient) DeleteRun(_ context.Context, in *petstorev1.DeleteR
 	}
 	delete(f.runs, in.GetName())
 	return &emptypb.Empty{}, nil
+}
+
+// --- Breed: no Delete.
+
+func (f *fakePetStoreClient) GetBreed(_ context.Context, in *petstorev1.GetBreedRequest, _ ...grpc.CallOption) (*petstorev1.Breed, error) {
+	b, ok := f.breeds[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "breed %q not found", in.GetName())
+	}
+	return proto.Clone(b).(*petstorev1.Breed), nil
+}
+
+func (f *fakePetStoreClient) ListBreeds(_ context.Context, _ *petstorev1.ListBreedsRequest, _ ...grpc.CallOption) (*petstorev1.ListBreedsResponse, error) {
+	res := &petstorev1.ListBreedsResponse{}
+	for _, b := range f.breeds {
+		res.Breeds = append(res.Breeds, proto.Clone(b).(*petstorev1.Breed))
+	}
+	return res, nil
+}
+
+func (f *fakePetStoreClient) CreateBreed(_ context.Context, in *petstorev1.CreateBreedRequest, _ ...grpc.CallOption) (*petstorev1.Breed, error) {
+	b := proto.Clone(in.GetBreed()).(*petstorev1.Breed)
+	b.Name = "breeds/" + b.GetBreedId()
+	f.breeds[b.GetName()] = b
+	return proto.Clone(b).(*petstorev1.Breed), nil
+}
+
+func (f *fakePetStoreClient) UpdateBreed(_ context.Context, in *petstorev1.UpdateBreedRequest, _ ...grpc.CallOption) (*petstorev1.Breed, error) {
+	existing, ok := f.breeds[in.GetName()]
+	if !ok {
+		return nil, status.Errorf(codes.NotFound, "breed %q not found", in.GetName())
+	}
+	b := proto.Clone(in.GetBreed()).(*petstorev1.Breed)
+	b.Name, b.BreedId = existing.GetName(), existing.GetBreedId()
+	f.breeds[b.GetName()] = b
+	return proto.Clone(b).(*petstorev1.Breed), nil
 }
