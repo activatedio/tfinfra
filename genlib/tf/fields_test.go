@@ -39,7 +39,7 @@ func TestNormalizeFields(t *testing.T) {
 				for _, f := range got {
 					byName[f.ProtoName] = f
 				}
-				require.Len(t, got, 18)
+				require.Len(t, got, 19)
 
 				assert.Equal(t, gentf.FieldString, byName["name"].Kind)
 				assert.True(t, byName["name"].Computed)
@@ -152,7 +152,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 			},
 			assert: func(t *testing.T, f func()) {
 				assert.PanicsWithValue(t,
-					`Pet: Required references unknown field "nope" (fields: age, buddy_id, config, create_time, display_name, feeding, grooming_interval, intake_age_days, intake_code, labels, metadata, name, notes, tags, type, vaccinated, vaccinations, weight)`,
+					`Pet: Required references unknown field "nope" (fields: age, buddy_id, config, create_time, display_name, feeding, grooming_interval, intake_age_days, intake_code, labels, metadata, name, notes, tags, type, update_time, vaccinated, vaccinations, weight)`,
 					f)
 			},
 		},

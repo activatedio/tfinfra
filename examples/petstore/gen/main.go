@@ -49,6 +49,8 @@ func main() {
 						// input-only on its own.
 						Immutable: []string{"type", "intake_code"},
 						Computed:  []string{"create_time"},
+						// update_time changes on every write.
+						Volatile:  []string{"update_time"},
 						InputOnly: []string{"intake_code", "intake_age_days"},
 						// notes is a repeated message on the JSON lane;
 						// vaccinations, left out, is a list-nested attribute.

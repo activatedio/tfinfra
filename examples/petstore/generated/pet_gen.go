@@ -160,6 +160,10 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers: []planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()},
 				Validators:    []validator.String{stringvalidator.OneOf("PET_TYPE_UNSPECIFIED", "PET_TYPE_DOG", "PET_TYPE_CAT")},
 			},
+			"update_time": schema.StringAttribute{
+				Computed:            true,
+				MarkdownDescription: "`update_time` as an RFC 3339 timestamp.",
+			},
 			"vaccinated": schema.BoolAttribute{
 				Computed:      true,
 				Optional:      true,
@@ -268,6 +272,7 @@ type PetModel struct {
 	BuddyId          types.String         `tfsdk:"buddy_id"`
 	Vaccinations     types.List           `tfsdk:"vaccinations"`
 	Notes            jsontypes.Normalized `tfsdk:"notes"`
+	UpdateTime       types.String         `tfsdk:"update_time"`
 }
 
 // NewPetModel returns a model with every attribute set to its typed null; collection types cannot be zero-valued.
@@ -290,6 +295,7 @@ func NewPetModel() *PetModel {
 		StoreId:          types.StringNull(),
 		Tags:             types.ListNull(types.StringType),
 		Type:             types.StringNull(),
+		UpdateTime:       types.StringNull(),
 		Vaccinated:       types.BoolNull(),
 		Vaccinations:     types.ListNull(types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}),
 		Weight:           types.Float64Null(),
@@ -413,6 +419,14 @@ func (m *PetModel) ToProto(ctx context.Context) (*v1.Pet, diag.Diagnostics) {
 			diags.AddAttributeError(path.Root("notes"), "invalid Note JSON array", err.Error())
 		} else {
 			out.Notes = items
+		}
+	}
+	if !m.UpdateTime.IsNull() && !m.UpdateTime.IsUnknown() {
+		t, err := time.Parse(time.RFC3339, m.UpdateTime.ValueString())
+		if err != nil {
+			diags.AddAttributeError(path.Root("update_time"), "invalid RFC 3339 timestamp", err.Error())
+		} else {
+			out.UpdateTime = timestamppb.New(t)
 		}
 	}
 	return out, diags
@@ -559,6 +573,11 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 		diags.AddError("cannot encode notes", err.Error())
 	} else {
 		m.Notes = v
+	}
+	if e.UpdateTime == nil {
+		m.UpdateTime = types.StringNull()
+	} else {
+		m.UpdateTime = types.StringValue(e.UpdateTime.AsTime().Format(time.RFC3339))
 	}
 	return diags
 }
@@ -816,8 +835,9 @@ func PetDataSourceSchema() schema1.Schema {
 				Computed:    true,
 				ElementType: types.StringType,
 			},
-			"type":       schema1.StringAttribute{Computed: true},
-			"vaccinated": schema1.BoolAttribute{Computed: true},
+			"type":        schema1.StringAttribute{Computed: true},
+			"update_time": schema1.StringAttribute{Computed: true},
+			"vaccinated":  schema1.BoolAttribute{Computed: true},
 			"vaccinations": schema1.ListNestedAttribute{
 				Computed: true,
 				NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
@@ -884,6 +904,7 @@ type PetItemModel struct {
 	BuddyId          types.String         `tfsdk:"buddy_id"`
 	Vaccinations     types.List           `tfsdk:"vaccinations"`
 	Notes            jsontypes.Normalized `tfsdk:"notes"`
+	UpdateTime       types.String         `tfsdk:"update_time"`
 }
 
 // PetItemAttrTypes returns the attribute types of one pets list element.
@@ -903,6 +924,7 @@ func PetItemAttrTypes() map[string]attr.Type {
 		"pet_id":            types.StringType,
 		"tags":              types.ListType{ElemType: types.StringType},
 		"type":              types.StringType,
+		"update_time":       types.StringType,
 		"vaccinated":        types.BoolType,
 		"vaccinations":      types.ListType{ElemType: types.ObjectType{AttrTypes: PetVaccinationsAttrTypes()}},
 		"weight":            types.Float64Type,
@@ -973,8 +995,9 @@ func PetListDataSourceSchema() schema1.Schema {
 						Computed:    true,
 						ElementType: types.StringType,
 					},
-					"type":       schema1.StringAttribute{Computed: true},
-					"vaccinated": schema1.BoolAttribute{Computed: true},
+					"type":        schema1.StringAttribute{Computed: true},
+					"update_time": schema1.StringAttribute{Computed: true},
+					"vaccinated":  schema1.BoolAttribute{Computed: true},
 					"vaccinations": schema1.ListNestedAttribute{
 						Computed: true,
 						NestedObject: schema1.NestedAttributeObject{Attributes: map[string]schema1.Attribute{
@@ -1143,6 +1166,11 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 		diags.AddError("cannot encode notes", err.Error())
 	} else {
 		item.Notes = v
+	}
+	if e.UpdateTime == nil {
+		item.UpdateTime = types.StringNull()
+	} else {
+		item.UpdateTime = types.StringValue(e.UpdateTime.AsTime().Format(time.RFC3339))
 	}
 	id, err := crud.IDFromName(e.Name)
 	if err != nil {

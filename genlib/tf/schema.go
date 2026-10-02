@@ -466,10 +466,12 @@ func planModifiers(fd Field, shape attrShape) jen.Code {
 	if fd.Immutable {
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "RequiresReplace").Call())
 	}
-	if !fd.Required && !fd.InputOnly {
+	if !fd.Required && !fd.InputOnly && !fd.Volatile {
 		// Computed and optional-computed alike keep their prior value in
 		// plans instead of churning to unknown. An input-only attribute is
-		// never computed, so it is never unknown and has nothing to keep.
+		// never computed, so it is never unknown and has nothing to keep. A
+		// volatile one changes on every write, so an update must plan it
+		// unknown.
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "UseStateForUnknown").Call())
 	}
 	if len(mods) == 0 {

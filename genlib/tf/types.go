@@ -155,6 +155,15 @@ type Resource struct {
 	Computed []string
 	// Sensitive lists proto fields masked in CLI output and state listings.
 	Sensitive []string
+	// Volatile lists proto fields the server rewrites on every write — a
+	// revision number, an update time. They are Computed, but without the
+	// UseStateForUnknown every other computed attribute carries: that would
+	// promise the prior value in the plan of an update the server then
+	// changes, which Terraform rejects as an inconsistent result after
+	// apply. So they are unknown in the plan of any update, and keep their
+	// value in a plan with no change. Listing one implies Computed; a
+	// Required or InputOnly one panics.
+	Volatile []string
 	// InputOnly lists proto fields the API consumes but never echoes back
 	// on a read — creation parameters that describe how to make something
 	// rather than what was made, and secrets accepted once and stored

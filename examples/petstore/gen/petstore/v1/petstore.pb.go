@@ -584,7 +584,9 @@ type Pet struct {
 	// A repeated message declared in the JSON list: a JSON array, each
 	// element in protojson. Note holds a message of its own, which is too
 	// deep for the typed lane.
-	Notes         []*Note `protobuf:"bytes,18,rep,name=notes,proto3" json:"notes,omitempty"`
+	Notes []*Note `protobuf:"bytes,18,rep,name=notes,proto3" json:"notes,omitempty"`
+	// Rewritten by the server on every write: a volatile computed field.
+	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -741,6 +743,13 @@ func (x *Pet) GetVaccinations() []*Vaccination {
 func (x *Pet) GetNotes() []*Note {
 	if x != nil {
 		return x.Notes
+	}
+	return nil
+}
+
+func (x *Pet) GetUpdateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdateTime
 	}
 	return nil
 }
@@ -3112,7 +3121,7 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\vupdate_mask\x18\x03 \x01(\v2\x1a.google.protobuf.FieldMaskR\n" +
 	"updateMask\"&\n" +
 	"\x10DeletePetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\x98\x06\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\xd5\x06\n" +
 	"\x03Pet\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12(\n" +
@@ -3136,7 +3145,9 @@ const file_petstore_v1_petstore_proto_rawDesc = "" +
 	"\x11grooming_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationR\x10groomingInterval\x12\x19\n" +
 	"\bbuddy_id\x18\x10 \x01(\tR\abuddyId\x12<\n" +
 	"\fvaccinations\x18\x11 \x03(\v2\x18.petstore.v1.VaccinationR\fvaccinations\x12'\n" +
-	"\x05notes\x18\x12 \x03(\v2\x11.petstore.v1.NoteR\x05notes\x1a9\n" +
+	"\x05notes\x18\x12 \x03(\v2\x11.petstore.v1.NoteR\x05notes\x12;\n" +
+	"\vupdate_time\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"updateTime\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xde\x01\n" +
@@ -3437,99 +3448,100 @@ var file_petstore_v1_petstore_proto_depIdxs = []int32{
 	59, // 11: petstore.v1.Pet.grooming_interval:type_name -> google.protobuf.Duration
 	11, // 12: petstore.v1.Pet.vaccinations:type_name -> petstore.v1.Vaccination
 	12, // 13: petstore.v1.Pet.notes:type_name -> petstore.v1.Note
-	56, // 14: petstore.v1.Vaccination.given_time:type_name -> google.protobuf.Timestamp
-	59, // 15: petstore.v1.Vaccination.valid_for:type_name -> google.protobuf.Duration
-	1,  // 16: petstore.v1.Vaccination.route:type_name -> petstore.v1.Route
-	13, // 17: petstore.v1.Note.author:type_name -> petstore.v1.Author
-	54, // 18: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
-	2,  // 19: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
-	59, // 20: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
-	17, // 21: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
-	16, // 22: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
-	18, // 23: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
-	30, // 24: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
-	30, // 25: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
-	30, // 26: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
-	30, // 27: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
-	30, // 28: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
-	55, // 29: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	15, // 30: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
-	56, // 31: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
-	56, // 32: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
-	31, // 33: petstore.v1.ListAccessKeysResponse.access_keys:type_name -> petstore.v1.AccessKey
-	56, // 34: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
-	31, // 35: petstore.v1.MintAccessKeyResponse.access_key:type_name -> petstore.v1.AccessKey
-	31, // 36: petstore.v1.PatchAccessKeyRequest.access_key:type_name -> petstore.v1.AccessKey
-	55, // 37: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
-	39, // 38: petstore.v1.ListSheltersResponse.shelters:type_name -> petstore.v1.Shelter
-	39, // 39: petstore.v1.CreateShelterRequest.shelter:type_name -> petstore.v1.Shelter
-	39, // 40: petstore.v1.UpdateShelterRequest.shelter:type_name -> petstore.v1.Shelter
-	46, // 41: petstore.v1.ListRunsResponse.runs:type_name -> petstore.v1.Run
-	46, // 42: petstore.v1.CreateRunRequest.run:type_name -> petstore.v1.Run
-	46, // 43: petstore.v1.UpdateRunRequest.run:type_name -> petstore.v1.Run
-	3,  // 44: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
-	4,  // 45: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
-	6,  // 46: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
-	7,  // 47: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
-	8,  // 48: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
-	9,  // 49: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
-	22, // 50: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
-	23, // 51: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
-	25, // 52: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
-	26, // 53: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
-	27, // 54: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
-	28, // 55: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
-	19, // 56: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
-	20, // 57: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
-	32, // 58: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
-	33, // 59: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
-	35, // 60: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
-	37, // 61: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
-	38, // 62: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
-	40, // 63: petstore.v1.PetStoreService.GetShelter:input_type -> petstore.v1.GetShelterRequest
-	41, // 64: petstore.v1.PetStoreService.ListShelters:input_type -> petstore.v1.ListSheltersRequest
-	43, // 65: petstore.v1.PetStoreService.CreateShelter:input_type -> petstore.v1.CreateShelterRequest
-	44, // 66: petstore.v1.PetStoreService.UpdateShelter:input_type -> petstore.v1.UpdateShelterRequest
-	45, // 67: petstore.v1.PetStoreService.DeleteShelter:input_type -> petstore.v1.DeleteShelterRequest
-	47, // 68: petstore.v1.PetStoreService.GetRun:input_type -> petstore.v1.GetRunRequest
-	48, // 69: petstore.v1.PetStoreService.ListRuns:input_type -> petstore.v1.ListRunsRequest
-	50, // 70: petstore.v1.PetStoreService.CreateRun:input_type -> petstore.v1.CreateRunRequest
-	51, // 71: petstore.v1.PetStoreService.UpdateRun:input_type -> petstore.v1.UpdateRunRequest
-	52, // 72: petstore.v1.PetStoreService.DeleteRun:input_type -> petstore.v1.DeleteRunRequest
-	10, // 73: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
-	5,  // 74: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
-	10, // 75: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
-	10, // 76: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
-	10, // 77: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
-	60, // 78: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
-	30, // 79: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
-	24, // 80: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
-	30, // 81: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
-	30, // 82: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
-	30, // 83: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
-	60, // 84: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
-	60, // 85: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
-	21, // 86: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
-	31, // 87: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
-	34, // 88: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
-	36, // 89: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
-	31, // 90: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
-	60, // 91: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
-	39, // 92: petstore.v1.PetStoreService.GetShelter:output_type -> petstore.v1.Shelter
-	42, // 93: petstore.v1.PetStoreService.ListShelters:output_type -> petstore.v1.ListSheltersResponse
-	39, // 94: petstore.v1.PetStoreService.CreateShelter:output_type -> petstore.v1.Shelter
-	39, // 95: petstore.v1.PetStoreService.UpdateShelter:output_type -> petstore.v1.Shelter
-	60, // 96: petstore.v1.PetStoreService.DeleteShelter:output_type -> google.protobuf.Empty
-	46, // 97: petstore.v1.PetStoreService.GetRun:output_type -> petstore.v1.Run
-	49, // 98: petstore.v1.PetStoreService.ListRuns:output_type -> petstore.v1.ListRunsResponse
-	46, // 99: petstore.v1.PetStoreService.CreateRun:output_type -> petstore.v1.Run
-	46, // 100: petstore.v1.PetStoreService.UpdateRun:output_type -> petstore.v1.Run
-	60, // 101: petstore.v1.PetStoreService.DeleteRun:output_type -> google.protobuf.Empty
-	73, // [73:102] is the sub-list for method output_type
-	44, // [44:73] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	56, // 14: petstore.v1.Pet.update_time:type_name -> google.protobuf.Timestamp
+	56, // 15: petstore.v1.Vaccination.given_time:type_name -> google.protobuf.Timestamp
+	59, // 16: petstore.v1.Vaccination.valid_for:type_name -> google.protobuf.Duration
+	1,  // 17: petstore.v1.Vaccination.route:type_name -> petstore.v1.Route
+	13, // 18: petstore.v1.Note.author:type_name -> petstore.v1.Author
+	54, // 19: petstore.v1.Feeding.notes:type_name -> petstore.v1.Feeding.NotesEntry
+	2,  // 20: petstore.v1.Feeding.bowl:type_name -> petstore.v1.Bowl
+	59, // 21: petstore.v1.Feeding.interval:type_name -> google.protobuf.Duration
+	17, // 22: petstore.v1.CollarConfig.buckle:type_name -> petstore.v1.Buckle
+	16, // 23: petstore.v1.CollarConfig.engraving:type_name -> petstore.v1.Engraving
+	18, // 24: petstore.v1.AssociateToysToPetRequest.association:type_name -> petstore.v1.AssociationRequest
+	30, // 25: petstore.v1.ListToysByPetResponse.toys:type_name -> petstore.v1.Toy
+	30, // 26: petstore.v1.ListToysResponse.toys:type_name -> petstore.v1.Toy
+	30, // 27: petstore.v1.CreateToyRequest.toy:type_name -> petstore.v1.Toy
+	30, // 28: petstore.v1.UpdateToyRequest.toy:type_name -> petstore.v1.Toy
+	30, // 29: petstore.v1.PatchToyRequest.toy:type_name -> petstore.v1.Toy
+	55, // 30: petstore.v1.PatchToyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	15, // 31: petstore.v1.Kennel.collar:type_name -> petstore.v1.CollarConfig
+	56, // 32: petstore.v1.AccessKey.expires_at:type_name -> google.protobuf.Timestamp
+	56, // 33: petstore.v1.AccessKey.create_time:type_name -> google.protobuf.Timestamp
+	31, // 34: petstore.v1.ListAccessKeysResponse.access_keys:type_name -> petstore.v1.AccessKey
+	56, // 35: petstore.v1.MintAccessKeyRequest.expires_at:type_name -> google.protobuf.Timestamp
+	31, // 36: petstore.v1.MintAccessKeyResponse.access_key:type_name -> petstore.v1.AccessKey
+	31, // 37: petstore.v1.PatchAccessKeyRequest.access_key:type_name -> petstore.v1.AccessKey
+	55, // 38: petstore.v1.PatchAccessKeyRequest.update_mask:type_name -> google.protobuf.FieldMask
+	39, // 39: petstore.v1.ListSheltersResponse.shelters:type_name -> petstore.v1.Shelter
+	39, // 40: petstore.v1.CreateShelterRequest.shelter:type_name -> petstore.v1.Shelter
+	39, // 41: petstore.v1.UpdateShelterRequest.shelter:type_name -> petstore.v1.Shelter
+	46, // 42: petstore.v1.ListRunsResponse.runs:type_name -> petstore.v1.Run
+	46, // 43: petstore.v1.CreateRunRequest.run:type_name -> petstore.v1.Run
+	46, // 44: petstore.v1.UpdateRunRequest.run:type_name -> petstore.v1.Run
+	3,  // 45: petstore.v1.PetStoreService.GetPet:input_type -> petstore.v1.GetPetRequest
+	4,  // 46: petstore.v1.PetStoreService.ListPets:input_type -> petstore.v1.ListPetsRequest
+	6,  // 47: petstore.v1.PetStoreService.CreatePet:input_type -> petstore.v1.CreatePetRequest
+	7,  // 48: petstore.v1.PetStoreService.UpdatePet:input_type -> petstore.v1.UpdatePetRequest
+	8,  // 49: petstore.v1.PetStoreService.PatchPet:input_type -> petstore.v1.PatchPetRequest
+	9,  // 50: petstore.v1.PetStoreService.DeletePet:input_type -> petstore.v1.DeletePetRequest
+	22, // 51: petstore.v1.PetStoreService.GetToy:input_type -> petstore.v1.GetToyRequest
+	23, // 52: petstore.v1.PetStoreService.ListToys:input_type -> petstore.v1.ListToysRequest
+	25, // 53: petstore.v1.PetStoreService.CreateToy:input_type -> petstore.v1.CreateToyRequest
+	26, // 54: petstore.v1.PetStoreService.UpdateToy:input_type -> petstore.v1.UpdateToyRequest
+	27, // 55: petstore.v1.PetStoreService.PatchToy:input_type -> petstore.v1.PatchToyRequest
+	28, // 56: petstore.v1.PetStoreService.DeleteToy:input_type -> petstore.v1.DeleteToyRequest
+	19, // 57: petstore.v1.PetStoreService.AssociateToysToPet:input_type -> petstore.v1.AssociateToysToPetRequest
+	20, // 58: petstore.v1.PetStoreService.ListToysByPet:input_type -> petstore.v1.ListToysByPetRequest
+	32, // 59: petstore.v1.PetStoreService.GetAccessKey:input_type -> petstore.v1.GetAccessKeyRequest
+	33, // 60: petstore.v1.PetStoreService.ListAccessKeys:input_type -> petstore.v1.ListAccessKeysRequest
+	35, // 61: petstore.v1.PetStoreService.MintAccessKey:input_type -> petstore.v1.MintAccessKeyRequest
+	37, // 62: petstore.v1.PetStoreService.PatchAccessKey:input_type -> petstore.v1.PatchAccessKeyRequest
+	38, // 63: petstore.v1.PetStoreService.DeleteAccessKey:input_type -> petstore.v1.DeleteAccessKeyRequest
+	40, // 64: petstore.v1.PetStoreService.GetShelter:input_type -> petstore.v1.GetShelterRequest
+	41, // 65: petstore.v1.PetStoreService.ListShelters:input_type -> petstore.v1.ListSheltersRequest
+	43, // 66: petstore.v1.PetStoreService.CreateShelter:input_type -> petstore.v1.CreateShelterRequest
+	44, // 67: petstore.v1.PetStoreService.UpdateShelter:input_type -> petstore.v1.UpdateShelterRequest
+	45, // 68: petstore.v1.PetStoreService.DeleteShelter:input_type -> petstore.v1.DeleteShelterRequest
+	47, // 69: petstore.v1.PetStoreService.GetRun:input_type -> petstore.v1.GetRunRequest
+	48, // 70: petstore.v1.PetStoreService.ListRuns:input_type -> petstore.v1.ListRunsRequest
+	50, // 71: petstore.v1.PetStoreService.CreateRun:input_type -> petstore.v1.CreateRunRequest
+	51, // 72: petstore.v1.PetStoreService.UpdateRun:input_type -> petstore.v1.UpdateRunRequest
+	52, // 73: petstore.v1.PetStoreService.DeleteRun:input_type -> petstore.v1.DeleteRunRequest
+	10, // 74: petstore.v1.PetStoreService.GetPet:output_type -> petstore.v1.Pet
+	5,  // 75: petstore.v1.PetStoreService.ListPets:output_type -> petstore.v1.ListPetsResponse
+	10, // 76: petstore.v1.PetStoreService.CreatePet:output_type -> petstore.v1.Pet
+	10, // 77: petstore.v1.PetStoreService.UpdatePet:output_type -> petstore.v1.Pet
+	10, // 78: petstore.v1.PetStoreService.PatchPet:output_type -> petstore.v1.Pet
+	60, // 79: petstore.v1.PetStoreService.DeletePet:output_type -> google.protobuf.Empty
+	30, // 80: petstore.v1.PetStoreService.GetToy:output_type -> petstore.v1.Toy
+	24, // 81: petstore.v1.PetStoreService.ListToys:output_type -> petstore.v1.ListToysResponse
+	30, // 82: petstore.v1.PetStoreService.CreateToy:output_type -> petstore.v1.Toy
+	30, // 83: petstore.v1.PetStoreService.UpdateToy:output_type -> petstore.v1.Toy
+	30, // 84: petstore.v1.PetStoreService.PatchToy:output_type -> petstore.v1.Toy
+	60, // 85: petstore.v1.PetStoreService.DeleteToy:output_type -> google.protobuf.Empty
+	60, // 86: petstore.v1.PetStoreService.AssociateToysToPet:output_type -> google.protobuf.Empty
+	21, // 87: petstore.v1.PetStoreService.ListToysByPet:output_type -> petstore.v1.ListToysByPetResponse
+	31, // 88: petstore.v1.PetStoreService.GetAccessKey:output_type -> petstore.v1.AccessKey
+	34, // 89: petstore.v1.PetStoreService.ListAccessKeys:output_type -> petstore.v1.ListAccessKeysResponse
+	36, // 90: petstore.v1.PetStoreService.MintAccessKey:output_type -> petstore.v1.MintAccessKeyResponse
+	31, // 91: petstore.v1.PetStoreService.PatchAccessKey:output_type -> petstore.v1.AccessKey
+	60, // 92: petstore.v1.PetStoreService.DeleteAccessKey:output_type -> google.protobuf.Empty
+	39, // 93: petstore.v1.PetStoreService.GetShelter:output_type -> petstore.v1.Shelter
+	42, // 94: petstore.v1.PetStoreService.ListShelters:output_type -> petstore.v1.ListSheltersResponse
+	39, // 95: petstore.v1.PetStoreService.CreateShelter:output_type -> petstore.v1.Shelter
+	39, // 96: petstore.v1.PetStoreService.UpdateShelter:output_type -> petstore.v1.Shelter
+	60, // 97: petstore.v1.PetStoreService.DeleteShelter:output_type -> google.protobuf.Empty
+	46, // 98: petstore.v1.PetStoreService.GetRun:output_type -> petstore.v1.Run
+	49, // 99: petstore.v1.PetStoreService.ListRuns:output_type -> petstore.v1.ListRunsResponse
+	46, // 100: petstore.v1.PetStoreService.CreateRun:output_type -> petstore.v1.Run
+	46, // 101: petstore.v1.PetStoreService.UpdateRun:output_type -> petstore.v1.Run
+	60, // 102: petstore.v1.PetStoreService.DeleteRun:output_type -> google.protobuf.Empty
+	74, // [74:103] is the sub-list for method output_type
+	45, // [45:74] is the sub-list for method input_type
+	45, // [45:45] is the sub-list for extension type_name
+	45, // [45:45] is the sub-list for extension extendee
+	0,  // [0:45] is the sub-list for field type_name
 }
 
 func init() { file_petstore_v1_petstore_proto_init() }

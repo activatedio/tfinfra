@@ -150,6 +150,9 @@ message Pet {
   // element in protojson. Note holds a message of its own, which is too
   // deep for the typed lane.
   repeated Note notes = 18;
+
+  // Rewritten by the server on every write: a volatile computed field.
+  google.protobuf.Timestamp update_time = 19;
 }
 
 // Vaccination is a repeated message surfaced as a list-nested attribute.

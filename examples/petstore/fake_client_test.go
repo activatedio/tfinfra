@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -57,6 +58,8 @@ type fakePetStoreClient struct {
 	// runsOmitShelterID makes run reads leave shelter_id empty, a server
 	// that does not echo the parent's id it was given.
 	runsOmitShelterID bool
+	// writes counts pet writes, for update_time.
+	writes int
 }
 
 // consumeIntake mirrors a server that takes the input-only intake fields,
@@ -122,6 +125,7 @@ func (f *fakePetStoreClient) CreatePet(_ context.Context, in *petstorev1.CreateP
 	p := proto.Clone(in.GetPet()).(*petstorev1.Pet)
 	p.Name = fmt.Sprintf("%s/pets/p%d", in.GetParent(), f.seq)
 	p.CreateTime = timestamppb.New(createTimeFixture)
+	f.touch(p)
 	f.consumeIntake(p)
 	f.pets[p.GetName()] = p
 	return proto.Clone(p).(*petstorev1.Pet), nil
@@ -135,6 +139,7 @@ func (f *fakePetStoreClient) UpdatePet(_ context.Context, in *petstorev1.UpdateP
 	p := proto.Clone(in.GetPet()).(*petstorev1.Pet)
 	p.Name = in.GetName()
 	p.CreateTime = existing.GetCreateTime()
+	f.touch(p)
 	f.consumeIntake(p)
 	f.pets[in.GetName()] = p
 	return proto.Clone(p).(*petstorev1.Pet), nil
@@ -182,7 +187,15 @@ func (f *fakePetStoreClient) PatchPet(_ context.Context, in *petstorev1.PatchPet
 			return nil, status.Errorf(codes.InvalidArgument, "unsupported update_mask path %q", path)
 		}
 	}
+	f.touch(existing)
 	return proto.Clone(existing).(*petstorev1.Pet), nil
+}
+
+// touch stamps a pet's update_time as a server does on every write: a
+// minute later each time, so consecutive writes differ.
+func (f *fakePetStoreClient) touch(p *petstorev1.Pet) {
+	f.writes++
+	p.UpdateTime = timestamppb.New(createTimeFixture.Add(time.Duration(f.writes) * time.Minute))
 }
 
 func (f *fakePetStoreClient) DeletePet(_ context.Context, in *petstorev1.DeletePetRequest, _ ...grpc.CallOption) (*emptypb.Empty, error) {

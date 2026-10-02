@@ -156,6 +156,15 @@ import and on data source reads — a required attribute missing from imported
 state would force replacement on the next plan. `Toy` in the petstore example
 is the golden case; `Pet` remains the server-named one.
 
+`Resource.Volatile` covers computed fields the server rewrites on every
+write: a revision number, an update time (riteSuite's `revision` and
+`effective_from`). Every other computed attribute carries
+`UseStateForUnknown`, which in an update's plan promises the prior value; a
+server that then returns a new one fails the apply as an inconsistent
+result. A volatile field has no plan modifier, so any update plans it
+unknown, and a plan with no change keeps it. Listing one implies `Computed`.
+`Pet.update_time` is the golden case.
+
 `Resource.InputOnly` covers fields the API consumes but never echoes back:
 creation parameters that describe how to make something rather than what was
 made (a certificate's `validity_days`, `key_size`, `subject_common_name`),

@@ -212,3 +212,52 @@ func TestNormalizeFields_RepeatedMessages(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeFields_Volatile(t *testing.T) {
+
+	type s struct {
+		arrange func() (gentf.Entry, gentf.Resource)
+		assert  func(t *testing.T, f func() []gentf.Field)
+	}
+
+	pet := func(r gentf.Resource) gentf.Resource {
+		r.JSON = []string{"config", "metadata", "notes"}
+		return r
+	}
+
+	cases := map[string]s{
+		"a volatile field is computed": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), pet(gentf.Resource{Volatile: []string{"update_time"}})
+			},
+			assert: func(t *testing.T, f func() []gentf.Field) {
+				got := byProtoName(f())["update_time"]
+				assert.True(t, got.Volatile)
+				assert.True(t, got.Computed)
+			},
+		},
+		"a required volatile field": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), pet(gentf.Resource{Volatile: []string{"update_time"}, Required: []string{"update_time"}})
+			},
+			assert: func(t *testing.T, f func() []gentf.Field) {
+				assert.PanicsWithValue(t, "Pet.update_time: field cannot be both required and computed", func() { f() })
+			},
+		},
+		"an unknown volatile field": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), pet(gentf.Resource{Volatile: []string{"nope"}})
+			},
+			assert: func(t *testing.T, f func() []gentf.Field) {
+				assert.Panics(t, func() { f() })
+			},
+		},
+	}
+
+	for k, v := range cases {
+		t.Run(k, func(t *testing.T) {
+			e, r := v.arrange()
+			v.assert(t, func() []gentf.Field { return gentf.NormalizeFields(e, r) })
+		})
+	}
+}

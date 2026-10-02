@@ -93,6 +93,9 @@ type Field struct {
 	// InputOnly marks a field the API consumes but never echoes back: it
 	// is Optional but never Computed, and reads leave it untouched.
 	InputOnly bool
+	// Volatile marks a computed field the server rewrites on every write:
+	// no UseStateForUnknown, so an update plans it unknown.
+	Volatile bool
 	// Reference is what the field references when it holds another
 	// resource's id, validated by prefix; nil otherwise.
 	Reference *Reference
@@ -425,6 +428,10 @@ func applyBehavior(entity string, res Resource, byName map[string]*Field) {
 	for _, n := range res.Computed {
 		byName[n].Computed = true
 	}
+	for _, n := range res.Volatile {
+		byName[n].Computed = true
+		byName[n].Volatile = true
+	}
 	for _, n := range res.Required {
 		if byName[n].Computed {
 			panic(fmt.Sprintf("%s.%s: field cannot be both required and computed", entity, n))
@@ -540,6 +547,7 @@ func (r Resource) validateFieldNames(entity string, fds protoreflect.FieldDescri
 	check(r.Computed, "Computed")
 	check(r.Sensitive, "Sensitive")
 	check(r.InputOnly, "InputOnly")
+	check(r.Volatile, "Volatile")
 	check(r.WriteOnly, "WriteOnly")
 	check(r.JSON, "JSON")
 }
