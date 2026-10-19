@@ -151,7 +151,7 @@ func (d *collarConfigDataSource) Read(ctx context.Context, req datasource.ReadRe
 		resp.Diagnostics.AddError("cannot pack collar_config", err.Error())
 		return
 	}
-	b, err := protojson.Marshal(a)
+	b, err := tf.ProtoJSON(a)
 	if err != nil {
 		resp.Diagnostics.AddError("cannot encode collar_config", err.Error())
 		return

@@ -467,7 +467,7 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	if e.Config == nil {
 		m.Config = jsontypes.NewNormalizedNull()
 	} else {
-		b, err := protojson.Marshal(e.Config)
+		b, err := tf.ProtoJSON(e.Config)
 		if err != nil {
 			diags.AddError("cannot encode config", err.Error())
 		} else {
@@ -477,7 +477,7 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 	if e.Metadata == nil {
 		m.Metadata = jsontypes.NewNormalizedNull()
 	} else {
-		b, err := protojson.Marshal(e.Metadata)
+		b, err := tf.ProtoJSON(e.Metadata)
 		if err != nil {
 			diags.AddError("cannot encode metadata", err.Error())
 		} else {
@@ -1060,7 +1060,7 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 	if e.Config == nil {
 		item.Config = jsontypes.NewNormalizedNull()
 	} else {
-		b, err := protojson.Marshal(e.Config)
+		b, err := tf.ProtoJSON(e.Config)
 		if err != nil {
 			diags.AddError("cannot encode config", err.Error())
 		} else {
@@ -1070,7 +1070,7 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 	if e.Metadata == nil {
 		item.Metadata = jsontypes.NewNormalizedNull()
 	} else {
-		b, err := protojson.Marshal(e.Metadata)
+		b, err := tf.ProtoJSON(e.Metadata)
 		if err != nil {
 			diags.AddError("cannot encode metadata", err.Error())
 		} else {

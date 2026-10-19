@@ -73,7 +73,7 @@ func JSONListValue[T proto.Message](prior jsontypes.Normalized, items []T) (json
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		e, err := protojson.Marshal(item)
+		e, err := ProtoJSON(item)
 		if err != nil {
 			return jsontypes.NewNormalizedNull(), fmt.Errorf("element %d: %w", i, err)
 		}

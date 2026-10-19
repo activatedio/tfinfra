@@ -835,12 +835,13 @@ func toProtoJSON(fd Field, c conv, summary string) jen.Code {
 }
 
 // fromProtoJSON emits: protojson-encode the well-known type into the
-// jsontypes attribute; nil reads as null.
+// jsontypes attribute, through ProtoJSON so the spelling is stable; nil
+// reads as null.
 func fromProtoJSON(fd Field, c conv) jen.Code {
 	return jen.If(c.p(fd.GoName).Op("==").Nil()).Block(
 		c.m(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedNull").Call(),
 	).Else().Block(
-		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(c.p(fd.GoName)),
+		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgRuntimeTf, "ProtoJSON").Call(c.p(fd.GoName)),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("diags").Dot("AddError").Call(
 				jen.Lit(fmt.Sprintf("cannot encode %s", fd.TfName())),

@@ -35,6 +35,7 @@ pkg/              # runtime imported by generated code (returns errors)
     duration.go   # ParseDuration / FormatDuration / DurationValue (keep the written spelling)
     collection.go # KeepEmpty (a written [] or {} reads back as such), JSON-array lists of messages
     enum.go       # EnumValue (an explicit zero reads back as written)
+    protojson.go  # ProtoJSON: protojson with its per-build whitespace removed, so a value spells the same in every build
 examples/petstore # end-to-end example; generated/ is the golden output contract
   proto/          # toy proto + AIP service (buf; regeneration is manual, output committed)
   gen/main.go     # generator entry point (//go:generate go run .)

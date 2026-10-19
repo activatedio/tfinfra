@@ -455,7 +455,7 @@ func writeConfigDataSource(f *jen.File, _ Entry, n entityNames) {
 			jen.Id("resp").Dot("Diagnostics").Dot("AddError").Call(jen.Lit(fmt.Sprintf("cannot pack %s", n.TypeName)), jen.Id("err").Dot("Error").Call()),
 			jen.Return(),
 		),
-		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgProtojson, "Marshal").Call(jen.Id("a")),
+		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgRuntimeTf, "ProtoJSON").Call(jen.Id("a")),
 		jen.If(jen.Id("err").Op("!=").Nil()).Block(
 			jen.Id("resp").Dot("Diagnostics").Dot("AddError").Call(jen.Lit(fmt.Sprintf("cannot encode %s", n.TypeName)), jen.Id("err").Dot("Error").Call()),
 			jen.Return(),
