@@ -42,9 +42,9 @@ func RunResourceSchema() schema.Schema {
 			},
 			"shelter_id": schema.StringAttribute{
 				Computed:            true,
-				MarkdownDescription: "Parent identifier `shelter_id`; overrides the provider default, and reads back from the entity. Changing it replaces the resource.",
+				MarkdownDescription: "Parent identifier `shelter_id`; overrides the provider default, and reads back from the entity. Changing a configured one replaces the resource.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace(), stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers:       []planmodifier.String{tf.RequiresReplaceIfConfigured(), stringplanmodifier.UseStateForUnknown()},
 				Validators:          []validator.String{tf.ReferenceID("", "shelter", "petstore_shelter.<name>.shelter_id")},
 			},
 		},

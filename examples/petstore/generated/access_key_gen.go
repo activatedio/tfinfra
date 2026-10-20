@@ -63,9 +63,10 @@ func AccessKeyResourceSchema() schema.Schema {
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"store_id": schema.StringAttribute{
-				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
+				Computed:            true,
+				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default, and reads back from the name. Changing a configured one replaces the resource.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{tf.RequiresReplaceIfConfigured(), stringplanmodifier.UseStateForUnknown()},
 				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 		},
@@ -218,12 +219,13 @@ func newAccessKeyCrud(providerData any) (*tf.Crud[*v1.AccessKey, *AccessKeyModel
 				})
 			},
 		},
-		Collection:  "accessKeys",
-		Defaults:    pd.Defaults,
-		IDAttribute: "access_key_id",
-		NewModel:    NewAccessKeyModel,
-		Scope:       tf.NewScope("stores"),
-		TypeName:    "access_key",
+		Collection:       "accessKeys",
+		Defaults:         pd.Defaults,
+		IDAttribute:      "access_key_id",
+		NewModel:         NewAccessKeyModel,
+		ParentAttributes: []string{"store_id"},
+		Scope:            tf.NewScope("stores"),
+		TypeName:         "access_key",
 	}), diags
 }
 

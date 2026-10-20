@@ -31,6 +31,7 @@ pkg/              # runtime imported by generated code (returns errors)
     scope.go      # Scope: AIP parent/name compose + parse, identifier attributes
     crud.go       # Crud[E, M] runtime: CRUD/import/data-source read; ProviderData contract
     reference.go  # ReferenceID: the prefix validator on attributes holding another resource's id
+    parent.go     # RequiresReplaceIfConfigured: the plan modifier on parent identifiers
     assoc.go      # Association runtime: authoritative member sets
     duration.go   # ParseDuration / FormatDuration / DurationValue (keep the written spelling)
     collection.go # KeepEmpty (a written [] or {} reads back as such), JSON-array lists of messages
@@ -121,13 +122,10 @@ A scope identifier the entity also carries as a proto field of the same
 name (`Run.shelter_id` under `shelters/{shelter_id}/runs/{run_id}`, riteSuite's
 `Lane.site_id`) is one attribute, not a collision (`Field.ParentID`). The
 parent path carries it to the API, so `ToProto` and `UpdateMask` skip it;
-`FromProto` reads it from the entity, and `Crud` fills it from the name after
-every state write and on import (`CrudParams.ParentAttributes`), so it holds
-even against a server that does not echo it. It is Optional+Computed with
-`RequiresReplace` and `UseStateForUnknown`: an imported resource has it, and a
-resource that took the provider default shows it. It takes no behavior list
-but `Computed`, and validates through `Spec.ScopeReferences`, not
-`Resource.References`.
+`FromProto` reads it from the entity, and `Crud` fills it from the name like
+any parent identifier (see Scopes), so it holds even against a server that
+does not echo it. It takes no behavior list but `Computed`, and validates
+through `Spec.ScopeReferences`, not `Resource.References`.
 
 A `Reference{Target, Prefix}` marks a string attribute holding another
 resource's id (an empty `Prefix` is for ids that carry none, such as
@@ -221,8 +219,20 @@ generation time** — failures must be loud, never silent omissions.
 (`tf.NewScope("tenants", "issuers")` → parents `tenants/{t}/issuers/{i}`,
 identifier attributes `tenant_id`, `issuer_id`). tfinfra predefines no
 scopes — each consumer declares its service's scope table next to its spec.
-Scope identifier attributes are generated as optional `RequiresReplace`
-strings on every resource schema.
+Scope identifier attributes are generated on every resource schema as
+Optional+Computed strings with `tf.RequiresReplaceIfConfigured` and
+`UseStateForUnknown`. `Crud` fills every one from the name after every state
+write and on import (`CrudParams.ParentAttributes`), because the name is
+authoritative for them. So an imported resource has its parents, and the
+first plan neither nulls a configured one nor forces replacement. A resource
+that took the provider default shows it.
+
+Changing a configured value, or configuring an unknown one, replaces the
+resource. An omitted value keeps the state's. The framework's
+`RequiresReplace` cannot do this: it compares the planned value, which is
+unknown for an omitted computed attribute whenever anything else changes. The
+tradeoff is the Optional+Computed one: removing a configured parent from the
+configuration, or changing the provider default, moves nothing.
 
 ## Supported field shapes (first pass)
 

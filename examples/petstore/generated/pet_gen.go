@@ -143,9 +143,10 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"store_id": schema.StringAttribute{
-				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
+				Computed:            true,
+				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default, and reads back from the name. Changing a configured one replaces the resource.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{tf.RequiresReplaceIfConfigured(), stringplanmodifier.UseStateForUnknown()},
 				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 			"tags": schema.ListAttribute{
@@ -707,12 +708,13 @@ func newPetCrud(providerData any) (*tf.Crud[*v1.Pet, *PetModel], diag.Diagnostic
 				})
 			},
 		},
-		Collection:  "pets",
-		Defaults:    pd.Defaults,
-		IDAttribute: "pet_id",
-		NewModel:    NewPetModel,
-		Scope:       tf.NewScope("stores"),
-		TypeName:    "pet",
+		Collection:       "pets",
+		Defaults:         pd.Defaults,
+		IDAttribute:      "pet_id",
+		NewModel:         NewPetModel,
+		ParentAttributes: []string{"store_id"},
+		Scope:            tf.NewScope("stores"),
+		TypeName:         "pet",
 	}), diags
 }
 

@@ -117,11 +117,7 @@ func fileMainHandler(f *jen.File, _ gen.Registry, entry any) {
 	n := namesFor(fm.Entry, res)
 	n.Examples = referenceExamples(fm.Spec)
 	n.ScopeRefs = fm.Spec.ScopeReferences
-	for _, fd := range fields {
-		if fd.ParentID {
-			n.ParentAttributes = append(n.ParentAttributes, fd.TfName())
-		}
-	}
+	n.ParentAttributes = res.Scope.IdentifierAttributes()
 	checkIDAttribute(n, res, fields)
 
 	writeResourceSchema(f, fm.Entry, res, n, fields)

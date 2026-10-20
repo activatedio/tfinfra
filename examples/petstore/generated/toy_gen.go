@@ -31,9 +31,10 @@ func ToyResourceSchema() schema.Schema {
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"store_id": schema.StringAttribute{
-				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default. Changing it replaces the resource.",
+				Computed:            true,
+				MarkdownDescription: "Parent identifier `store_id`; overrides the provider default, and reads back from the name. Changing a configured one replaces the resource.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
+				PlanModifiers:       []planmodifier.String{tf.RequiresReplaceIfConfigured(), stringplanmodifier.UseStateForUnknown()},
 				Validators:          []validator.String{tf.ReferenceID("s", "store", "")},
 			},
 			"toy_id": schema.StringAttribute{
@@ -156,12 +157,13 @@ func newToyCrud(providerData any) (*tf.Crud[*v1.Toy, *ToyModel], diag.Diagnostic
 				})
 			},
 		},
-		Collection:  "toys",
-		Defaults:    pd.Defaults,
-		IDAttribute: "toy_id",
-		NewModel:    NewToyModel,
-		Scope:       tf.NewScope("stores"),
-		TypeName:    "toy",
+		Collection:       "toys",
+		Defaults:         pd.Defaults,
+		IDAttribute:      "toy_id",
+		NewModel:         NewToyModel,
+		ParentAttributes: []string{"store_id"},
+		Scope:            tf.NewScope("stores"),
+		TypeName:         "toy",
 	}), diags
 }
 

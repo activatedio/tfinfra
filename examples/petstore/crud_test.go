@@ -101,7 +101,7 @@ func TestPetResource_Lifecycle(t *testing.T) {
 	assert.Equal(t, "stores/s1", h.fake.lastCreateParent)
 	assert.Equal(t, "stores/s1/pets/p1", created.Name.ValueString())
 	assert.Equal(t, "2026-08-15T12:00:00Z", created.CreateTime.ValueString())
-	assert.True(t, created.StoreId.IsNull(), "unset optional scope attribute must stay null")
+	assert.Equal(t, "s1", created.StoreId.ValueString(), "an inherited scope attribute reads back from the name")
 
 	// Read: round-trips state.
 	readResp := &resource.ReadResponse{State: h.state(t, created)}

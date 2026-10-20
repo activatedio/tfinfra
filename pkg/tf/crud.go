@@ -86,9 +86,10 @@ type CrudParams[E proto.Message, M Model[E, M]] struct {
 	// IDAttribute's value into the entity's name field, where the server
 	// takes it from.
 	CallerNamed bool
-	// ParentAttributes are the scope identifier attributes the entity also
-	// carries as fields. Like the id, every state write and import fills
-	// them from the name, which is authoritative for them.
+	// ParentAttributes are the scope identifier attributes. Like the id,
+	// every state write and import fills them from the name, which is
+	// authoritative for them, so a configured one does not force
+	// replacement after an import and an inherited one shows the default.
 	ParentAttributes []string
 }
 
@@ -247,8 +248,8 @@ func (c *Crud[E, M]) applyCallerID(ctx context.Context, plan tfsdk.Plan, e E) di
 }
 
 // storeID writes the resource's own id, the last segment of name, into
-// state, and the parent identifiers the entity carries. It does nothing for
-// a resource with neither.
+// state, and the parent identifiers. It does nothing for a resource with
+// neither.
 func (c *Crud[E, M]) storeID(ctx context.Context, state *tfsdk.State, name string) diag.Diagnostics {
 
 	var diags diag.Diagnostics
@@ -265,7 +266,7 @@ func (c *Crud[E, M]) storeID(ctx context.Context, state *tfsdk.State, name strin
 	return c.setIDs(ctx, state, parents, id)
 }
 
-// setIDs writes the id attribute and the carried parent identifiers.
+// setIDs writes the id attribute and the parent identifiers.
 func (c *Crud[E, M]) setIDs(ctx context.Context, state *tfsdk.State, parents map[string]string, id string) diag.Diagnostics {
 
 	var diags diag.Diagnostics
@@ -438,8 +439,8 @@ func (c *Crud[E, M]) ImportState(ctx context.Context, req resource.ImportStateRe
 
 	// The id lands in state on import: a caller-named resource's is required,
 	// so without it the first plan would force replacement, and a server-named
-	// one's is what other resources reference. A carried parent identifier
-	// lands too, so a configured one does not force replacement either.
+	// one's is what other resources reference. The parent identifiers land
+	// too, so a configured one does not force replacement either.
 	resp.Diagnostics.Append(c.setIDs(ctx, &resp.State, parents, id)...)
 }
 

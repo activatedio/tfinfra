@@ -92,29 +92,23 @@ func writeResourceSchema(f *jen.File, e Entry, res Resource, n entityNames, fiel
 		})
 	}
 
-	// Scope identifier attributes: optional, replacement on change. One the
-	// entity carries as a field is built with the fields.
+	// Scope identifier attributes. One the entity carries as a field is
+	// built with the fields, in the same shape.
 	carried := parentIDFields(fields)
 	for _, attr := range res.Scope.IdentifierAttributes() {
 		if carried[attr] {
 			continue
 		}
-		d := jen.Dict{
-			jen.Id("Optional"):            jen.True(),
-			jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default. Changing it replaces the resource.", attr)),
-			jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
-				jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
-			),
-		}
-		if ref, ok := n.ScopeRefs[attr]; ok {
-			d[jen.Id("Validators")] = referenceValidators(ref, n.Examples)
-		}
-		attrs[jen.Lit(attr)] = jen.Qual(pkgResourceSchema, "StringAttribute").Values(d)
+		attrs[jen.Lit(attr)] = parentIDAttributeFor(attr, n,
+			fmt.Sprintf("Parent identifier `%s`; overrides the provider default, and reads back from the name. "+
+				"Changing a configured one replaces the resource.", attr))
 	}
 
 	for _, fd := range fields {
 		if fd.ParentID {
-			attrs[jen.Lit(fd.TfName())] = parentIDAttributeFor(fd, n)
+			attrs[jen.Lit(fd.TfName())] = parentIDAttributeFor(fd.TfName(), n,
+				fmt.Sprintf("Parent identifier `%s`; overrides the provider default, and reads back from the entity. "+
+					"Changing a configured one replaces the resource.", fd.TfName()))
 			continue
 		}
 		attrs[jen.Lit(fd.TfName())] = attributeFor(fd, n.Examples)
@@ -236,23 +230,23 @@ func parentIDFields(fields []Field) map[string]bool {
 	return out
 }
 
-// parentIDAttributeFor builds a scope identifier the entity also carries
-// as a field. Unlike a plain identifier it is Computed as well: reads fill
-// it from the field, so an import has it and a resource that took the
-// provider default shows it. Changing it still replaces the resource.
-func parentIDAttributeFor(fd Field, n entityNames) jen.Code {
+// parentIDAttributeFor builds a scope identifier attribute. It is Optional
+// and Computed: every state write fills it from the name, so an import has
+// it and a resource that took the provider default shows it. Changing a
+// configured value replaces the resource; omitting it keeps the state's
+// (tf.RequiresReplaceIfConfigured).
+func parentIDAttributeFor(attr string, n entityNames, description string) jen.Code {
 
 	d := jen.Dict{
-		jen.Id("Optional"): jen.True(),
-		jen.Id("Computed"): jen.True(),
-		jen.Id("MarkdownDescription"): jen.Lit(fmt.Sprintf("Parent identifier `%s`; overrides the provider default, and reads back from the entity. "+
-			"Changing it replaces the resource.", fd.TfName())),
+		jen.Id("Optional"):            jen.True(),
+		jen.Id("Computed"):            jen.True(),
+		jen.Id("MarkdownDescription"): jen.Lit(description),
 		jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "String").Values(
-			jen.Qual(shapeFor(FieldString).planModifierPkg, "RequiresReplace").Call(),
+			jen.Qual(pkgRuntimeTf, "RequiresReplaceIfConfigured").Call(),
 			jen.Qual(shapeFor(FieldString).planModifierPkg, "UseStateForUnknown").Call(),
 		),
 	}
-	if ref, ok := n.ScopeRefs[fd.TfName()]; ok {
+	if ref, ok := n.ScopeRefs[attr]; ok {
 		d[jen.Id("Validators")] = referenceValidators(ref, n.Examples)
 	}
 

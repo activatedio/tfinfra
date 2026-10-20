@@ -31,8 +31,8 @@ type entityNames struct {
 	// which the field's own attribute and conversions already cover; false
 	// when it is the attribute tfinfra adds.
 	IDField bool
-	// ParentAttributes are the scope identifiers the entity carries as
-	// fields, in scope order; set once the fields are normalized.
+	// ParentAttributes are the scope identifiers, in scope order, which
+	// every state write and import fills from the name.
 	ParentAttributes []string
 	// Examples maps each Reference Target that is a resource of the spec to
 	// the expression that yields its id ("petstore_pet.<name>.pet_id").
