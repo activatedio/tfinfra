@@ -2,6 +2,7 @@ package tf
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dave/jennifer/jen"
 
@@ -549,11 +550,14 @@ func configInputAttributeFor(fd Field) jen.Code {
 		d[jen.Id("Sensitive")] = jen.True()
 	}
 	applyTypeKeys(d, pkgDatasourceSchema, fd, configInputAttributeFor)
-	if desc := shapeDescription(fd); desc != "" {
+	if desc := joinSentences(fd.Description, shapeDescription(fd), valuesDescription(fd)); desc != "" {
 		d[jen.Id("MarkdownDescription")] = jen.Lit(desc)
 	}
 	if fd.Kind == FieldEnum {
 		d[jen.Id("Validators")] = enumValidators(fd)
+	}
+	if fd.Values != nil {
+		d[jen.Id("Validators")] = valuesValidators(*fd.Values)
 	}
 
 	return jen.Qual(pkgDatasourceSchema, shape.attribute).Values(d)
@@ -606,4 +610,62 @@ func writeMintAttributes(attrs jen.Dict, mint *Mint) {
 			jen.Qual(shapeFor(FieldStringMap).planModifierPkg, "RequiresReplace").Call(),
 		),
 	})
+}
+
+// valuesDescription says which values a Values-constrained field takes.
+func valuesDescription(fd Field) string {
+
+	if fd.Values == nil {
+		return ""
+	}
+
+	desc := "One of " + codeList(fd.Values.Allowed) + "."
+	if len(fd.Values.Aliases) == 0 {
+		return desc
+	}
+
+	aliases := make([]string, 0, len(fd.Values.Aliases))
+	for _, a := range sortedKeys(fd.Values.Aliases) {
+		aliases = append(aliases, fmt.Sprintf("`%s` for `%s`", a, fd.Values.Aliases[a]))
+	}
+
+	return desc + " Also takes " + strings.Join(aliases, ", ") + ", and encodes the full value."
+}
+
+func codeList(values []string) string {
+	quoted := make([]string, 0, len(values))
+	for _, v := range values {
+		quoted = append(quoted, "`"+v+"`")
+	}
+	if len(quoted) < 3 {
+		return strings.Join(quoted, " or ")
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + " or " + quoted[len(quoted)-1]
+}
+
+// valuesValidators admits the allowed values and their aliases.
+func valuesValidators(v Values) jen.Code {
+
+	values := make([]jen.Code, 0, len(v.Allowed)+len(v.Aliases))
+	for _, a := range v.Allowed {
+		values = append(values, jen.Lit(a))
+	}
+	for _, a := range sortedKeys(v.Aliases) {
+		values = append(values, jen.Lit(a))
+	}
+
+	return jen.Index().Qual(pkgSchemaValidator, "String").Values(
+		jen.Qual(pkgStringValidators, "OneOf").Call(values...),
+	)
+}
+
+// joinSentences joins the non-empty parts of a description with a space.
+func joinSentences(parts ...string) string {
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return strings.Join(out, " ")
 }

@@ -3,6 +3,7 @@ package tf
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 
@@ -106,6 +107,11 @@ type Field struct {
 	// attribute with the identifier, read from the entity and never sent in
 	// it.
 	ParentID bool
+	// Description is what the field is, from its proto comment or the
+	// entry's override. Config data source inputs only.
+	Description string
+	// Values is the fixed set a string config field takes; nil otherwise.
+	Values *Values
 }
 
 // TfName returns the Terraform attribute name for the field.
@@ -287,8 +293,83 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 	mark(cds.Required, "Required", func(f *Field) { f.Required = true })
 	mark(cds.Sensitive, "Sensitive", func(f *Field) { f.Sensitive = true })
 	applyReferences(t.Name(), cds.References, valid)
+	applyValues(t.Name(), cds.Values, valid)
+	applyDescriptions(t, fields, "", cds.Descriptions)
+	for p := range cds.Descriptions {
+		if !hasFieldPath(fields, p) {
+			panic(fmt.Sprintf("%s: Descriptions references unknown field %q", t.Name(), p))
+		}
+	}
 
 	return fields
+}
+
+// applyDescriptions sets each field's description, nested fields included:
+// the override at its dotted path when there is one, otherwise its proto
+// comment.
+func applyDescriptions(t reflect.Type, fields []Field, prefix string, overrides map[string]string) {
+
+	for i := range fields {
+		f := &fields[i]
+		if d, ok := overrides[prefix+f.ProtoName]; ok {
+			f.Description = d
+		} else {
+			f.Description = fieldComments.For(t, f.GoName)
+		}
+		if len(f.Nested) > 0 {
+			applyDescriptions(messageStruct(f.GoType), f.Nested, prefix+f.ProtoName+".", overrides)
+		}
+	}
+}
+
+// messageStruct is the struct type behind a message field's Go type
+// (*M or []*M).
+func messageStruct(t reflect.Type) reflect.Type {
+	for t.Kind() == reflect.Slice || t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	return t
+}
+
+func hasFieldPath(fields []Field, path string) bool {
+	name, rest, nested := strings.Cut(path, ".")
+	for _, f := range fields {
+		if f.ProtoName != name {
+			continue
+		}
+		return !nested || hasFieldPath(f.Nested, rest)
+	}
+	return false
+}
+
+// applyValues resolves a Values map onto the normalized fields. Values
+// constrain a plain string a practitioner writes, and every alias must
+// stand for an allowed value.
+func applyValues(entity string, values map[string]Values, byName map[string]*Field) {
+
+	for _, n := range sortedKeys(values) {
+		v := values[n]
+		f, ok := byName[n]
+		switch {
+		case !ok:
+			panic(fmt.Sprintf("%s: Values references unknown field %q", entity, n))
+		case f.Kind != FieldString:
+			panic(fmt.Sprintf("%s.%s: Values apply only to a string field", entity, n))
+		case f.Reference != nil:
+			panic(fmt.Sprintf("%s.%s: a reference is validated by prefix; it takes no Values", entity, n))
+		case len(v.Allowed) == 0:
+			panic(fmt.Sprintf("%s.%s: Values needs at least one allowed value", entity, n))
+		}
+		for _, alias := range sortedKeys(v.Aliases) {
+			if !slices.Contains(v.Allowed, v.Aliases[alias]) {
+				panic(fmt.Sprintf("%s.%s: alias %q stands for %q, which is not an allowed value", entity, n, alias, v.Aliases[alias]))
+			}
+			if slices.Contains(v.Allowed, alias) {
+				panic(fmt.Sprintf("%s.%s: alias %q is itself an allowed value", entity, n, alias))
+			}
+		}
+		f.Values = &v
+	}
 }
 
 // applyReferences resolves a References map onto the normalized fields. A

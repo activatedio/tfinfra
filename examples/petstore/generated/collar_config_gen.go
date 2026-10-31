@@ -7,6 +7,7 @@ import (
 	v1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
 	tf "github.com/activatedio/tfinfra/pkg/tf"
 	jsontypes "github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
+	stringvalidator "github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	attr "github.com/hashicorp/terraform-plugin-framework/attr"
 	datasource "github.com/hashicorp/terraform-plugin-framework/datasource"
 	schema "github.com/hashicorp/terraform-plugin-framework/datasource/schema"
@@ -30,20 +31,28 @@ func CollarConfigDataSourceSchema() schema.Schema {
 			},
 			"buckle": schema.StringAttribute{
 				CustomType:          jsontypes.NormalizedType{},
-				MarkdownDescription: "`buckle` as the protojson encoding of Buckle.",
+				MarkdownDescription: "Declared in the JSON list: the protojson lane. `buckle` as the protojson encoding of Buckle.",
 				Optional:            true,
 			},
-			"color": schema.StringAttribute{Required: true},
+			"color": schema.StringAttribute{
+				MarkdownDescription: "One of `red` or `blue`. Also takes `scarlet` for `red`, and encodes the full value.",
+				Required:            true,
+				Validators:          []validator.String{stringvalidator.OneOf("red", "blue", "scarlet")},
+			},
 			"engraving": schema.SingleNestedAttribute{
 				Attributes: map[string]schema.Attribute{
-					"font": schema.StringAttribute{Optional: true},
+					"font": schema.StringAttribute{
+						MarkdownDescription: "The engraving's typeface.",
+						Optional:            true,
+					},
 					"lines": schema.ListAttribute{
 						ElementType: types.StringType,
 						Optional:    true,
 					},
 					"text": schema.StringAttribute{Optional: true},
 				},
-				Optional: true,
+				MarkdownDescription: "Left out of the JSON list: the typed nested attribute lane. Both lanes coexist on one message.",
+				Optional:            true,
 			},
 			"size": schema.Int64Attribute{Optional: true},
 			"tag_key_id": schema.StringAttribute{
@@ -98,6 +107,9 @@ func (m *CollarConfigModel) ToProto(ctx context.Context) (*v1.CollarConfig, diag
 	var diags diag.Diagnostics
 	out := &v1.CollarConfig{}
 	out.Color = m.Color.ValueString()
+	if v, ok := map[string]string{"scarlet": "red"}[out.Color]; ok {
+		out.Color = v
+	}
 	out.Size = int32(m.Size.ValueInt64())
 	if !m.Buckle.IsNull() && !m.Buckle.IsUnknown() {
 		v := &v1.Buckle{}

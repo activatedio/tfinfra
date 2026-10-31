@@ -269,6 +269,25 @@ type ConfigDataSource struct {
 	// References maps string config fields holding a resource's id, by
 	// proto name, to what they reference. See Reference.
 	References map[string]Reference
+	// Descriptions documents config fields by dotted proto path
+	// ("claim_map.static"), in place of the proto comment each input's
+	// description otherwise comes from. An empty value drops the comment.
+	Descriptions map[string]string
+	// Values constrains string config fields, by proto name, to a fixed
+	// set of values, checked at plan. See Values.
+	Values map[string]Values
+}
+
+// Values is the fixed set of values a string config field takes, for a
+// field the proto types as a plain string (a URI, a format name) rather
+// than an enum.
+type Values struct {
+	// Allowed are the values the API takes.
+	Allowed []string
+	// Aliases maps a spelling a practitioner may write to the Allowed value
+	// it stands for (a short name for a URN). The data source encodes the
+	// Allowed value, so the API only ever sees one spelling.
+	Aliases map[string]string
 }
 
 // DataSourceList declares a plural data source: every entity under one

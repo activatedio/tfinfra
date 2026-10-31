@@ -441,6 +441,9 @@ func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 
 	switch fd.Kind {
 	case FieldString:
+		if fd.Values != nil && len(fd.Values.Aliases) > 0 {
+			return toProtoAliased(fd, c)
+		}
 		return out.Op("=").Add(val).Dot("ValueString").Call()
 	case FieldBool:
 		return out.Op("=").Add(val).Dot("ValueBool").Call()
@@ -469,6 +472,22 @@ func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 	default:
 		return toProtoMessage(fd, c, owner)
 	}
+}
+
+// toProtoAliased writes a Values-constrained string, an alias replaced by
+// the value it stands for.
+func toProtoAliased(fd Field, c conv) jen.Code {
+
+	aliases := jen.Dict{}
+	for a, v := range fd.Values.Aliases {
+		aliases[jen.Lit(a)] = jen.Lit(v)
+	}
+
+	return c.p(fd.GoName).Op("=").Add(c.m(fd.GoName)).Dot("ValueString").Call().Line().
+		If(
+			jen.List(jen.Id("v"), jen.Id("ok")).Op(":=").Map(jen.String()).String().Values(aliases).Index(c.p(fd.GoName)),
+			jen.Id("ok"),
+		).Block(c.p(fd.GoName).Op("=").Id("v"))
 }
 
 // toProtoMessage handles the message-typed kinds: the JSON lanes and the

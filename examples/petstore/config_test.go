@@ -8,7 +8,10 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework-jsontypes/jsontypes"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
@@ -134,6 +137,38 @@ func TestCollarConfigDataSource_Descriptions(t *testing.T) {
 
 	assert.True(t, strings.HasPrefix(s.MarkdownDescription, "A collar is only worn by a pet with a feeding schedule. Builds a CollarConfig config"),
 		s.MarkdownDescription)
-	assert.Equal(t, "`buckle` as the protojson encoding of Buckle.", s.Attributes["buckle"].GetMarkdownDescription())
-	assert.Empty(t, s.Attributes["color"].GetMarkdownDescription(), "a plain string needs no description")
+	assert.Equal(t, "Declared in the JSON list: the protojson lane. `buckle` as the protojson encoding of Buckle.",
+		s.Attributes["buckle"].GetMarkdownDescription(), "the proto comment leads, the shape follows")
+	assert.Equal(t, "One of `red` or `blue`. Also takes `scarlet` for `red`, and encodes the full value.",
+		s.Attributes["color"].GetMarkdownDescription(), "an uncommented field says only its values")
+	assert.Empty(t, s.Attributes["size"].GetMarkdownDescription(), "an uncommented plain field has no description")
+
+	engraving := s.Attributes["engraving"].(schema.SingleNestedAttribute)
+	assert.Equal(t, "Left out of the JSON list: the typed nested attribute lane. Both lanes coexist on one message.",
+		engraving.MarkdownDescription, "a wrapped comment reads as one paragraph")
+	assert.Equal(t, "The engraving's typeface.", engraving.Attributes["font"].GetMarkdownDescription(), "an override wins, nested by dotted path")
+}
+
+// A Values-constrained input refuses anything else at plan, and an alias is
+// encoded as the value it stands for.
+func TestCollarConfigDataSource_Values(t *testing.T) {
+
+	ctx := context.Background()
+	s := generated.CollarConfigDataSourceSchema()
+	color := s.Attributes["color"].(schema.StringAttribute)
+	require.Len(t, color.Validators, 1)
+
+	for value, ok := range map[string]bool{"red": true, "blue": true, "scarlet": true, "green": false} {
+		resp := &validator.StringResponse{}
+		color.Validators[0].ValidateString(ctx, validator.StringRequest{Path: path.Root("color"), ConfigValue: types.StringValue(value)}, resp)
+		assert.Equal(t, !ok, resp.Diagnostics.HasError(), value)
+	}
+
+	for written, encoded := range map[string]string{"scarlet": "red", "blue": "blue"} {
+		in := generated.NewCollarConfigModel()
+		in.Color = types.StringValue(written)
+		out, diags := in.ToProto(ctx)
+		require.False(t, diags.HasError(), diags)
+		assert.Equal(t, encoded, out.GetColor(), written)
+	}
 }

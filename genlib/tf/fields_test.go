@@ -268,3 +268,51 @@ func TestNormalizeFields_Panics(t *testing.T) {
 	}
 
 }
+
+func TestNormalizeConfigFields_Panics(t *testing.T) {
+
+	collar := gentf.Entry{Type: reflect.TypeFor[petstorev1.CollarConfig]()}
+
+	cases := map[string]struct {
+		cds  gentf.ConfigDataSource
+		want string
+	}{
+		"values on an unknown field": {
+			cds:  gentf.ConfigDataSource{Values: map[string]gentf.Values{"nope": {Allowed: []string{"a"}}}},
+			want: `CollarConfig: Values references unknown field "nope"`,
+		},
+		"values on a non-string field": {
+			cds:  gentf.ConfigDataSource{Values: map[string]gentf.Values{"size": {Allowed: []string{"1"}}}},
+			want: "CollarConfig.size: Values apply only to a string field",
+		},
+		"values with nothing allowed": {
+			cds:  gentf.ConfigDataSource{Values: map[string]gentf.Values{"color": {}}},
+			want: "CollarConfig.color: Values needs at least one allowed value",
+		},
+		"an alias for a value not allowed": {
+			cds:  gentf.ConfigDataSource{Values: map[string]gentf.Values{"color": {Allowed: []string{"red"}, Aliases: map[string]string{"scarlet": "crimson"}}}},
+			want: `CollarConfig.color: alias "scarlet" stands for "crimson", which is not an allowed value`,
+		},
+		"an alias that is itself allowed": {
+			cds:  gentf.ConfigDataSource{Values: map[string]gentf.Values{"color": {Allowed: []string{"red", "blue"}, Aliases: map[string]string{"blue": "red"}}}},
+			want: `CollarConfig.color: alias "blue" is itself an allowed value`,
+		},
+		"values on a reference": {
+			cds: gentf.ConfigDataSource{
+				References: map[string]gentf.Reference{"tag_key_id": {Target: "access_key", Prefix: "k"}},
+				Values:     map[string]gentf.Values{"tag_key_id": {Allowed: []string{"k-1"}}},
+			},
+			want: "CollarConfig.tag_key_id: a reference is validated by prefix; it takes no Values",
+		},
+		"a description for an unknown nested field": {
+			cds:  gentf.ConfigDataSource{Descriptions: map[string]string{"engraving.nope": "x"}},
+			want: `CollarConfig: Descriptions references unknown field "engraving.nope"`,
+		},
+	}
+
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			assert.PanicsWithValue(t, c.want, func() { gentf.NormalizeConfigFields(collar, c.cds) })
+		})
+	}
+}

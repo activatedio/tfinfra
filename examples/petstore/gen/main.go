@@ -161,6 +161,14 @@ func main() {
 							"tag_key_id": {Target: "access_key", Prefix: "k"},
 						},
 						Description: "A collar is only worn by a pet with a feeding schedule.",
+						// color is a plain string the API takes from a set;
+						// scarlet is a spelling it does not, encoded as red.
+						Values: map[string]gentf.Values{
+							"color": {Allowed: []string{"red", "blue"}, Aliases: map[string]string{"scarlet": "red"}},
+						},
+						Descriptions: map[string]string{
+							"engraving.font": "The engraving's typeface.",
+						},
 					},
 				},
 			},
