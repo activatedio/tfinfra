@@ -276,6 +276,11 @@ type ConfigDataSource struct {
 	// Values constrains string config fields, by proto name, to a fixed
 	// set of values, checked at plan. See Values.
 	Values map[string]Values
+	// Omit leaves config fields out of the data source, by dotted proto
+	// path ("engraving.font"): a field the server writes, which a
+	// practitioner has no business setting. An omitted field is not in the
+	// schema or the model, so the data source never sends it.
+	Omit []string
 }
 
 // Values is the fixed set of values a string config field takes, for a

@@ -312,7 +312,11 @@ Resources whose API field is `google.protobuf.Any` get two lanes:
    the resource. `ConfigDataSource.Description` leads the generated
    description with what the fields cannot say (a prerequisite, a caveat),
    and inputs that are timestamps, durations or JSON carry the same
-   how-to-write-it description a resource attribute does:
+   how-to-write-it description a resource attribute does.
+   `ConfigDataSource.Omit` leaves fields out by dotted proto path
+   (`engraving.font`). Use it for a field only the server writes: it is
+   not in the schema or the model, so the data source never sends it.
+   Any other option that names an omitted field panics as unknown.
 
 ```hcl
 data "petstore_collar_config" "c" {

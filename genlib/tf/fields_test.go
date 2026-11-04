@@ -304,6 +304,18 @@ func TestNormalizeConfigFields_Panics(t *testing.T) {
 			},
 			want: "CollarConfig.tag_key_id: a reference is validated by prefix; it takes no Values",
 		},
+		"omit of an unknown field": {
+			cds:  gentf.ConfigDataSource{Omit: []string{"engraving.nope"}},
+			want: `CollarConfig: Omit references unknown field "engraving.nope"`,
+		},
+		"an omitted field made required": {
+			cds:  gentf.ConfigDataSource{Omit: []string{"color"}, Required: []string{"color"}},
+			want: `CollarConfig: Required references unknown field "color"`,
+		},
+		"an omitted nested field described": {
+			cds:  gentf.ConfigDataSource{Omit: []string{"engraving.font"}, Descriptions: map[string]string{"engraving.font": "x"}},
+			want: `CollarConfig: Descriptions references unknown field "engraving.font"`,
+		},
 		"a description for an unknown nested field": {
 			cds:  gentf.ConfigDataSource{Descriptions: map[string]string{"engraving.nope": "x"}},
 			want: `CollarConfig: Descriptions references unknown field "engraving.nope"`,
@@ -315,4 +327,33 @@ func TestNormalizeConfigFields_Panics(t *testing.T) {
 			assert.PanicsWithValue(t, c.want, func() { gentf.NormalizeConfigFields(collar, c.cds) })
 		})
 	}
+}
+
+// TestNormalizeConfigFields_Omit: an omitted field is gone from the fields
+// every part of the data source is generated from, at the top level and
+// inside a nested message, whose other fields stay.
+func TestNormalizeConfigFields_Omit(t *testing.T) {
+
+	collar := gentf.Entry{Type: reflect.TypeFor[petstorev1.CollarConfig]()}
+
+	fields := gentf.NormalizeConfigFields(collar, gentf.ConfigDataSource{Omit: []string{"tag_key_id", "engraving.font"}})
+
+	names := func(fs []gentf.Field) []string {
+		out := make([]string, 0, len(fs))
+		for _, f := range fs {
+			out = append(out, f.ProtoName)
+		}
+		return out
+	}
+
+	assert.NotContains(t, names(fields), "tag_key_id")
+	assert.Contains(t, names(fields), "color")
+
+	for _, f := range fields {
+		if f.ProtoName == "engraving" {
+			assert.ElementsMatch(t, []string{"text", "lines"}, names(f.Nested))
+			return
+		}
+	}
+	t.Fatal("engraving was omitted with its field")
 }

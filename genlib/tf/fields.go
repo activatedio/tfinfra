@@ -273,11 +273,17 @@ func NormalizeConfigFields(e Entry, cds ConfigDataSource) []Field {
 		jsonSet[n] = true
 	}
 
-	valid := map[string]*Field{}
 	fields := make([]Field, 0, fds.Len())
-
 	for i := 0; i < fds.Len(); i++ {
 		fields = append(fields, normalizeField(t, fds.Get(i), jsonSet, true))
+	}
+
+	// Omitted fields go first, so any other option naming one panics as
+	// an unknown field.
+	fields = applyOmit(t.Name(), fields, cds.Omit)
+
+	valid := map[string]*Field{}
+	for i := range fields {
 		valid[fields[i].ProtoName] = &fields[i]
 	}
 
@@ -329,6 +335,35 @@ func messageStruct(t reflect.Type) reflect.Type {
 		t = t.Elem()
 	}
 	return t
+}
+
+// applyOmit is fields without the ones at the dotted paths in omit.
+func applyOmit(entity string, fields []Field, omit []string) []Field {
+	for _, p := range omit {
+		if !hasFieldPath(fields, p) {
+			panic(fmt.Sprintf("%s: Omit references unknown field %q", entity, p))
+		}
+		fields = omitFieldPath(fields, p)
+	}
+	return fields
+}
+
+// omitFieldPath is fields without the one at the dotted path. A nested
+// message keeps its other fields.
+func omitFieldPath(fields []Field, path string) []Field {
+	name, rest, nested := strings.Cut(path, ".")
+	out := make([]Field, 0, len(fields))
+	for _, f := range fields {
+		switch {
+		case f.ProtoName != name:
+		case !nested:
+			continue
+		default:
+			f.Nested = omitFieldPath(f.Nested, rest)
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 func hasFieldPath(fields []Field, path string) bool {
