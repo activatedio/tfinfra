@@ -605,7 +605,7 @@ func writeMintAttributes(attrs jen.Dict, mint *Mint) {
 		jen.Id("Optional"):    jen.True(),
 		jen.Id("ElementType"): jen.Qual(pkgTypes, "StringType"),
 		jen.Id("MarkdownDescription"): jen.Lit("Arbitrary values that replace the resource when any of them changes, never sent to the API. " +
-			"Change one to rotate: with `create_before_destroy`, the successor is minted before this one is deleted."),
+			"Change one to rotate: with `create_before_destroy`, the successor is created before this one is deleted."),
 		jen.Id("PlanModifiers"): jen.Index().Qual(pkgPlanmodifier, "Map").Values(
 			jen.Qual(shapeFor(FieldStringMap).planModifierPkg, "RequiresReplace").Call(),
 		),
