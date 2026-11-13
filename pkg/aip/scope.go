@@ -39,13 +39,33 @@ func (s Scope) Collections() []string {
 
 // IdentifierAttributes returns the Terraform attribute name for each parent
 // collection, outermost first: the singular collection name suffixed with
-// "_id" ("tenants" → "tenant_id").
+// "_id" ("tenants" → "tenant_id"), in snake case whatever the collection's
+// own spelling ("clusterTrusts" and "cluster-trusts" → "cluster_trust_id").
 func (s Scope) IdentifierAttributes() []string {
 	res := make([]string, len(s.collections))
 	for i, c := range s.collections {
-		res[i] = pluralizeClient.Singular(c) + "_id"
+		res[i] = snakeCase(pluralizeClient.Singular(c)) + "_id"
 	}
 	return res
+}
+
+// snakeCase spells a lowerCamel or kebab collection name in snake case.
+func snakeCase(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		switch {
+		case r == '-':
+			b.WriteByte('_')
+		case r >= 'A' && r <= 'Z':
+			if i > 0 {
+				b.WriteByte('_')
+			}
+			b.WriteRune(r + ('a' - 'A'))
+		default:
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // ComposeParent builds the AIP parent string from identifier attribute

@@ -17,6 +17,7 @@ const (
 	pkgStructpb    = "google.golang.org/protobuf/types/known/structpb"
 	pkgAttr        = "github.com/hashicorp/terraform-plugin-framework/attr"
 	pkgBasetypes   = "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
+	pkgProto       = "google.golang.org/protobuf/proto"
 )
 
 // conv names the variables one conversion statement reads and writes, so a
@@ -434,6 +435,18 @@ func notNullNotUnknown(c conv, goName string) *jen.Statement {
 		Op("&&").Op("!").Add(c.m(goName)).Dot("IsUnknown").Call()
 }
 
+// toProtoBool writes a bool; a proto3 optional one is set only when the
+// attribute is known and not null.
+func toProtoBool(fd Field, c conv) jen.Code {
+	out := c.p(fd.GoName)
+	if fd.Presence {
+		return jen.If(notNullNotUnknown(c, fd.GoName)).Block(
+			out.Op("=").Qual(pkgProto, "Bool").Call(c.m(fd.GoName).Dot("ValueBool").Call()),
+		)
+	}
+	return out.Op("=").Add(c.m(fd.GoName)).Dot("ValueBool").Call()
+}
+
 func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 
 	out := c.p(fd.GoName)
@@ -446,7 +459,7 @@ func toProtoStatement(fd Field, c conv, owner string) jen.Code {
 		}
 		return out.Op("=").Add(val).Dot("ValueString").Call()
 	case FieldBool:
-		return out.Op("=").Add(val).Dot("ValueBool").Call()
+		return toProtoBool(fd, c)
 	case FieldInt64:
 		return out.Op("=").Add(toProtoNumeric(fd, c, "ValueInt64", reflect.Int64))
 	case FieldFloat64:
@@ -686,6 +699,13 @@ func fromProtoScalar(fd Field, c conv) (jen.Code, bool) {
 	case FieldString:
 		return fromProtoString(fd, c), true
 	case FieldBool:
+		if fd.Presence {
+			return jen.If(e().Op("==").Nil()).Block(
+				m().Op("=").Qual(pkgTypes, "BoolNull").Call(),
+			).Else().Block(
+				m().Op("=").Qual(pkgTypes, "BoolValue").Call(jen.Op("*").Add(e())),
+			), true
+		}
 		return m().Op("=").Qual(pkgTypes, "BoolValue").Call(e()), true
 	case FieldInt64:
 		return m().Op("=").Qual(pkgTypes, "Int64Value").Call(numericCast(fd, c, reflect.Int64, "int64")), true

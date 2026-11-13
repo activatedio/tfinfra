@@ -35,6 +35,12 @@ func TestScope_IdentifierAttributes(t *testing.T) {
 				assert.Equal(t, []string{"tenant_id", "issuer_id", "audience_id"}, got)
 			},
 		},
+		"camel and kebab collections in snake case": {
+			arrange: func() aip.Scope { return aip.NewScope("tenants", "clusterTrusts", "relay-pools") },
+			assert: func(t *testing.T, got []string) {
+				assert.Equal(t, []string{"tenant_id", "cluster_trust_id", "relay_pool_id"}, got)
+			},
+		},
 	}
 
 	for k, v := range cases {

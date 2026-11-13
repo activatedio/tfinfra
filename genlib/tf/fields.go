@@ -112,6 +112,10 @@ type Field struct {
 	Description string
 	// Values is the fixed set a string config field takes; nil otherwise.
 	Values *Values
+	// Presence marks a proto3 `optional` scalar (a pointer in Go): null in
+	// Terraform is nil on the wire and the reverse, so an unset value is
+	// told apart from the zero value. Bool only, for now.
+	Presence bool
 }
 
 // TfName returns the Terraform attribute name for the field.
@@ -464,6 +468,13 @@ func normalizeField(t reflect.Type, fd protoreflect.FieldDescriptor, jsonSet map
 	}
 
 	f.Kind = fieldKind(t, fd, jsonSet[name], allowNested)
+
+	if fd.HasOptionalKeyword() && fd.Kind() != protoreflect.MessageKind {
+		if f.Kind != FieldBool {
+			panic(fmt.Sprintf("%s.%s: proto3 optional %s fields are not yet supported (bool only)", t.Name(), name, fd.Kind()))
+		}
+		f.Presence = true
+	}
 
 	if f.Kind == FieldEnum {
 		f.EnumValues = enumValueNames(fd)
