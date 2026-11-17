@@ -334,6 +334,10 @@ func (c *Crud[E, M]) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(KeepJSONStyle(ctx, req.State, &resp.State)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
 	resp.Diagnostics.Append(c.storeID(ctx, &resp.State, m.GetName().ValueString())...)
 }
