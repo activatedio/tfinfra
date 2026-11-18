@@ -52,6 +52,9 @@ func main() {
 						// update_time changes on every write.
 						Volatile:  []string{"update_time"},
 						InputOnly: []string{"intake_code", "intake_age_days"},
+						// buddy_id is stored as sent and never filled by the
+						// server: removing it from the configuration clears it.
+						Clearable: []string{"buddy_id"},
 						// notes is a repeated message on the JSON lane;
 						// vaccinations, left out, is a list-nested attribute.
 						JSON: []string{"config", "metadata", "notes"},

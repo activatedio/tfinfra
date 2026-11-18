@@ -131,7 +131,7 @@ func TestNormalizeFields_IDFieldAndParentIDPanics(t *testing.T) {
 				return shelterEntry, gentf.Resource{IDField: "shelter_id", InputOnly: []string{"shelter_id"}}
 			},
 			assert: func(t *testing.T, f func()) {
-				assert.PanicsWithValue(t, `Shelter.shelter_id: IDField cannot be input-only or sensitive; it is read back from every name`, f)
+				assert.PanicsWithValue(t, `Shelter.shelter_id: IDField cannot be input-only, sensitive or clearable; it is read back from every name`, f)
 			},
 		},
 		"the id field as a parent identifier": {

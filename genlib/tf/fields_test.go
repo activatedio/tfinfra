@@ -164,6 +164,22 @@ func TestNormalizeFields_Panics(t *testing.T) {
 				assert.PanicsWithValue(t, "Pet.create_time: field cannot be both required and computed", f)
 			},
 		},
+		"clearable and computed conflict": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{Computed: []string{"buddy_id"}, Clearable: []string{"buddy_id"}, JSON: []string{"config", "metadata", "notes"}}
+			},
+			assert: func(t *testing.T, f func()) {
+				assert.PanicsWithValue(t, "Pet.buddy_id: a clearable field is an optional input the server echoes; it cannot be required, computed, volatile or input-only", f)
+			},
+		},
+		"clearable non-string field": {
+			arrange: func() (gentf.Entry, gentf.Resource) {
+				return petEntry(), gentf.Resource{Clearable: []string{"age"}, JSON: []string{"config", "metadata", "notes"}}
+			},
+			assert: func(t *testing.T, f func()) {
+				assert.PanicsWithValue(t, "Pet.age: only a string or timestamp field may be clearable: its zero value must read as null", f)
+			},
+		},
 		"pending WriteOnly fails loudly": {
 			arrange: func() (gentf.Entry, gentf.Resource) {
 				return petEntry(), gentf.Resource{WriteOnly: []string{"display_name"}}

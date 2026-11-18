@@ -45,10 +45,8 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 			"buddy_id": schema.StringAttribute{
-				Computed:      true,
-				Optional:      true,
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-				Validators:    []validator.String{tf.ReferenceID("p", "pet", "petstore_pet.<name>.pet_id")},
+				Optional:   true,
+				Validators: []validator.String{tf.ReferenceID("p", "pet", "petstore_pet.<name>.pet_id")},
 			},
 			"config": schema.StringAttribute{
 				Computed:            true,

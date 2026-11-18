@@ -381,6 +381,11 @@ func attributeFor(fd Field, examples map[string]string) jen.Code {
 		// unset attribute — cannot arise for a field the server never
 		// returns.
 		d[jen.Id("Optional")] = jen.True()
+	case fd.Clearable:
+		// Optional alone: removed from the configuration, it plans null
+		// and the update clears it. The server only ever echoes it, so a
+		// read never fills it while unset.
+		d[jen.Id("Optional")] = jen.True()
 	default:
 		// Optional attributes are also Computed: proto3 cannot distinguish
 		// zero from unset, so reads echo server values into unset
@@ -465,10 +470,11 @@ func planModifiers(fd Field, shape attrShape) jen.Code {
 	if fd.Immutable {
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "RequiresReplace").Call())
 	}
-	if !fd.Required && !fd.InputOnly && !fd.Volatile {
+	if !fd.Required && !fd.InputOnly && !fd.Volatile && !fd.Clearable {
 		// Computed and optional-computed alike keep their prior value in
 		// plans instead of churning to unknown. An input-only attribute is
-		// never computed, so it is never unknown and has nothing to keep. A
+		// never computed, so it is never unknown and has nothing to keep;
+		// nor is a clearable one, whose null must reach the plan. A
 		// volatile one changes on every write, so an update must plan it
 		// unknown.
 		mods = append(mods, jen.Qual(shape.planModifierPkg, "UseStateForUnknown").Call())

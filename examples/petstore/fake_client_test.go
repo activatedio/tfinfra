@@ -182,6 +182,8 @@ func (f *fakePetStoreClient) PatchPet(_ context.Context, in *petstorev1.PatchPet
 			existing.Vaccinations = in.GetPet().GetVaccinations()
 		case "notes":
 			existing.Notes = in.GetPet().GetNotes()
+		case "buddy_id":
+			existing.BuddyId = in.GetPet().GetBuddyId()
 		case "intake_code", "intake_age_days":
 			// Consumed, never stored: the row keeps no trace of them.
 			f.lastIntakeCode = in.GetPet().GetIntakeCode()

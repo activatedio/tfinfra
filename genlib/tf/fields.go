@@ -94,6 +94,9 @@ type Field struct {
 	// InputOnly marks a field the API consumes but never echoes back: it
 	// is Optional but never Computed, and reads leave it untouched.
 	InputOnly bool
+	// Clearable marks an optional field the server stores as sent and never
+	// fills itself: Optional alone, so removing it plans null and clears it.
+	Clearable bool
 	// Volatile marks a computed field the server rewrites on every write:
 	// no UseStateForUnknown, so an update plans it unknown.
 	Volatile bool
@@ -217,8 +220,8 @@ func applyIDField(entity string, res Resource, byName map[string]*Field) {
 		panic(fmt.Sprintf("%s: IDField cannot be %q; that is CallerNamed", entity, NameField))
 	case f.Kind != FieldString:
 		panic(fmt.Sprintf("%s.%s: IDField must be a string field", entity, f.ProtoName))
-	case f.InputOnly || f.Sensitive:
-		panic(fmt.Sprintf("%s.%s: IDField cannot be input-only or sensitive; it is read back from every name", entity, f.ProtoName))
+	case f.InputOnly || f.Sensitive || f.Clearable:
+		panic(fmt.Sprintf("%s.%s: IDField cannot be input-only, sensitive or clearable; it is read back from every name", entity, f.ProtoName))
 	}
 
 	f.ID = true
@@ -230,6 +233,12 @@ func applyIDField(entity string, res Resource, byName map[string]*Field) {
 		return
 	}
 	f.Required = true
+}
+
+// takesInputBehavior is a field given any behavior of a practitioner's
+// input, which a field carrying a parent identifier cannot take.
+func (f Field) takesInputBehavior() bool {
+	return f.Required || f.Immutable || f.InputOnly || f.Sensitive || f.Clearable
 }
 
 // applyParentIDs marks the fields that carry one of the resource's scope
@@ -248,7 +257,7 @@ func applyParentIDs(entity string, res Resource, byName map[string]*Field) {
 			panic(fmt.Sprintf("%s.%s: a field carrying the parent identifier must be a string", entity, attr))
 		case f.ID:
 			panic(fmt.Sprintf("%s.%s: the id field cannot also be a parent identifier", entity, attr))
-		case f.Required || f.Immutable || f.InputOnly || f.Sensitive:
+		case f.takesInputBehavior():
 			panic(fmt.Sprintf("%s.%s: carries the parent identifier, so it takes no behavior but Computed; the parent path sets it", entity, attr))
 		}
 		if _, ok := res.References[attr]; ok {
@@ -577,6 +586,23 @@ func applyBehavior(entity string, res Resource, byName map[string]*Field) {
 		}
 		byName[n].InputOnly = true
 	}
+	applyClearable(entity, res, byName)
+}
+
+// applyClearable marks the fields Resource.Clearable lists, after the
+// behaviors they cannot be combined with are known.
+func applyClearable(entity string, res Resource, byName map[string]*Field) {
+
+	for _, n := range res.Clearable {
+		f := byName[n]
+		switch {
+		case f.Required || f.Computed || f.InputOnly:
+			panic(fmt.Sprintf("%s.%s: a clearable field is an optional input the server echoes; it cannot be required, computed, volatile or input-only", entity, n))
+		case f.Kind != FieldString && f.Kind != FieldTimestamp:
+			panic(fmt.Sprintf("%s.%s: only a string or timestamp field may be clearable: its zero value must read as null", entity, n))
+		}
+		f.Clearable = true
+	}
 }
 
 func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
@@ -674,6 +700,7 @@ func (r Resource) validateFieldNames(entity string, fds protoreflect.FieldDescri
 	check(r.Computed, "Computed")
 	check(r.Sensitive, "Sensitive")
 	check(r.InputOnly, "InputOnly")
+	check(r.Clearable, "Clearable")
 	check(r.Volatile, "Volatile")
 	check(r.WriteOnly, "WriteOnly")
 	check(r.JSON, "JSON")

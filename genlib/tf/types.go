@@ -184,6 +184,22 @@ type Resource struct {
 	// The tradeoff is that an imported resource has no value for them, and
 	// a data source always reads them as null.
 	InputOnly []string
+	// Clearable lists optional proto fields the server stores exactly as
+	// sent and never fills on its own: a reference, a condition, an expiry
+	// the practitioner sets or leaves out.
+	//
+	// They are Optional but not Computed, and carry no UseStateForUnknown.
+	// The default Optional+Computed shape keeps the prior value when the
+	// attribute is removed from the configuration, so the value can never
+	// be cleared in place. A Clearable one plans null instead: the update
+	// sends the field in the mask with its zero value, which clears it, and
+	// the read gives null back.
+	//
+	// Only a string or timestamp field, whose zero value reads as null, may
+	// be listed. A field the server fills when it is left unset (a default,
+	// a minted value) must not be: its read would be an inconsistent result
+	// after apply. A Required, Computed, Volatile or InputOnly one panics.
+	Clearable []string
 	// Description is what the resource is, for its schema description and
 	// so for its documentation page: a sentence or two a practitioner reads
 	// before the attribute list. The singular data source reuses it. Empty
