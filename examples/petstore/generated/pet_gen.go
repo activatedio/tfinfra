@@ -16,12 +16,10 @@ import (
 	path "github.com/hashicorp/terraform-plugin-framework/path"
 	resource "github.com/hashicorp/terraform-plugin-framework/resource"
 	schema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	boolplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
+	booldefault "github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	float64planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
 	int64planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	listplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	mapplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/mapplanmodifier"
-	objectplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -86,14 +84,9 @@ func PetResourceSchema() schema.Schema {
 						Computed: true,
 						Optional: true,
 					},
-					"schedule": schema.StringAttribute{
-						Computed: true,
-						Optional: true,
-					},
+					"schedule": schema.StringAttribute{Optional: true},
 				},
-				Computed:      true,
-				Optional:      true,
-				PlanModifiers: []planmodifier.Object{objectplanmodifier.UseStateForUnknown()},
+				Optional: true,
 			},
 			"grooming_interval": schema.StringAttribute{
 				Computed:            true,
@@ -111,17 +104,13 @@ func PetResourceSchema() schema.Schema {
 				PlanModifiers:       []planmodifier.String{stringplanmodifier.RequiresReplace()},
 			},
 			"labels": schema.MapAttribute{
-				Computed:      true,
-				ElementType:   types.StringType,
-				Optional:      true,
-				PlanModifiers: []planmodifier.Map{mapplanmodifier.UseStateForUnknown()},
+				ElementType: types.StringType,
+				Optional:    true,
 			},
 			"metadata": schema.StringAttribute{
-				Computed:            true,
 				CustomType:          jsontypes.NormalizedType{},
 				MarkdownDescription: "`metadata` as a JSON object.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"name": schema.StringAttribute{
 				Computed:            true,
@@ -164,9 +153,9 @@ func PetResourceSchema() schema.Schema {
 				MarkdownDescription: "`update_time` as an RFC 3339 timestamp.",
 			},
 			"vaccinated": schema.BoolAttribute{
-				Computed:      true,
-				Optional:      true,
-				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
+				Computed: true,
+				Default:  booldefault.StaticBool(false),
+				Optional: true,
 			},
 			"vaccinations": schema.ListNestedAttribute{
 				Computed: true,

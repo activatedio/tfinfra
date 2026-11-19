@@ -177,7 +177,7 @@ func TestNormalizeFields_Panics(t *testing.T) {
 				return petEntry(), gentf.Resource{Clearable: []string{"age"}, JSON: []string{"config", "metadata", "notes"}}
 			},
 			assert: func(t *testing.T, f func()) {
-				assert.PanicsWithValue(t, "Pet.age: only a string or timestamp field may be clearable: its zero value must read as null", f)
+				assert.PanicsWithValue(t, "Pet.age: a clearable field is a string, timestamp, bool, string list or map, JSON document or nested message: its zero value must read as null, or as false", f)
 			},
 		},
 		"pending WriteOnly fails loudly": {

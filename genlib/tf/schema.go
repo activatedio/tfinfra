@@ -17,6 +17,7 @@ const (
 	pkgTypes            = "github.com/hashicorp/terraform-plugin-framework/types"
 	pkgDiag             = "github.com/hashicorp/terraform-plugin-framework/diag"
 	pkgPath             = "github.com/hashicorp/terraform-plugin-framework/path"
+	pkgBoolDefault      = "github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 )
 
 // attrShape maps a FieldKind to the framework attribute type and the
@@ -299,9 +300,12 @@ func nestedAttributes(pkg string, fd Field, attr func(Field) jen.Code) jen.Code 
 func nestedAttributeFor(fd Field) jen.Code {
 
 	shape := shapeFor(fd.Kind)
-	d := jen.Dict{
-		jen.Id("Optional"): jen.True(),
-		jen.Id("Computed"): jen.True(),
+	d := jen.Dict{}
+	if fd.Clearable {
+		clearableKeys(d, fd)
+	} else {
+		d[jen.Id("Optional")] = jen.True()
+		d[jen.Id("Computed")] = jen.True()
 	}
 
 	applyTypeKeys(d, pkgResourceSchema, fd, nestedAttributeFor)
@@ -310,6 +314,20 @@ func nestedAttributeFor(fd Field) jen.Code {
 	}
 
 	return jen.Qual(pkgResourceSchema, shape.attribute).Values(d)
+}
+
+// clearableKeys shapes a clearable attribute. Optional alone: removed from
+// the configuration, it plans null and the update clears it; the server only
+// ever echoes it, so a read never fills it while unset. A plain bool cannot
+// read back null, since proto3 has no unset bool, so it is Optional and
+// Computed with a default of false: removed, it plans false and the update
+// turns it off.
+func clearableKeys(d jen.Dict, fd Field) {
+	d[jen.Id("Optional")] = jen.True()
+	if fd.Kind == FieldBool && !fd.Presence {
+		d[jen.Id("Computed")] = jen.True()
+		d[jen.Id("Default")] = jen.Qual(pkgBoolDefault, "StaticBool").Call(jen.False())
+	}
 }
 
 // dataSourceNestedAttributeFor builds one child of a SingleNestedAttribute
@@ -382,10 +400,7 @@ func attributeFor(fd Field, examples map[string]string) jen.Code {
 		// returns.
 		d[jen.Id("Optional")] = jen.True()
 	case fd.Clearable:
-		// Optional alone: removed from the configuration, it plans null
-		// and the update clears it. The server only ever echoes it, so a
-		// read never fills it while unset.
-		d[jen.Id("Optional")] = jen.True()
+		clearableKeys(d, fd)
 	default:
 		// Optional attributes are also Computed: proto3 cannot distinguish
 		// zero from unset, so reads echo server values into unset

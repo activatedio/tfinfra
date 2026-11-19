@@ -80,16 +80,19 @@ func TestPetResource_NestedAttributeSchema(t *testing.T) {
 
 	nested, ok := a.(schema.SingleNestedAttribute)
 	require.True(t, ok, "feeding should be a SingleNestedAttribute, got %T", a)
+	// feeding is clearable: Optional alone, so removing the block plans null.
 	assert.True(t, nested.IsOptional())
-	assert.True(t, nested.IsComputed())
+	assert.False(t, nested.IsComputed())
 
 	// The nested object carries the message's own fields as real typed
-	// attributes, each Optional+Computed and none carrying a plan modifier.
-	for _, name := range []string{"schedule", "portions", "foods", "notes"} {
+	// attributes, none carrying a plan modifier. A string child of a
+	// clearable block clears with it (Optional alone); the others keep the
+	// default Optional+Computed shape.
+	for name, computed := range map[string]bool{"schedule": false, "portions": true, "foods": true, "notes": true} {
 		child, ok := nested.Attributes[name]
 		require.True(t, ok, name)
 		assert.True(t, child.IsOptional(), name)
-		assert.True(t, child.IsComputed(), name)
+		assert.Equal(t, computed, child.IsComputed(), name)
 	}
 }
 

@@ -195,10 +195,16 @@ type Resource struct {
 	// sends the field in the mask with its zero value, which clears it, and
 	// the read gives null back.
 	//
-	// Only a string or timestamp field, whose zero value reads as null, may
-	// be listed. A field the server fills when it is left unset (a default,
-	// a minted value) must not be: its read would be an inconsistent result
-	// after apply. A Required, Computed, Volatile or InputOnly one panics.
+	// A string, timestamp, string list or map, JSON document (Any, Struct
+	// or a JSON-lane message) or nested message may be listed: its zero
+	// value reads as null. A nested message's string, timestamp and bool
+	// children clear with it. A plain bool cannot read null, so it is
+	// Optional and Computed with a default of false and still no
+	// UseStateForUnknown: removed, it plans false and the update turns it
+	// off. A field the server fills when it is left unset (a default, a
+	// minted value) must not be listed: its read would be an inconsistent
+	// result after apply. A Required, Computed, Volatile or InputOnly one
+	// panics, as does any other kind.
 	Clearable []string
 	// Description is what the resource is, for its schema description and
 	// so for its documentation page: a sentence or two a practitioner reads

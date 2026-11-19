@@ -52,9 +52,12 @@ func main() {
 						// update_time changes on every write.
 						Volatile:  []string{"update_time"},
 						InputOnly: []string{"intake_code", "intake_age_days"},
-						// buddy_id is stored as sent and never filled by the
-						// server: removing it from the configuration clears it.
-						Clearable: []string{"buddy_id"},
+						// Stored as sent and never filled by the server:
+						// removing one from the configuration clears it. A
+						// string, a bool (to false), a map, a JSON document
+						// and a nested message, whose string and bool
+						// children clear with it.
+						Clearable: []string{"buddy_id", "vaccinated", "labels", "metadata", "feeding"},
 						// notes is a repeated message on the JSON lane;
 						// vaccinations, left out, is a list-nested attribute.
 						JSON: []string{"config", "metadata", "notes"},

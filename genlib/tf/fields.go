@@ -96,6 +96,9 @@ type Field struct {
 	InputOnly bool
 	// Clearable marks an optional field the server stores as sent and never
 	// fills itself: Optional alone, so removing it plans null and clears it.
+	// A plain (non-presence) bool is Optional and Computed with a default of
+	// false instead: removing it plans false, which proto3 sends and reads
+	// back as false.
 	Clearable bool
 	// Volatile marks a computed field the server rewrites on every write:
 	// no UseStateForUnknown, so an update plans it unknown.
@@ -598,11 +601,41 @@ func applyClearable(entity string, res Resource, byName map[string]*Field) {
 		switch {
 		case f.Required || f.Computed || f.InputOnly:
 			panic(fmt.Sprintf("%s.%s: a clearable field is an optional input the server echoes; it cannot be required, computed, volatile or input-only", entity, n))
-		case f.Kind != FieldString && f.Kind != FieldTimestamp:
-			panic(fmt.Sprintf("%s.%s: only a string or timestamp field may be clearable: its zero value must read as null", entity, n))
+		case !clearableKinds[f.Kind]:
+			panic(fmt.Sprintf("%s.%s: a clearable field is a string, timestamp, bool, string list or map, JSON document or nested message: its zero value must read as null, or as false", entity, n))
 		}
 		f.Clearable = true
+		// A nested message clears as a whole, and each child it carries
+		// clears with it when the block stays but the child goes.
+		for i := range f.Nested {
+			if clearableChildKinds[f.Nested[i].Kind] {
+				f.Nested[i].Clearable = true
+			}
+		}
 	}
+}
+
+// clearableKinds are the kinds whose zero value reads back as null, or, for
+// a plain bool, as false, which its default plans when the line is removed.
+var clearableKinds = map[FieldKind]bool{
+	FieldString:        true,
+	FieldTimestamp:     true,
+	FieldBool:          true,
+	FieldStringList:    true,
+	FieldStringMap:     true,
+	FieldAny:           true,
+	FieldStruct:        true,
+	FieldJSONMessage:   true,
+	FieldJSONList:      true,
+	FieldNestedMessage: true,
+}
+
+// clearableChildKinds are the children of a clearable nested message that
+// clear with it.
+var clearableChildKinds = map[FieldKind]bool{
+	FieldString:    true,
+	FieldTimestamp: true,
+	FieldBool:      true,
 }
 
 func scalarKind(entity string, fd protoreflect.FieldDescriptor, jsonMarked, allowNested bool) FieldKind {
