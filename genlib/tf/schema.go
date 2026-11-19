@@ -328,11 +328,11 @@ func clearableKeys(d jen.Dict, fd Field) {
 	if fd.Presence {
 		return
 	}
-	switch fd.Kind {
-	case FieldBool:
+	if fd.Kind == FieldBool {
 		d[jen.Id("Computed")] = jen.True()
 		d[jen.Id("Default")] = jen.Qual(pkgBoolDefault, "StaticBool").Call(jen.False())
-	case FieldInt64:
+	}
+	if fd.Kind == FieldInt64 {
 		d[jen.Id("Computed")] = jen.True()
 		d[jen.Id("Default")] = jen.Qual(pkgInt64Default, "StaticInt64").Call(jen.Lit(0))
 	}
