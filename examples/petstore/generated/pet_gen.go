@@ -18,7 +18,7 @@ import (
 	schema "github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	booldefault "github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	float64planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/float64planmodifier"
-	int64planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
+	int64default "github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 	listplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	planmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	stringplanmodifier "github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -26,6 +26,7 @@ import (
 	types "github.com/hashicorp/terraform-plugin-framework/types"
 	basetypes "github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	protojson "google.golang.org/protobuf/encoding/protojson"
+	proto "google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	fieldmaskpb "google.golang.org/protobuf/types/known/fieldmaskpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -38,9 +39,9 @@ func PetResourceSchema() schema.Schema {
 	return schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"age": schema.Int64Attribute{
-				Computed:      true,
-				Optional:      true,
-				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Computed: true,
+				Default:  int64default.StaticInt64(0),
+				Optional: true,
 			},
 			"buddy_id": schema.StringAttribute{
 				Optional:   true,
@@ -89,10 +90,8 @@ func PetResourceSchema() schema.Schema {
 				Optional: true,
 			},
 			"grooming_interval": schema.StringAttribute{
-				Computed:            true,
 				MarkdownDescription: "`grooming_interval` as a duration: `\"5s\"`, `\"1.5s\"`, `\"500ms\"`, `\"1m30s\"`.",
 				Optional:            true,
-				PlanModifiers:       []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"intake_age_days": schema.Int64Attribute{
 				MarkdownDescription: "`intake_age_days` is input only: the API consumes it and never returns it, so it is never refreshed from the server and an imported resource has no value for it.",
@@ -462,7 +461,7 @@ func (m *PetModel) FromProto(ctx context.Context, e *v1.Pet) diag.Diagnostics {
 			m.Config = jsontypes.NewNormalizedValue(string(b))
 		}
 	}
-	if e.Metadata == nil {
+	if (e.Metadata == nil || proto.Size(e.Metadata) == 0) && !tf.KeepEmptyJSON(m.Metadata) {
 		m.Metadata = jsontypes.NewNormalizedNull()
 	} else {
 		b, err := tf.ProtoJSON(e.Metadata)
@@ -1056,7 +1055,7 @@ func petItemFromProto(ctx context.Context, crud *tf.Crud[*v1.Pet, *PetModel], e 
 			item.Config = jsontypes.NewNormalizedValue(string(b))
 		}
 	}
-	if e.Metadata == nil {
+	if (e.Metadata == nil || proto.Size(e.Metadata) == 0) && !tf.KeepEmptyJSON(item.Metadata) {
 		item.Metadata = jsontypes.NewNormalizedNull()
 	} else {
 		b, err := tf.ProtoJSON(e.Metadata)

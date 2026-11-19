@@ -18,6 +18,7 @@ const (
 	pkgDiag             = "github.com/hashicorp/terraform-plugin-framework/diag"
 	pkgPath             = "github.com/hashicorp/terraform-plugin-framework/path"
 	pkgBoolDefault      = "github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	pkgInt64Default     = "github.com/hashicorp/terraform-plugin-framework/resource/schema/int64default"
 )
 
 // attrShape maps a FieldKind to the framework attribute type and the
@@ -321,12 +322,19 @@ func nestedAttributeFor(fd Field) jen.Code {
 // ever echoes it, so a read never fills it while unset. A plain bool cannot
 // read back null, since proto3 has no unset bool, so it is Optional and
 // Computed with a default of false: removed, it plans false and the update
-// turns it off.
+// turns it off. A plain integer likewise defaults to 0.
 func clearableKeys(d jen.Dict, fd Field) {
 	d[jen.Id("Optional")] = jen.True()
-	if fd.Kind == FieldBool && !fd.Presence {
+	if fd.Presence {
+		return
+	}
+	switch fd.Kind {
+	case FieldBool:
 		d[jen.Id("Computed")] = jen.True()
 		d[jen.Id("Default")] = jen.Qual(pkgBoolDefault, "StaticBool").Call(jen.False())
+	case FieldInt64:
+		d[jen.Id("Computed")] = jen.True()
+		d[jen.Id("Default")] = jen.Qual(pkgInt64Default, "StaticInt64").Call(jen.Lit(0))
 	}
 }
 

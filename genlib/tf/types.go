@@ -195,9 +195,11 @@ type Resource struct {
 	// sends the field in the mask with its zero value, which clears it, and
 	// the read gives null back.
 	//
-	// A string, timestamp, string list or map, JSON document (Any, Struct
-	// or a JSON-lane message) or nested message may be listed: its zero
-	// value reads as null. A nested message's string, timestamp and bool
+	// A string, timestamp, duration, string list or map, JSON document
+	// (Any, Struct or a JSON-lane message) or nested message may be listed:
+	// its zero value reads as null, and a JSON document that reads back as
+	// an empty message is null too, unless the configuration wrote it
+	// empty. A plain integer, like a plain bool below, defaults to 0. A nested message's string, timestamp and bool
 	// children clear with it. A plain bool cannot read null, so it is
 	// Optional and Computed with a default of false and still no
 	// UseStateForUnknown: removed, it plans false and the update turns it

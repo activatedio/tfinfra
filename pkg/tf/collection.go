@@ -88,3 +88,28 @@ func isEmptyJSONArray(value string) bool {
 	var raw []json.RawMessage
 	return json.Unmarshal([]byte(value), &raw) == nil && raw != nil && len(raw) == 0
 }
+
+// KeepEmptyJSON reports whether v is a known JSON document with nothing in
+// it, `{}` or `[]`: what a practitioner wrote for an empty value. A
+// clearable JSON attribute reads an empty message as null, except when the
+// configuration wrote it empty, which it keeps so the read agrees with the
+// plan. Anything else, null and unknown included, reports false.
+func KeepEmptyJSON(v jsontypes.Normalized) bool {
+
+	if v.IsNull() || v.IsUnknown() {
+		return false
+	}
+
+	var doc any
+	if err := json.Unmarshal([]byte(v.ValueString()), &doc); err != nil {
+		return false
+	}
+	switch d := doc.(type) {
+	case map[string]any:
+		return len(d) == 0
+	case []any:
+		return len(d) == 0
+	default:
+		return false
+	}
+}

@@ -54,10 +54,11 @@ func main() {
 						InputOnly: []string{"intake_code", "intake_age_days"},
 						// Stored as sent and never filled by the server:
 						// removing one from the configuration clears it. A
-						// string, a bool (to false), a map, a JSON document
-						// and a nested message, whose string and bool
-						// children clear with it.
-						Clearable: []string{"buddy_id", "vaccinated", "labels", "metadata", "feeding"},
+						// string, a bool (to false), an integer (to 0), a
+						// duration, a map, a JSON document and a nested
+						// message, whose string and bool children clear with
+						// it.
+						Clearable: []string{"buddy_id", "vaccinated", "labels", "metadata", "feeding", "age", "grooming_interval"},
 						// notes is a repeated message on the JSON lane;
 						// vaccinations, left out, is a list-nested attribute.
 						JSON: []string{"config", "metadata", "notes"},

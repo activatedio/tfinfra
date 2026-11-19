@@ -137,3 +137,24 @@ func TestJSONListToProto(t *testing.T) {
 		})
 	}
 }
+
+func TestKeepEmptyJSON(t *testing.T) {
+
+	cases := map[string]struct {
+		v    jsontypes.Normalized
+		want bool
+	}{
+		"null":         {jsontypes.NewNormalizedNull(), false},
+		"unknown":      {jsontypes.NewNormalizedUnknown(), false},
+		"empty object": {jsontypes.NewNormalizedValue(" { } "), true},
+		"empty array":  {jsontypes.NewNormalizedValue("[]"), true},
+		"an object":    {jsontypes.NewNormalizedValue(`{"a":1}`), false},
+		"not JSON":     {jsontypes.NewNormalizedValue("{"), false},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tc.want, tf.KeepEmptyJSON(tc.v))
+		})
+	}
+}

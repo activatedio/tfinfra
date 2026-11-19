@@ -11,7 +11,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	petstorev1 "github.com/activatedio/tfinfra/examples/petstore/gen/petstore/v1"
 	"github.com/activatedio/tfinfra/examples/petstore/generated"
 )
 
@@ -76,10 +78,19 @@ func TestPetResource_ClearableShapes(t *testing.T) {
 	assert.False(t, dr.PlanValue.ValueBool())
 	assert.Empty(t, v.PlanModifiers)
 
+	age, ok := s.Attributes["age"].(schema.Int64Attribute)
+	require.True(t, ok)
+	assert.True(t, age.IsComputed(), "an integer reads back 0, never null")
+	require.NotNil(t, age.Default, "removed, it plans its default")
+	ir := &defaults.Int64Response{}
+	age.Default.DefaultInt64(context.Background(), defaults.Int64Request{}, ir)
+	assert.Equal(t, int64(0), ir.PlanValue.ValueInt64())
+
 	for name, a := range map[string]schema.Attribute{
-		"labels":   s.Attributes["labels"],
-		"metadata": s.Attributes["metadata"],
-		"feeding":  s.Attributes["feeding"],
+		"grooming_interval": s.Attributes["grooming_interval"],
+		"labels":            s.Attributes["labels"],
+		"metadata":          s.Attributes["metadata"],
+		"feeding":           s.Attributes["feeding"],
 	} {
 		assert.True(t, a.IsOptional(), name)
 		assert.False(t, a.IsComputed(), name)
@@ -140,4 +151,21 @@ func TestPetResource_ClearableShapesUpdate(t *testing.T) {
 	assert.True(t, updated.Labels.IsNull())
 	assert.True(t, updated.Metadata.IsNull())
 	assert.True(t, updated.Feeding.IsNull())
+}
+
+// A clearable JSON document that reads back as an empty message is null, as
+// the plan of a removed line says; written as {} it keeps that spelling.
+func TestPetModel_ClearableEmptyJSONReadsNull(t *testing.T) {
+
+	ctx := context.Background()
+	pet := &petstorev1.Pet{Name: "stores/s1/pets/p1", DisplayName: "Mimi", Metadata: &structpb.Struct{}}
+
+	m := generated.NewPetModel()
+	require.False(t, m.FromProto(ctx, pet).HasError())
+	assert.True(t, m.Metadata.IsNull(), "an empty message reads as null")
+
+	m = generated.NewPetModel()
+	m.Metadata = jsontypes.NewNormalizedValue("{}")
+	require.False(t, m.FromProto(ctx, pet).HasError())
+	assert.Equal(t, "{}", m.Metadata.ValueString(), "a configured {} keeps its spelling")
 }

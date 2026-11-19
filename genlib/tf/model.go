@@ -877,7 +877,15 @@ func toProtoJSON(fd Field, c conv, summary string) jen.Code {
 // jsontypes attribute, through ProtoJSON so the spelling is stable; nil
 // reads as null.
 func fromProtoJSON(fd Field, c conv) jen.Code {
-	return jen.If(c.p(fd.GoName).Op("==").Nil()).Block(
+	empty := c.p(fd.GoName).Op("==").Nil()
+	if fd.Clearable {
+		// A clearable one reads an empty message as null too: some servers
+		// return an empty message rather than none for a cleared value. A
+		// configuration that wrote it empty keeps its spelling.
+		empty = jen.Parens(empty.Op("||").Qual(pkgProto, "Size").Call(c.p(fd.GoName)).Op("==").Lit(0)).
+			Op("&&").Op("!").Qual(pkgRuntimeTf, "KeepEmptyJSON").Call(c.m(fd.GoName))
+	}
+	return jen.If(empty).Block(
 		c.m(fd.GoName).Op("=").Qual(pkgJsontypes, "NewNormalizedNull").Call(),
 	).Else().Block(
 		jen.List(jen.Id("b"), jen.Id("err")).Op(":=").Qual(pkgRuntimeTf, "ProtoJSON").Call(c.p(fd.GoName)),

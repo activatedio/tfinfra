@@ -602,7 +602,7 @@ func applyClearable(entity string, res Resource, byName map[string]*Field) {
 		case f.Required || f.Computed || f.InputOnly:
 			panic(fmt.Sprintf("%s.%s: a clearable field is an optional input the server echoes; it cannot be required, computed, volatile or input-only", entity, n))
 		case !clearableKinds[f.Kind]:
-			panic(fmt.Sprintf("%s.%s: a clearable field is a string, timestamp, bool, string list or map, JSON document or nested message: its zero value must read as null, or as false", entity, n))
+			panic(fmt.Sprintf("%s.%s: a clearable field is a string, timestamp, duration, bool, integer, string list or map, JSON document or nested message: its zero value must read as null, false or 0", entity, n))
 		}
 		f.Clearable = true
 		// A nested message clears as a whole, and each child it carries
@@ -616,7 +616,8 @@ func applyClearable(entity string, res Resource, byName map[string]*Field) {
 }
 
 // clearableKinds are the kinds whose zero value reads back as null, or, for
-// a plain bool, as false, which its default plans when the line is removed.
+// a plain bool or integer, as false or 0, which its default plans when the
+// line is removed.
 var clearableKinds = map[FieldKind]bool{
 	FieldString:        true,
 	FieldTimestamp:     true,
@@ -628,6 +629,8 @@ var clearableKinds = map[FieldKind]bool{
 	FieldJSONMessage:   true,
 	FieldJSONList:      true,
 	FieldNestedMessage: true,
+	FieldDuration:      true,
+	FieldInt64:         true,
 }
 
 // clearableChildKinds are the children of a clearable nested message that
